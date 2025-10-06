@@ -1,0 +1,63 @@
+# MyLogic EDA Tool - Optimized Combinational Synthesis
+# Based on YosysHQ Documentation for combinational circuits
+
+# Read Verilog file
+read_verilog examples/arithmetic_operations.v
+
+# Hierarchy processing with combinational focus
+hierarchy -check -top arithmetic_operations
+
+# Process combinational logic (no sequential elements)
+proc
+
+# Combinational-specific optimizations
+opt_expr          # Expression optimization
+opt_clean         # Clean unused signals
+opt_muxtree       # Multiplexer tree optimization
+opt_reduce        # Reduction optimization
+opt_merge         # Merge optimization
+opt_dff           # DFF optimization (minimal for combinational)
+
+# Combinational logic optimization
+opt               # General optimization
+
+# Technology mapping for combinational gates
+techmap
+
+# ABC optimization for combinational circuits
+abc -script +strash    # Structural hashing
+abc -script +dch       # Decomposition and choice
+abc -script +map       # Technology mapping
+
+# Final cleanup
+clean
+
+# Show statistics
+stat
+
+# Show design (optional)
+# show
+
+# Write optimized Verilog
+write_verilog outputs/arithmetic_operations_synth.v
+
+# Write JSON netlist
+write_json outputs/arithmetic_operations.json
+
+# Write BLIF format
+write_blif outputs/arithmetic_operations.blif
+
+# Write DOT graph for visualization
+write_dot outputs/arithmetic_operations.dot
+
+# Write EDIF format
+write_edif outputs/arithmetic_operations.edif
+
+# Write SPICE netlist
+write_spice outputs/arithmetic_operations.spice
+
+# Write Liberty library
+write_liberty outputs/arithmetic_operations.lib
+
+# Write SystemVerilog
+write_systemverilog outputs/arithmetic_operations.sv

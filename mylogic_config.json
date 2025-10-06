@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0",
+  "shell": {
+    "prompt": "mylogic> ",
+    "history_size": 1000,
+    "auto_complete": true,
+    "color_output": true
+  },
+  "logging": {
+    "level": "INFO",
+    "file": null
+  },
+  "paths": {
+    "examples": "examples/",
+    "outputs": "outputs/",
+    "temp": "temp/"
+  },
+  "optimization": {
+    "default_passes": [
+      "strash",
+      "dce",
+      "cse",
+      "constprop",
+      "balance"
+    ],
+    "max_iterations": 10
+  },
+  "mapping": {
+    "default_lut_size": 4,
+    "default_strategy": "balanced"
+  },
+  "verification": {
+    "default_strategy": "hybrid",
+    "sim_trials": 256,
+    "exhaustive_limit": 16
+  }
+}

@@ -11,7 +11,7 @@ import unittest
 from typing import Dict, Any
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from core.synthesis.synthesis_flow import run_complete_synthesis
 from frontends.verilog import parse_verilog_file

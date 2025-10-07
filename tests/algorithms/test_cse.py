@@ -11,7 +11,7 @@ import unittest
 from typing import Dict, Any
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from core.optimization.cse import CSEOptimizer
 from frontends.verilog import parse_verilog_file
@@ -30,14 +30,14 @@ class TestCSE(unittest.TestCase):
             'name': 'test_cse',
             'inputs': ['a', 'b'],
             'outputs': ['out1', 'out2'],
-            'nodes': [
+            'nodes': {
                 # Common subexpression: a & b
-                {'id': 'n1', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                {'id': 'n2', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},
+                'n2': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
                 
-                {'id': 'out1', 'type': 'BUF', 'fanins': [['n1', False]]},
-                {'id': 'out2', 'type': 'BUF', 'fanins': [['n2', False]]}
-            ]
+                'out1': {'type': 'BUF', 'fanins': [['n1', False]]},
+                'out2': {'type': 'BUF', 'fanins': [['n2', False]]}
+            }
         }
         
         # Apply CSE optimization
@@ -49,7 +49,7 @@ class TestCSE(unittest.TestCase):
         print(f"Optimized nodes: {len(optimized['nodes'])}")
         
         # Check that only one instance of common subexpression remains
-        and_nodes = [node for node in optimized['nodes'] if node['type'] == 'AND']
+        and_nodes = [node for node in optimized['nodes'].values() if node['type'] == 'AND']
         self.assertEqual(len(and_nodes), 1)
         
     def test_complex_cse(self):
@@ -59,23 +59,23 @@ class TestCSE(unittest.TestCase):
             'name': 'test_complex_cse',
             'inputs': ['a', 'b', 'c'],
             'outputs': ['out1', 'out2', 'out3'],
-            'nodes': [
+            'nodes': {
                 # Common subexpression: (a & b) | c
-                {'id': 'n1', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                {'id': 'n2', 'type': 'OR', 'fanins': [['n1', False], ['c', False]]},
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},
+                'n2': {'type': 'OR', 'fanins': [['n1', False], ['c', False]]},
                 
                 # Duplicate: (a & b) | c
-                {'id': 'n3', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
-                {'id': 'n4', 'type': 'OR', 'fanins': [['n3', False], ['c', False]]},  # Duplicate
+                'n3': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n4': {'type': 'OR', 'fanins': [['n3', False], ['c', False]]},  # Duplicate
                 
                 # Another duplicate: (a & b) | c
-                {'id': 'n5', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
-                {'id': 'n6', 'type': 'OR', 'fanins': [['n5', False], ['c', False]]},  # Duplicate
+                'n5': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n6': {'type': 'OR', 'fanins': [['n5', False], ['c', False]]},  # Duplicate
                 
-                {'id': 'out1', 'type': 'BUF', 'fanins': [['n2', False]]},
-                {'id': 'out2', 'type': 'BUF', 'fanins': [['n4', False]]},
-                {'id': 'out3', 'type': 'BUF', 'fanins': [['n6', False]]}
-            ]
+                'out1': {'type': 'BUF', 'fanins': [['n2', False]]},
+                'out2': {'type': 'BUF', 'fanins': [['n4', False]]},
+                'out3': {'type': 'BUF', 'fanins': [['n6', False]]}
+            }
         }
         
         # Apply CSE optimization
@@ -86,8 +86,8 @@ class TestCSE(unittest.TestCase):
         print(f"Complex CSE - Original: {len(netlist['nodes'])}, Optimized: {len(optimized['nodes'])}")
         
         # Check that only one instance of each common subexpression remains
-        and_nodes = [node for node in optimized['nodes'] if node['type'] == 'AND']
-        or_nodes = [node for node in optimized['nodes'] if node['type'] == 'OR']
+        and_nodes = [node for node in optimized['nodes'].values() if node['type'] == 'AND']
+        or_nodes = [node for node in optimized['nodes'].values() if node['type'] == 'OR']
         self.assertEqual(len(and_nodes), 1)  # Only one (a & b)
         self.assertEqual(len(or_nodes), 1)   # Only one (a & b) | c
         
@@ -98,12 +98,12 @@ class TestCSE(unittest.TestCase):
             'name': 'test_no_cse',
             'inputs': ['a', 'b', 'c'],
             'outputs': ['out1', 'out2'],
-            'nodes': [
-                {'id': 'n1', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                {'id': 'n2', 'type': 'OR', 'fanins': [['a', False], ['c', False]]},
-                {'id': 'out1', 'type': 'BUF', 'fanins': [['n1', False]]},
-                {'id': 'out2', 'type': 'BUF', 'fanins': [['n2', False]]}
-            ]
+            'nodes': {
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},
+                'n2': {'type': 'OR', 'fanins': [['a', False], ['c', False]]},
+                'out1': {'type': 'BUF', 'fanins': [['n1', False]]},
+                'out2': {'type': 'BUF', 'fanins': [['n2', False]]}
+            }
         }
         
         # Apply CSE optimization

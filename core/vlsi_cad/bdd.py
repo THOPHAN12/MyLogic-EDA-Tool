@@ -2,7 +2,14 @@
 """
 Binary Decision Diagrams (BDD) Implementation
 
-Dựa trên các khái niệm VLSI CAD Part 1 để biểu diễn và thao tác logic.
+Dựa trên các khái niệm VLSI CAD Part 1 và tham khảo từ ABC (YosysHQ/abc).
+Biểu diễn và thao tác logic với BDD structure.
+
+ABC Reference: src/bdd/bdd.c
+- Bdd_And(), Bdd_Or(), Bdd_Not(): Basic operations
+- Bdd_Exist(), Bdd_Forall(): Quantification operations
+- Bdd_Compose(): Function composition
+- Variable reordering và optimization
 """
 
 from typing import Dict, List, Set, Any, Optional, Tuple
@@ -38,11 +45,16 @@ class BDD:
     """
     
     def __init__(self):
+        # ABC-inspired BDD structure
         self.nodes: Dict[Tuple[int, 'BDDNode', 'BDDNode'], 'BDDNode'] = {}  # Bảng unique
         self.var_order: List[str] = []  # Thứ tự biến
         self.var_to_id: Dict[str, int] = {}  # Mapping tên biến đến ID
         self.id_to_var: Dict[int, str] = {}  # Mapping ID đến tên biến
         self.next_var_id = 1
+        
+        # ABC-style computed table for operation caching
+        self.computed_table: Dict[Tuple[str, int, int], int] = {}
+        self.operation_cache: Dict[Tuple[str, int, int], int] = {}
         
         # Terminal nodes
         self.terminal_true = BDDNode(0, value=True)

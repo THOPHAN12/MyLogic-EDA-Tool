@@ -2,8 +2,13 @@
 """
 Structural Hashing (Strash) Algorithm Implementation
 
-Dựa trên các khái niệm VLSI CAD Part 1 cho tối ưu hóa cấu trúc mạch.
+Dựa trên các khái niệm VLSI CAD Part 1 và tham khảo từ ABC (YosysHQ/abc).
 Strash loại bỏ các node trùng lặp và tạo canonical representation.
+
+ABC Reference: src/aig/aig/aigStrash.c
+- Aig_ManStrash(): Main structural hashing function
+- Hash table với canonical representation
+- Efficient duplicate detection và removal
 """
 
 import sys
@@ -25,9 +30,12 @@ class StrashOptimizer:
     """
     
     def __init__(self):
+        # ABC-inspired hash table structure
         self.hash_table: Dict[Tuple[str, str, str], str] = {}  # (gate_type, input1, input2) -> node_id
         self.node_count = 0
         self.removed_nodes = 0
+        self.computed_table: Dict[Tuple[str, str], str] = {}  # ABC-style computed table
+        self.unique_table: Dict[Tuple[str, str, str], str] = {}  # ABC-style unique table
         
     def optimize(self, netlist: Dict[str, Any]) -> Dict[str, Any]:
         """

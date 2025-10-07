@@ -2,7 +2,14 @@
 """
 Technology Mapping for VLSI Physical Design
 
-Dựa trên các khái niệm VLSI CAD Part 2 cho technology mapping và library binding.
+Dựa trên các khái niệm VLSI CAD Part 2 và tham khảo từ ABC (YosysHQ/abc).
+Technology mapping và library binding với cut enumeration.
+
+ABC Reference: src/map/mapper.c
+- Cut enumeration algorithms
+- Area-optimal mapping
+- Delay-optimal mapping
+- LUT-based mapping
 """
 
 from typing import Dict, List, Set, Any, Tuple, Optional

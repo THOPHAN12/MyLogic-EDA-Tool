@@ -4,6 +4,11 @@ Dead Code Elimination (DCE) Algorithm Implementation
 
 DCE loại bỏ các node không thể tiếp cận từ bất kỳ output nào, hiệu quả
 loại bỏ dead code và giảm kích thước mạch.
+
+ABC Reference: src/aig/aig/aigDfs.c
+- Aig_ManDfs(): Depth-first search for reachability
+- Aig_ManCleanup(): Cleanup unused nodes
+- Advanced DCE với Don't Care conditions
 """
 
 from typing import Dict, List, Set, Any, Tuple

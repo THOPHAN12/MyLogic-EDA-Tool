@@ -66,13 +66,12 @@ class StrashOptimizer:
                 hash_key = self._create_hash_key(node_data, optimized_nodes)
                 
                 if hash_key in self.hash_table:
-                    # Node đã tồn tại, thay thế bằng existing node
+                    # Node đã tồn tại, không thêm vào optimized_nodes
                     existing_node = self.hash_table[hash_key]
-                    optimized_nodes[node_id] = existing_node
                     self.removed_nodes += 1
                     logger.debug(f"Loại bỏ duplicate node {node_id} -> {existing_node}")
                 else:
-                    # Node mới, thêm vào hash table
+                    # Node mới, thêm vào hash table và optimized_nodes
                     self.hash_table[hash_key] = node_id
                     optimized_nodes[node_id] = node_data
             else:

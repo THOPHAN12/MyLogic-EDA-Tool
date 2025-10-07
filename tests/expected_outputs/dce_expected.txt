@@ -1,0 +1,22 @@
+# Expected Output for Dead Code Elimination (DCE) Test
+
+## Test Case: Simple Dead Code
+Input: 5 nodes (1 AND gate, 1 BUF gate, 1 OR gate, 1 XOR gate)
+Expected Output: 2 nodes (1 AND gate, 1 BUF gate)
+Optimization: Remove 2 dead nodes (OR, XOR)
+
+## Test Case: Complex Dead Code Chain
+Input: 8 nodes (1 AND gate, 1 BUF gate, 1 OR gate, 1 XOR gate, 1 AND gate, 1 OR gate)
+Expected Output: 2 nodes (1 AND gate, 1 BUF gate)
+Optimization: Remove entire dead code chain (4 nodes)
+
+## Test Case: No Dead Code
+Input: 4 nodes (1 AND gate, 1 OR gate, 2 BUF gates)
+Expected Output: 4 nodes (no optimization)
+Optimization: No changes needed
+
+## Success Criteria:
+- Dead code nodes are removed
+- Used logic nodes are preserved
+- Output functionality remains unchanged
+- Node count is reduced when dead code exists

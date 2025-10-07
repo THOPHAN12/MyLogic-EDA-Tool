@@ -1,0 +1,49 @@
+{
+  "test_suite": {
+    "name": "MyLogic EDA Tool Test Suite",
+    "version": "1.0.0",
+    "description": "Comprehensive test suite for MyLogic EDA Tool algorithms"
+  },
+  "algorithms": {
+    "strash": {
+      "enabled": true,
+      "test_file": "tests/algorithms/test_strash.py",
+      "description": "Structural Hashing algorithm tests"
+    },
+    "dce": {
+      "enabled": true,
+      "test_file": "tests/algorithms/test_dce.py",
+      "description": "Dead Code Elimination algorithm tests"
+    },
+    "cse": {
+      "enabled": true,
+      "test_file": "tests/algorithms/test_cse.py",
+      "description": "Common Subexpression Elimination algorithm tests"
+    },
+    "synthesis_flow": {
+      "enabled": true,
+      "test_file": "tests/algorithms/test_synthesis_flow.py",
+      "description": "Complete Synthesis Flow tests"
+    }
+  },
+  "test_data": {
+    "verilog_files": [
+      "tests/test_data/simple_and.v",
+      "tests/test_data/complex_expression.v",
+      "tests/test_data/duplicate_nodes.v",
+      "tests/test_data/dead_code.v",
+      "tests/test_data/common_subexpressions.v",
+      "tests/test_data/constants.v"
+    ],
+    "expected_outputs": [
+      "tests/expected_outputs/strash_expected.txt",
+      "tests/expected_outputs/dce_expected.txt"
+    ]
+  },
+  "test_runner": {
+    "main_runner": "tests/run_all_tests.py",
+    "example_runner": "tests/examples/test_example.py",
+    "output_format": "detailed",
+    "verbose": true
+  }
+}

@@ -266,9 +266,9 @@ def test_cse():
     
     print("Original netlist:")
     print(f"  Nodes: {len(test_netlist['nodes'])}")
-    print("  Common subexpressions: AND(a,b) xuất hiện 2 lần")
+    print("  Common subexpressions: AND(a,b) appears 2 times")
     
-    # Áp dụng CSE
+    # Apply CSE
     optimized = apply_cse(test_netlist)
     
     print("\nOptimized netlist:")
@@ -276,7 +276,7 @@ def test_cse():
     
     # Verify optimization
     assert len(optimized['nodes']) < len(test_netlist['nodes']), "CSE should reduce nodes"
-    print("✅ CSE test passed!")
+    print("CSE test passed!")
 
 if __name__ == "__main__":
     test_cse()

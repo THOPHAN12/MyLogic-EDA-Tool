@@ -283,12 +283,12 @@ def test_synthesis_flow():
     print(f"  Nodes: {len(test_netlist['nodes'])}")
     print("  Contains: duplicates, common subexpressions, dead code, constants")
     
-    # Chạy complete synthesis
+    # Run complete synthesis
     synthesized = run_complete_synthesis(test_netlist, "standard")
     
     print(f"\nSynthesized circuit:")
     print(f"  Nodes: {len(synthesized['nodes'])}")
-    print("✅ Complete synthesis flow test passed!")
+    print("Complete synthesis flow test passed!")
 
 if __name__ == "__main__":
     test_synthesis_flow()

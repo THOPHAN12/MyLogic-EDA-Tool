@@ -220,9 +220,9 @@ def test_strash():
     
     # Verify optimization
     if len(optimized['nodes']) <= len(test_netlist['nodes']):
-        print("✅ Strash test passed!")
+        print("Strash test passed!")
     else:
-        print("⚠️ Strash test: No optimization occurred (may be expected)")
+        print("Strash test: No optimization occurred (may be expected)")
 
 if __name__ == "__main__":
     test_strash()

@@ -1,0 +1,67 @@
+/* 
+ * Custom Technology Library - Liberty Format
+ * MyLogic EDA Tool Technology Libraries
+ * 
+ * Tạo thư viện tùy chỉnh dựa trên requirements
+ */
+
+library(custom_library) {
+    comment : "MyLogic Custom Technology Library";
+    delay_model : table_lookup;
+    current_unit : "1A";
+    leakage_power_unit : "1nW";
+    capacitive_load_unit(1,ff);
+    
+    /* Custom Gates */
+    cell(CUSTOM_AND2) {
+        area : 1.2;
+        cell_leakage_power : 0.15;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(B) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "A & B";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.15, 0.2, 0.25");
+                }
+                cell_fall(template_1) {
+                    values("0.15, 0.2, 0.25");
+                }
+            }
+        }
+    }
+    
+    cell(CUSTOM_OR2) {
+        area : 1.3;
+        cell_leakage_power : 0.18;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(B) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "A | B";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.18, 0.22, 0.28");
+                }
+                cell_fall(template_1) {
+                    values("0.18, 0.22, 0.28");
+                }
+            }
+        }
+    }
+}

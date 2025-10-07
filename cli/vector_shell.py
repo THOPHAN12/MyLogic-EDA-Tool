@@ -311,12 +311,13 @@ class VectorShell:
             return
         
         try:
-            from core.strash import apply_strash
+            from core.synthesis.strash import StrashOptimizer
             
             print("[INFO] Running Structural Hashing optimization...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
-            optimized_netlist = apply_strash(self.current_netlist)
+            optimizer = StrashOptimizer()
+            optimized_netlist = optimizer.optimize(self.current_netlist)
             self.current_netlist = optimized_netlist
             
             optimized_nodes = len(optimized_netlist.get('nodes', {}))
@@ -338,12 +339,13 @@ class VectorShell:
             return
         
         try:
-            from core.cse import apply_cse
+            from core.optimization.cse import CSEOptimizer
             
             print("[INFO] Running Common Subexpression Elimination...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
-            optimized_netlist = apply_cse(self.current_netlist)
+            optimizer = CSEOptimizer()
+            optimized_netlist = optimizer.optimize(self.current_netlist)
             self.current_netlist = optimized_netlist
             
             optimized_nodes = len(optimized_netlist.get('nodes', {}))
@@ -365,12 +367,13 @@ class VectorShell:
             return
         
         try:
-            from core.constprop import apply_constprop
+            from core.optimization.constprop import ConstPropOptimizer
             
             print("[INFO] Running Constant Propagation...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
-            optimized_netlist = apply_constprop(self.current_netlist)
+            optimizer = ConstPropOptimizer()
+            optimized_netlist = optimizer.optimize(self.current_netlist)
             self.current_netlist = optimized_netlist
             
             optimized_nodes = len(optimized_netlist.get('nodes', {}))
@@ -392,12 +395,13 @@ class VectorShell:
             return
         
         try:
-            from core.balance import apply_balance
+            from core.optimization.balance import LogicBalancer
             
             print("[INFO] Running Logic Balancing...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
-            optimized_netlist = apply_balance(self.current_netlist)
+            optimizer = LogicBalancer()
+            optimized_netlist = optimizer.optimize(self.current_netlist)
             self.current_netlist = optimized_netlist
             
             optimized_nodes = len(optimized_netlist.get('nodes', {}))
@@ -429,7 +433,7 @@ class VectorShell:
             return
         
         try:
-            from core.synthesis_flow import run_complete_synthesis
+            from core.synthesis.synthesis_flow import run_complete_synthesis
             
             print(f"[INFO] Running Complete Logic Synthesis Flow - Level: {level}")
             original_nodes = len(self.current_netlist.get('nodes', {}))
@@ -519,13 +523,14 @@ class VectorShell:
             return
         
         try:
-            from core.dce import apply_dce
+            from core.optimization.dce import DCEOptimizer
             
             print(f"[INFO] Running DCE optimization (level: {level})...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             original_wires = len(self.current_netlist.get('wires', []))
             
-            optimized_netlist = apply_dce(self.current_netlist, level)
+            optimizer = DCEOptimizer()
+            optimized_netlist = optimizer.optimize(self.current_netlist, level)
             self.current_netlist = optimized_netlist
             
             optimized_nodes = len(optimized_netlist.get('nodes', {}))
@@ -551,7 +556,7 @@ class VectorShell:
         operation = parts[1].lower()
         
         try:
-            from core.bdd import BDD
+            from core.vlsi_cad.bdd import BDD
             
             if operation == "create":
                 self._bdd_create_operations()
@@ -577,7 +582,7 @@ class VectorShell:
         operation = parts[1].lower()
         
         try:
-            from core.sat_solver import SATSolver, SATBasedVerifier
+            from core.vlsi_cad.sat_solver import SATSolver, SATBasedVerifier
             
             if operation == "solve":
                 self._sat_solve_example()
@@ -619,7 +624,7 @@ class VectorShell:
     
     def _bdd_create_operations(self):
         """Minh họa BDD creation operations."""
-        from core.bdd import BDD
+        from core.vlsi_cad.bdd import BDD
         
         bdd = BDD()
         a = bdd.create_variable("a")
@@ -651,7 +656,7 @@ class VectorShell:
     
     def _sat_solve_example(self):
         """Minh họa SAT solving."""
-        from core.sat_solver import SATSolver
+        from core.vlsi_cad.sat_solver import SATSolver
         
         solver = SATSolver()
         solver.add_clause([1, 2])      # a OR b
@@ -696,7 +701,7 @@ class VectorShell:
         algorithm = parts[1].lower()
         
         try:
-            from core.placement import PlacementEngine, Cell, Net
+            from core.vlsi_cad.placement import PlacementEngine, Cell, Net
             
             if algorithm == "random":
                 self._demo_random_placement()
@@ -722,7 +727,7 @@ class VectorShell:
         algorithm = parts[1].lower()
         
         try:
-            from core.routing import MazeRouter, RoutingGrid, Net, Point
+            from core.vlsi_cad.routing import MazeRouter, RoutingGrid, Net, Point
             
             if algorithm == "maze":
                 self._demo_maze_routing()
@@ -741,7 +746,7 @@ class VectorShell:
     def _run_timing_analysis(self, parts):
         """Chạy Static Timing Analysis."""
         try:
-            from core.timing_analysis import StaticTimingAnalyzer, TimingNode, TimingArc
+            from core.vlsi_cad.timing_analysis import StaticTimingAnalyzer, TimingNode, TimingArc
             
             print("[INFO] Running Static Timing Analysis...")
             
@@ -799,7 +804,7 @@ class VectorShell:
         strategy = parts[1].lower()
         
         try:
-            from core.technology_mapping import TechnologyMapper, LogicNode, create_standard_library
+            from core.technology_mapping.technology_mapping import TechnologyMapper, LogicNode, create_standard_library
             
             print(f"[INFO] Running technology mapping with {strategy} strategy...")
             
@@ -840,7 +845,7 @@ class VectorShell:
     
     def _demo_random_placement(self):
         """Minh họa random placement."""
-        from core.placement import PlacementEngine, Cell, Net
+        from core.vlsi_cad.placement import PlacementEngine, Cell, Net
         
         print("Random Placement Demo:")
         engine = PlacementEngine(1000.0, 1000.0)

@@ -1,0 +1,278 @@
+/* 
+ * Standard Cell Library - Liberty Format
+ * MyLogic EDA Tool Technology Libraries
+ * 
+ * Liberty format cho technology mapping
+ * Industry standard format
+ */
+
+library(standard_cells) {
+    comment : "MyLogic EDA Tool Standard Cell Library";
+    delay_model : table_lookup;
+    current_unit : "1A";
+    leakage_power_unit : "1nW";
+    capacitive_load_unit(1,ff);
+    
+    /* Basic Gates */
+    cell(INV) {
+        area : 1.0;
+        cell_leakage_power : 0.1;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "!A";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.1, 0.15, 0.2");
+                }
+                cell_fall(template_1) {
+                    values("0.1, 0.15, 0.2");
+                }
+            }
+        }
+    }
+    
+    cell(NAND2) {
+        area : 1.2;
+        cell_leakage_power : 0.15;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(B) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "!(A & B)";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.15, 0.2, 0.25");
+                }
+                cell_fall(template_1) {
+                    values("0.15, 0.2, 0.25");
+                }
+            }
+            timing() {
+                related_pin : "B";
+                cell_rise(template_1) {
+                    values("0.15, 0.2, 0.25");
+                }
+                cell_fall(template_1) {
+                    values("0.15, 0.2, 0.25");
+                }
+            }
+        }
+    }
+    
+    cell(AND2) {
+        area : 1.5;
+        cell_leakage_power : 0.2;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(B) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "A & B";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+                cell_fall(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+            }
+            timing() {
+                related_pin : "B";
+                cell_rise(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+                cell_fall(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+            }
+        }
+    }
+    
+    cell(OR2) {
+        area : 1.5;
+        cell_leakage_power : 0.2;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(B) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "A | B";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+                cell_fall(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+            }
+            timing() {
+                related_pin : "B";
+                cell_rise(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+                cell_fall(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+            }
+        }
+    }
+    
+    cell(XOR2) {
+        area : 2.0;
+        cell_leakage_power : 0.25;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(B) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "A ^ B";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.25, 0.3, 0.35");
+                }
+                cell_fall(template_1) {
+                    values("0.25, 0.3, 0.35");
+                }
+            }
+            timing() {
+                related_pin : "B";
+                cell_rise(template_1) {
+                    values("0.25, 0.3, 0.35");
+                }
+                cell_fall(template_1) {
+                    values("0.25, 0.3, 0.35");
+                }
+            }
+        }
+    }
+    
+    /* 3-input Gates */
+    cell(NAND3) {
+        area : 1.8;
+        cell_leakage_power : 0.2;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(B) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(C) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "!(A & B & C)";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+                cell_fall(template_1) {
+                    values("0.2, 0.25, 0.3");
+                }
+            }
+        }
+    }
+    
+    /* Complex Gates */
+    cell(AOI21) {
+        area : 2.5;
+        cell_leakage_power : 0.3;
+        pin(A) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(B) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(C) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Y) {
+            direction : output;
+            function : "!((A & B) | C)";
+            timing() {
+                related_pin : "A";
+                cell_rise(template_1) {
+                    values("0.3, 0.35, 0.4");
+                }
+                cell_fall(template_1) {
+                    values("0.3, 0.35, 0.4");
+                }
+            }
+        }
+    }
+    
+    /* D Flip-Flop */
+    cell(DFF) {
+        area : 5.0;
+        cell_leakage_power : 0.5;
+        ff(IQ, IQN) {
+            next_state : "D";
+            clocked_on : "CLK";
+            clear : "RST";
+        }
+        pin(D) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(CLK) {
+            direction : input;
+            capacitance : 2.0;
+            clock : true;
+        }
+        pin(RST) {
+            direction : input;
+            capacitance : 1.0;
+        }
+        pin(Q) {
+            direction : output;
+            function : "IQ";
+            timing() {
+                related_pin : "CLK";
+                timing_type : "rising_edge";
+                cell_rise(template_1) {
+                    values("0.5, 0.6, 0.7");
+                }
+                cell_fall(template_1) {
+                    values("0.5, 0.6, 0.7");
+                }
+            }
+        }
+    }
+}

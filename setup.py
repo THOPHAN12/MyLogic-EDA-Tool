@@ -20,11 +20,11 @@ setup(
     name="mylogic-eda",
     version="1.0.0",
     author="MyLogic EDA Tool Team",
-    author_email="mylogic@example.com",
+    author_email="",
     description="Unified Electronic Design Automation Tool",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/mylogic",
+    url="https://github.com/THOPHAN12/MyLogic-EDA-Tool",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",

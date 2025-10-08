@@ -138,38 +138,65 @@ class StrashOptimizer:
     
     def _update_wire_connections(self, netlist: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Cập nhật wire connections sau khi loại bỏ duplicate nodes.
+        Update wire connections after removing duplicate nodes.
         
         Args:
-            netlist: Netlist với optimized nodes
+            netlist: Netlist with optimized nodes
             
         Returns:
-            Netlist với updated wire connections
+            Netlist with updated wire connections
         """
-        # Tạo mapping từ old node IDs đến new node IDs
+        # Create mapping from old node IDs to new node IDs
         node_mapping = {}
         
-        for node_id, node_data in netlist['nodes'].items():
-            if isinstance(node_data, str):
-                # Node đã được thay thế
-                node_mapping[node_id] = node_data
+        # Handle both dict and list format for nodes
+        nodes_data = netlist['nodes']
+        if isinstance(nodes_data, dict):
+            for node_id, node_data in nodes_data.items():
+                if isinstance(node_data, str):
+                    # Node has been replaced
+                    node_mapping[node_id] = node_data
         
-        # Cập nhật wire connections
-        if 'wires' in netlist:
-            updated_wires = {}
-            for wire_id, wire_data in netlist['wires'].items():
-                updated_wire = wire_data.copy()
-                
-                # Cập nhật source và destination
-                if 'source' in updated_wire and updated_wire['source'] in node_mapping:
-                    updated_wire['source'] = node_mapping[updated_wire['source']]
-                
-                if 'destination' in updated_wire and updated_wire['destination'] in node_mapping:
-                    updated_wire['destination'] = node_mapping[updated_wire['destination']]
-                
-                updated_wires[wire_id] = updated_wire
+        # Update wire connections - handle both list and dict format
+        if 'wires' in netlist and netlist['wires']:
+            wires_data = netlist['wires']
             
-            netlist['wires'] = updated_wires
+            if isinstance(wires_data, list):
+                # Wires is a list - update in place
+                updated_wires = []
+                for wire_data in wires_data:
+                    if isinstance(wire_data, dict):
+                        updated_wire = wire_data.copy()
+                        
+                        # Update source and destination
+                        if 'source' in updated_wire and updated_wire['source'] in node_mapping:
+                            updated_wire['source'] = node_mapping[updated_wire['source']]
+                        
+                        if 'destination' in updated_wire and updated_wire['destination'] in node_mapping:
+                            updated_wire['destination'] = node_mapping[updated_wire['destination']]
+                        
+                        updated_wires.append(updated_wire)
+                    else:
+                        updated_wires.append(wire_data)
+                
+                netlist['wires'] = updated_wires
+            
+            elif isinstance(wires_data, dict):
+                # Wires is a dict
+                updated_wires = {}
+                for wire_id, wire_data in wires_data.items():
+                    updated_wire = wire_data.copy()
+                    
+                    # Update source and destination
+                    if 'source' in updated_wire and updated_wire['source'] in node_mapping:
+                        updated_wire['source'] = node_mapping[updated_wire['source']]
+                    
+                    if 'destination' in updated_wire and updated_wire['destination'] in node_mapping:
+                        updated_wire['destination'] = node_mapping[updated_wire['destination']]
+                    
+                    updated_wires[wire_id] = updated_wire
+                
+                netlist['wires'] = updated_wires
         
         return netlist
     

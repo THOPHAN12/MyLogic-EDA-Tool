@@ -135,6 +135,7 @@ def create_shell(mode: str, config: Dict[str, Any], file_path: Optional[str] = N
         try:
             netlist = parse_arithmetic_verilog_simple(file_path)
             shell.netlist = netlist
+            shell.current_netlist = netlist  # Also set current_netlist for optimization commands
             shell.filename = file_path
             print(f"[OK] Loaded vector netlist: {file_path}")
         except Exception as e:

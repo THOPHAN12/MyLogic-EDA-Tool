@@ -39,56 +39,64 @@ class StrashOptimizer:
         
     def optimize(self, netlist: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Áp dụng Structural Hashing cho netlist.
+        Apply Structural Hashing to netlist.
         
         Args:
-            netlist: Circuit netlist với nodes, inputs, outputs
+            netlist: Circuit netlist with nodes, inputs, outputs
             
         Returns:
-            Optimized netlist với duplicate nodes đã được loại bỏ
+            Optimized netlist with duplicate nodes removed
         """
-        logger.info("Bắt đầu Structural Hashing optimization...")
+        logger.info("Starting Structural Hashing optimization...")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
             logger.warning("Invalid netlist format")
             return netlist
-            
-        original_nodes = len(netlist['nodes'])
         
-        # Tạo hash table cho các nodes
+        # Convert nodes list to dict if needed
+        nodes_data = netlist['nodes']
+        if isinstance(nodes_data, list):
+            # Convert list to dict with index as key
+            nodes_dict = {i: node for i, node in enumerate(nodes_data)}
+        else:
+            nodes_dict = nodes_data
+            
+        original_nodes = len(nodes_dict)
+        
+        # Create hash table for nodes
         self.hash_table = {}
         optimized_nodes = {}
         
-        # Process từng node
-        for node_id, node_data in netlist['nodes'].items():
+        # Process each node
+        for node_id, node_data in nodes_dict.items():
             if self._is_gate_node(node_data):
-                # Tạo hash key cho node
+                # Create hash key for node
                 hash_key = self._create_hash_key(node_data, optimized_nodes)
                 
                 if hash_key in self.hash_table:
-                    # Node đã tồn tại, không thêm vào optimized_nodes
+                    # Node exists, skip it
                     existing_node = self.hash_table[hash_key]
                     self.removed_nodes += 1
-                    logger.debug(f"Loại bỏ duplicate node {node_id} -> {existing_node}")
+                    logger.debug(f"Removed duplicate node {node_id} -> {existing_node}")
                 else:
-                    # Node mới, thêm vào hash table và optimized_nodes
+                    # New node, add to hash table and optimized_nodes
                     self.hash_table[hash_key] = node_id
                     optimized_nodes[node_id] = node_data
             else:
                 # Non-gate node (input, output, constant)
                 optimized_nodes[node_id] = node_data
         
-        # Cập nhật netlist
+        # Update netlist
         optimized_netlist = netlist.copy()
         optimized_netlist['nodes'] = optimized_nodes
         
-        # Cập nhật wire connections
+        # Update wire connections
         optimized_netlist = self._update_wire_connections(optimized_netlist)
         
         final_nodes = len(optimized_netlist['nodes'])
         reduction = original_nodes - final_nodes
         
-        logger.info(f"Strash optimization hoàn thành:")
+        logger.info(f"Strash optimization completed:")
         logger.info(f"  Original nodes: {original_nodes}")
         logger.info(f"  Optimized nodes: {final_nodes}")
         logger.info(f"  Removed nodes: {reduction}")
@@ -97,17 +105,17 @@ class StrashOptimizer:
         return optimized_netlist
     
     def _is_gate_node(self, node_data: Dict[str, Any]) -> bool:
-        """Kiểm tra xem node có phải là gate không."""
+        """Check if node is a gate node."""
         gate_types = ['AND', 'OR', 'XOR', 'NAND', 'NOR', 'XNOR', 'NOT', 'BUF']
         return node_data.get('type', '') in gate_types
     
     def _create_hash_key(self, node_data: Dict[str, Any], optimized_nodes: Dict[str, Any]) -> Tuple[str, str, str]:
         """
-        Tạo hash key cho node dựa trên gate type và inputs.
+        Create hash key for node based on gate type and inputs.
         
         Args:
             node_data: Node data
-            optimized_nodes: Dictionary của optimized nodes
+            optimized_nodes: Dictionary of optimized nodes
             
         Returns:
             Hash key tuple (gate_type, input1, input2)
@@ -115,7 +123,7 @@ class StrashOptimizer:
         gate_type = node_data.get('type', '')
         inputs = node_data.get('inputs', [])
         
-        # Sort inputs để đảm bảo canonical form
+        # Sort inputs to ensure canonical form
         sorted_inputs = sorted(inputs)
         
         if len(sorted_inputs) == 1:

@@ -30,21 +30,21 @@ class TestSynthesisFlow(unittest.TestCase):
             'name': 'test_basic_synthesis',
             'inputs': ['a', 'b', 'c'],
             'outputs': ['out1', 'out2'],
-            'nodes': [
+            'nodes': {
                 # Duplicate nodes (for Strash)
-                {'id': 'n1', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                {'id': 'n2', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]], 'output': 'temp1'},
+                'n2': {'type': 'AND', 'fanins': [['a', False], ['b', False]], 'output': 'temp2'},  # Duplicate
                 
                 # Common subexpressions (for CSE)
-                {'id': 'n3', 'type': 'OR', 'fanins': [['n1', False], ['c', False]]},
-                {'id': 'n4', 'type': 'OR', 'fanins': [['n2', False], ['c', False]]},  # Duplicate
+                'n3': {'type': 'OR', 'fanins': [['n1', False], ['c', False]], 'output': 'temp3'},
+                'n4': {'type': 'OR', 'fanins': [['n2', False], ['c', False]], 'output': 'temp4'},  # Duplicate
                 
                 # Dead code (for DCE)
-                {'id': 'n5', 'type': 'XOR', 'fanins': [['a', False], ['b', False]]},  # Dead
+                'n5': {'type': 'XOR', 'fanins': [['a', False], ['b', False]], 'output': 'dead1'},  # Dead
                 
-                {'id': 'out1', 'type': 'BUF', 'fanins': [['n3', False]]},
-                {'id': 'out2', 'type': 'BUF', 'fanins': [['n4', False]]}
-            ]
+                'out1': {'type': 'BUF', 'fanins': [['n3', False]], 'output': 'out1'},
+                'out2': {'type': 'BUF', 'fanins': [['n4', False]], 'output': 'out2'}
+            }
         }
         
         # Run basic synthesis
@@ -61,25 +61,25 @@ class TestSynthesisFlow(unittest.TestCase):
             'name': 'test_standard_synthesis',
             'inputs': ['a', 'b', 'c', 'd'],
             'outputs': ['out1', 'out2', 'out3'],
-            'nodes': [
+            'nodes': {
                 # Multiple duplicate structures
-                {'id': 'n1', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                {'id': 'n2', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
-                {'id': 'n3', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},
+                'n2': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n3': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
                 
                 # Common subexpressions
-                {'id': 'n4', 'type': 'OR', 'fanins': [['n1', False], ['c', False]]},
-                {'id': 'n5', 'type': 'OR', 'fanins': [['n2', False], ['c', False]]},  # Duplicate
-                {'id': 'n6', 'type': 'OR', 'fanins': [['n3', False], ['c', False]]},  # Duplicate
+                'n4': {'type': 'OR', 'fanins': [['n1', False], ['c', False]]},
+                'n5': {'type': 'OR', 'fanins': [['n2', False], ['c', False]]},  # Duplicate
+                'n6': {'type': 'OR', 'fanins': [['n3', False], ['c', False]]},  # Duplicate
                 
                 # Dead code chain
-                {'id': 'n7', 'type': 'XOR', 'fanins': [['a', False], ['d', False]]},  # Dead
-                {'id': 'n8', 'type': 'AND', 'fanins': [['n7', False], ['b', False]]},  # Dead
+                'n7': {'type': 'XOR', 'fanins': [['a', False], ['d', False]]},  # Dead
+                'n8': {'type': 'AND', 'fanins': [['n7', False], ['b', False]]},  # Dead
                 
-                {'id': 'out1', 'type': 'BUF', 'fanins': [['n4', False]]},
-                {'id': 'out2', 'type': 'BUF', 'fanins': [['n5', False]]},
-                {'id': 'out3', 'type': 'BUF', 'fanins': [['n6', False]]}
-            ]
+                'out1': {'type': 'BUF', 'fanins': [['n4', False]]},
+                'out2': {'type': 'BUF', 'fanins': [['n5', False]]},
+                'out3': {'type': 'BUF', 'fanins': [['n6', False]]}
+            }
         }
         
         # Run standard synthesis
@@ -101,27 +101,27 @@ class TestSynthesisFlow(unittest.TestCase):
             'name': 'test_aggressive_synthesis',
             'inputs': ['a', 'b', 'c', 'd', 'e'],
             'outputs': ['out1', 'out2'],
-            'nodes': [
+            'nodes': {
                 # Multiple duplicate structures
-                {'id': 'n1', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                {'id': 'n2', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
-                {'id': 'n3', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
-                {'id': 'n4', 'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},
+                'n2': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n3': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
+                'n4': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},  # Duplicate
                 
                 # Complex common subexpressions
-                {'id': 'n5', 'type': 'OR', 'fanins': [['n1', False], ['c', False]]},
-                {'id': 'n6', 'type': 'OR', 'fanins': [['n2', False], ['c', False]]},  # Duplicate
-                {'id': 'n7', 'type': 'OR', 'fanins': [['n3', False], ['c', False]]},  # Duplicate
-                {'id': 'n8', 'type': 'OR', 'fanins': [['n4', False], ['c', False]]},  # Duplicate
+                'n5': {'type': 'OR', 'fanins': [['n1', False], ['c', False]]},
+                'n6': {'type': 'OR', 'fanins': [['n2', False], ['c', False]]},  # Duplicate
+                'n7': {'type': 'OR', 'fanins': [['n3', False], ['c', False]]},  # Duplicate
+                'n8': {'type': 'OR', 'fanins': [['n4', False], ['c', False]]},  # Duplicate
                 
                 # Dead code chains
-                {'id': 'n9', 'type': 'XOR', 'fanins': [['a', False], ['d', False]]},  # Dead
-                {'id': 'n10', 'type': 'AND', 'fanins': [['n9', False], ['e', False]]},  # Dead
-                {'id': 'n11', 'type': 'OR', 'fanins': [['n10', False], ['b', False]]},  # Dead
+                'n9': {'type': 'XOR', 'fanins': [['a', False], ['d', False]]},  # Dead
+                'n10': {'type': 'AND', 'fanins': [['n9', False], ['e', False]]},  # Dead
+                'n11': {'type': 'OR', 'fanins': [['n10', False], ['b', False]]},  # Dead
                 
-                {'id': 'out1', 'type': 'BUF', 'fanins': [['n5', False]]},
-                {'id': 'out2', 'type': 'BUF', 'fanins': [['n6', False]]}
-            ]
+                'out1': {'type': 'BUF', 'fanins': [['n5', False]]},
+                'out2': {'type': 'BUF', 'fanins': [['n6', False]]}
+            }
         }
         
         # Run aggressive synthesis

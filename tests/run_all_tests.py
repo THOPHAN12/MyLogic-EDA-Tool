@@ -94,9 +94,9 @@ def print_test_summary(test_results: Dict[str, bool]):
     print()
     
     if failed_tests == 0:
-        print("🎉 ALL TESTS PASSED! MyLogic EDA Tool algorithms are working correctly.")
+        print("ALL TESTS PASSED! MyLogic EDA Tool algorithms are working correctly.")
     else:
-        print(f"⚠️  {failed_tests} test suite(s) failed. Please check the errors above.")
+        print(f"WARNING: {failed_tests} test suite(s) failed. Please check the errors above.")
     
     print(f"Test completed at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
 

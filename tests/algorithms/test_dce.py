@@ -32,12 +32,12 @@ class TestDCE(unittest.TestCase):
             'outputs': ['out'],
             'nodes': {
                 # Used logic
-                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                'out': {'type': 'BUF', 'fanins': [['n1', False]]},
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]], 'output': 'temp1'},
+                'out': {'type': 'BUF', 'fanins': [['n1', False]], 'output': 'out'},
                 
                 # Dead code - not connected to outputs
-                'n2': {'type': 'OR', 'fanins': [['a', False], ['b', False]]},
-                'n3': {'type': 'XOR', 'fanins': [['n2', False], ['a', False]]}
+                'n2': {'type': 'OR', 'fanins': [['a', False], ['b', False]], 'output': 'dead1'},
+                'n3': {'type': 'XOR', 'fanins': [['n2', False], ['a', False]], 'output': 'dead2'}
             }
         }
         
@@ -65,14 +65,14 @@ class TestDCE(unittest.TestCase):
             'outputs': ['out'],
             'nodes': {
                 # Used logic
-                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                'out': {'type': 'BUF', 'fanins': [['n1', False]]},
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]], 'output': 'temp1'},
+                'out': {'type': 'BUF', 'fanins': [['n1', False]], 'output': 'out'},
                 
                 # Dead code chain
-                'n2': {'type': 'OR', 'fanins': [['a', False], ['c', False]]},
-                'n3': {'type': 'XOR', 'fanins': [['n2', False], ['b', False]]},
-                'n4': {'type': 'AND', 'fanins': [['n3', False], ['c', False]]},
-                'n5': {'type': 'OR', 'fanins': [['n4', False], ['a', False]]}
+                'n2': {'type': 'OR', 'fanins': [['a', False], ['c', False]], 'output': 'dead1'},
+                'n3': {'type': 'XOR', 'fanins': [['n2', False], ['b', False]], 'output': 'dead2'},
+                'n4': {'type': 'AND', 'fanins': [['n3', False], ['c', False]], 'output': 'dead3'},
+                'n5': {'type': 'OR', 'fanins': [['n4', False], ['a', False]], 'output': 'dead4'}
             }
         }
         
@@ -96,10 +96,10 @@ class TestDCE(unittest.TestCase):
             'inputs': ['a', 'b'],
             'outputs': ['out1', 'out2'],
             'nodes': {
-                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]]},
-                'n2': {'type': 'OR', 'fanins': [['a', False], ['b', False]]},
-                'out1': {'type': 'BUF', 'fanins': [['n1', False]]},
-                'out2': {'type': 'BUF', 'fanins': [['n2', False]]}
+                'n1': {'type': 'AND', 'fanins': [['a', False], ['b', False]], 'output': 'temp1'},
+                'n2': {'type': 'OR', 'fanins': [['a', False], ['b', False]], 'output': 'temp2'},
+                'out1': {'type': 'BUF', 'fanins': [['n1', False]], 'output': 'out1'},
+                'out2': {'type': 'BUF', 'fanins': [['n2', False]], 'output': 'out2'}
             }
         }
         

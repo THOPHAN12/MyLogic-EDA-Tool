@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Any
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from synthesis.mylogic_engine import MyLogicSynthesisEngine
-from synthesis.mylogic_commands import MyLogicCommands
+from .mylogic_engine import MyLogicSynthesisEngine
+from .mylogic_commands import MyLogicCommands
 
 
 class MyLogicSynthesis:

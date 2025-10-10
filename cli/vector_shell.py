@@ -71,7 +71,7 @@ class VectorShell:
             'route': self._run_routing,
             'timing': self._run_timing_analysis,
             'techmap': self._run_technology_mapping
-        }
+        }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
         
         # Tích hợp Yosys commands nếu có sẵn
         if YOSYS_AVAILABLE:

@@ -106,5 +106,6 @@ self.commands["sum2"] = self._sum2
 - Mô phỏng: `core/simulation/`
 - Tối ưu hóa: `core/optimization/`, `core/synthesis/`
 - Yosys: `integrations/yosys/`
+
 - Ví dụ: `examples/`
 

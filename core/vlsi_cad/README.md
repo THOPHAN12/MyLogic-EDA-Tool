@@ -6,70 +6,90 @@ Thư mục chứa các thuật toán VLSI CAD cho MyLogic EDA Tool.
 ## 📁 **FILES**
 
 ### **1. `bdd.py` - Binary Decision Diagrams**
-- **Chức năng**: Efficient Boolean function representation
-- **Thuật toán**: BDD construction and manipulation
-- **Ứng dụng**: Logic verification and optimization
+- **Chức năng**: Efficient Boolean function representation (ROBDD-inspired)
+- **Thuật toán**: Unique table, cached operations, recursive apply
+- **Ứng dụng**: Verification, support set, Verilog export (đơn giản)
 
 ### **2. `sat_solver.py` - SAT Solver**
-- **Chức năng**: Boolean satisfiability checking
-- **Thuật toán**: DPLL, CDCL algorithms
-- **Ứng dụng**: Formal verification
+- **Chức năng**: Boolean satisfiability checking (DPLL core)
+- **Thuật toán**: Unit propagation, decisions, backtracking (CDCL-stub)
+- **Ứng dụng**: Formal verification, equivalence/property checking
 
-### **3. `placement.py` - Placement Algorithm**
-- **Chức năng**: Physical placement of cells
-- **Thuật toán**: Force-directed, simulated annealing
-- **Ứng dụng**: Physical design
+### **3. `placement.py` - Placement Algorithms**
+- **Chức năng**: Đặt vị trí cells (random, force-directed, simulated annealing)
+- **Thuật toán**: HPWL metric, lực hút theo tâm mạng, SA với nhiệt độ giảm dần
+- **Ứng dụng**: Physical design, minimize wirelength / improve utilization
 
-### **4. `routing.py` - Routing Algorithm**
-- **Chức năng**: Wire routing between cells
-- **Thuật toán**: Maze routing, A* search
-- **Ứng dụng**: Physical design
+### **4. `routing.py` - Routing Algorithms**
+- **Chức năng**: Kết nối nets trên lưới nhiều lớp (maze/Lee, rip-up & reroute)
+- **Thuật toán**: Wave propagation (Lee - simplified), lộ trình tham lam, via layers
+- **Ứng dụng**: Physical design, báo cáo wirelength và congestion
 
 ### **5. `timing_analysis.py` - Static Timing Analysis**
-- **Chức năng**: Timing analysis and optimization
-- **Thuật toán**: Graph-based timing analysis
-- **Ứng dụng**: Timing closure
+- **Chức năng**: Phân tích timing tĩnh (AT, RAT, Slack, đường critical)
+- **Thuật toán**: Lan truyền tiến/lùi trên đồ thị timing, tổng hợp báo cáo
+- **Ứng dụng**: Timing closure, phát hiện vi phạm setup/hold (simple)
 
 ## 🎯 **VLSI CAD ALGORITHMS**
 
-### **Binary Decision Diagrams:**
+### **Binary Decision Diagrams (API gist):**
 ```python
-def build_bdd(boolean_function):
-    # 1. Construct BDD
-    # 2. Optimize structure
-    # 3. Analyze properties
+class BDD:
+    def create_variable(name) -> BDDNode
+    def create_constant(value: bool) -> BDDNode
+    def apply_operation(op: str, left: BDDNode, right: BDDNode) -> BDDNode  # AND/OR/XOR/...
+    def evaluate(node: BDDNode, assignment: Dict[str, bool]) -> bool
+    def get_support(node: BDDNode) -> Set[str]
+    def count_nodes(node: BDDNode) -> int
+    def to_verilog(node: BDDNode, output_name: str = "out") -> str
 ```
 
-### **SAT Solving:**
+### **SAT Solving (API gist):**
 ```python
-def solve_sat(formula):
-    # 1. Convert to CNF
-    # 2. Apply DPLL/CDCL
-    # 3. Find satisfying assignment
+class SATSolver:
+    def add_clause(lits: List[int]) -> None  # literals: +v / -v
+    def add_clauses_from_formula(formula: List[List[int]]) -> None
+    def solve() -> Tuple[bool, Optional[Dict[int, bool]]]
+    def get_statistics() -> Dict[str, int]
+
+class SATBasedVerifier:
+    def verify_equivalence(c1: Dict, c2: Dict]) -> Tuple[bool, Optional[Dict]]
+    def verify_property(circ: Dict, prop_expr: str) -> Tuple[bool, Optional[Dict]]
 ```
 
-### **Placement:**
+### **Placement (API gist):**
 ```python
-def place_cells(netlist, constraints):
-    # 1. Initial placement
-    # 2. Optimize positions
-    # 3. Meet constraints
+class PlacementEngine:
+    def add_cell(cell: Cell) -> None
+    def add_net(net: Net) -> None
+    def random_placement() -> Dict[str, Cell]
+    def force_directed_placement(iterations: int = 100) -> Dict[str, Cell]
+    def simulated_annealing_placement(T0=1000.0, cooling_rate=0.95, max_iter=10000) -> Dict[str, Cell]
+    def get_placement_statistics() -> Dict[str, Any]
 ```
 
-### **Routing:**
+### **Routing (API gist):**
 ```python
-def route_wires(placement, netlist):
-    # 1. Find paths
-    # 2. Avoid conflicts
-    # 3. Optimize wire length
+class RoutingGrid:
+    def is_free(p: Point, layer: int = 0) -> bool
+    def occupy(p: Point, layer: int = 0) -> None
+    def get_neighbors(p: Point, layer: int = 0) -> List[Tuple[Point,int]]
+
+class MazeRouter:
+    def add_net(net: Net) -> None
+    def route_all_nets(strategy: str = "maze") -> Dict[str, bool]
+    def get_routing_statistics() -> Dict[str, Any]
+    def visualize_routing() -> None
 ```
 
-### **Timing Analysis:**
+### **Timing Analysis (API gist):**
 ```python
-def analyze_timing(netlist, constraints):
-    # 1. Calculate delays
-    # 2. Find critical paths
-    # 3. Check timing constraints
+class StaticTimingAnalyzer:
+    def add_node(node: TimingNode) -> None
+    def add_arc(arc: TimingArc) -> None
+    def set_clock_period(period: float) -> None
+    def perform_timing_analysis() -> Dict[str, Any]
+    def print_timing_report(report: Dict[str, Any]) -> None
 ```
 
 ## 🚀 **USAGE**

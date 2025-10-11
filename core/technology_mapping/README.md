@@ -6,28 +6,33 @@ Thư mục chứa các thuật toán technology mapping cho MyLogic EDA Tool.
 ## 📁 **FILES**
 
 ### **1. `technology_mapping.py`**
-- **Chức năng**: Map generic logic to specific technology
-- **Thuật toán**: Library-based mapping
-- **Ứng dụng**: Technology-specific optimization
+- **Chức năng**: Map generic logic network sang thư viện công nghệ cụ thể (standard cells/LUTs)
+- **Thuật toán**: Library-based mapping, chọn cell tốt nhất theo tiêu chí (area/delay/balanced)
+- **Ứng dụng**: Tối ưu theo công nghệ mục tiêu, chuẩn bị cho backend (placement, routing)
 
 ## 🎯 **TECHNOLOGY MAPPING ALGORITHMS**
 
-### **Library Mapping:**
+### **Library Mapping (API overview):**
 ```python
-def technology_mapping(netlist, library):
-    # 1. Analyze generic gates
-    # 2. Find library matches
-    # 3. Map to technology cells
-    # 4. Optimize for target technology
+class TechnologyLibrary:
+    def add_cell(cell: LibraryCell) -> None
+    def get_cells_for_function(function: str) -> List[LibraryCell]
+    def get_best_cell_for_function(function: str, optimization_target: str)
+
+class TechnologyMapper:
+    def __init__(self, library: TechnologyLibrary)
+    def add_logic_node(node: LogicNode) -> None
+    def perform_technology_mapping(strategy: str) -> Dict[str, Any]  # "area_optimal" | "delay_optimal" | "balanced"
+    def get_mapping_statistics() -> Dict[str, Any]
+    def print_mapping_report(results: Dict[str, Any]) -> None
 ```
 
-### **Gate Mapping:**
+### **Gate Mapping (core idea):**
 ```python
-def map_gates(generic_gates, library):
-    # 1. Identify gate types
-    # 2. Find library equivalents
-    # 3. Consider area/delay tradeoffs
-    # 4. Select optimal mapping
+def map_function(function: str, library: TechnologyLibrary, target: str):
+    # 1) Tra cứu các cell hỗ trợ function (function_map)
+    # 2) Chọn cell tối ưu theo target: area | delay | balanced
+    # 3) Gán cell cho LogicNode và lưu chi phí (area/delay/weighted)
 ```
 
 ## 🏭 **SUPPORTED TECHNOLOGIES**
@@ -51,15 +56,23 @@ def map_gates(generic_gates, library):
 ## 🚀 **USAGE**
 
 ```python
-from core.technology_mapping.technology_mapping import TechnologyMapper
-
-# Technology mapping
-mapper = TechnologyMapper()
-mapped_netlist = mapper.map_to_technology(
-    netlist, 
-    technology="standard_cell",
-    library="nand_nor_lib"
+from core.technology_mapping.technology_mapping import (
+    TechnologyLibrary, LibraryCell,
+    TechnologyMapper, LogicNode, create_standard_library
 )
+
+# 1) Tạo/cấp thư viện công nghệ
+library = create_standard_library()  # hoặc tự add_cell(...) vào TechnologyLibrary
+
+# 2) Tạo mapper và network logic
+mapper = TechnologyMapper(library)
+mapper.add_logic_node(LogicNode("n1", "AND(A,B)", ["a","b"], "temp1"))
+mapper.add_logic_node(LogicNode("n2", "OR(C,D)",  ["c","d"], "temp2"))
+mapper.add_logic_node(LogicNode("n3", "XOR(temp1,temp2)", ["temp1","temp2"], "out"))
+
+# 3) Chọn chiến lược và thực hiện mapping
+results = mapper.perform_technology_mapping("balanced")
+mapper.print_mapping_report(results)
 ```
 
 ## 📊 **MAPPING METRICS**
@@ -85,6 +98,8 @@ mapped_netlist = mapper.map_to_technology(
 - Trade-off area vs delay
 - Use balanced cells
 - Optimize for both
+
+Ghi chú: Chi phí balanced mặc định là `area + delay * 10` (có thể điều chỉnh trong code nếu cần).
 
 ## 📚 **REFERENCES**
 - Technology mapping textbooks

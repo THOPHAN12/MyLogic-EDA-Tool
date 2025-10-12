@@ -7,7 +7,7 @@
 
 ## 2) Bối cảnh & mục tiêu
 - Bối cảnh: EDA học thuật phân mảnh, khó minh họa đầu-cuối và đánh giá định lượng.
-- Mục tiêu: dựng pipeline “từ RTL đến công nghệ”; thực thi thuật toán tiêu biểu; tích hợp Yosys/ABC; cung cấp CLI + docs dễ dạy/học.
+- Mục tiêu: dựng pipeline "từ RTL đến công nghệ"; thực thi thuật toán tiêu biểu; tích hợp Yosys/ABC; cung cấp CLI + docs dễ dạy/học.
 
 ## 3) Phạm vi & đối tượng
 - Phạm vi: Verilog cơ bản/số học; mô phỏng vector; tối ưu logic; technology mapping; CAD (BDD/SAT/Placement/Routing/STA); outputs qua Yosys.
@@ -51,7 +51,7 @@
 - Unit: Strash/DCE/CSE/flow/simulation/parser; CAD demo (placement/routing/STA).
 - Chỉ số: node/level, HPWL, routing success, worst/avg slack, runtime.
 - Môi trường: OS/Python/Yosys/ABC.
-- Phương pháp: A/B “trước/sau” từng pass; across examples/test_data.
+- Phương pháp: A/B "trước/sau" từng pass; across examples/test_data.
 
 ## 9) Kết quả & đánh giá (mẫu)
 - Ví dụ: Nodes −35%; Levels −25%; HPWL −14.7%; Routing ~92%; Worst Slack +0.35 ns.
@@ -65,7 +65,7 @@
 - Dài hạn: GUI; parser SV/VHDL; ISCAS/ITC; mapping timing-driven; STA đa góc; Icarus/GTKWave; paper.
 
 ## 12) Kết luận
-MyLogic EDA Tool đạt mục tiêu “hợp nhất – minh bạch – có thể dạy/học”.
+MyLogic EDA Tool đạt mục tiêu "hợp nhất – minh bạch – có thể dạy/học".
 
 ---
 

@@ -6,6 +6,14 @@ Setup script for MyLogic EDA Tool.
 from setuptools import setup, find_packages
 import os
 
+# Import constants
+from constants import (
+    PROJECT_NAME, PROJECT_VERSION, PROJECT_AUTHOR, PROJECT_EMAIL,
+    PROJECT_DESCRIPTION_LONG, GITHUB_URL, DOCS_URL, ISSUES_URL,
+    SUPPORTED_PYTHON_VERSIONS, MIN_PYTHON_VERSION, LICENSE, PYPI_KEYWORDS,
+    DEVELOPMENT_STATUS, INTENDED_AUDIENCES, TOPICS
+)
+
 # Read README file
 def read_readme():
     with open("README.md", "r", encoding="utf-8") as fh:
@@ -18,38 +26,30 @@ def read_requirements():
 
 setup(
     name="mylogic-eda",
-    version="2.0.0",
-    author="MyLogic EDA Tool Team",
-    author_email="thophan12@example.com",
-    description="Unified Electronic Design Automation Tool with Advanced VLSI CAD Algorithms",
+    version=PROJECT_VERSION,
+    author=PROJECT_AUTHOR,
+    author_email=PROJECT_EMAIL,
+    description=PROJECT_DESCRIPTION_LONG,
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/THOPHAN12/MyLogic-EDA-Tool",
+    url=GITHUB_URL,
     project_urls={
-        "Bug Reports": "https://github.com/THOPHAN12/MyLogic-EDA-Tool/issues",
-        "Source": "https://github.com/THOPHAN12/MyLogic-EDA-Tool",
-        "Documentation": "https://github.com/THOPHAN12/MyLogic-EDA-Tool/tree/main/docs",
+        "Bug Reports": ISSUES_URL,
+        "Source": GITHUB_URL,
+        "Documentation": DOCS_URL,
     },
     packages=find_packages(),
     classifiers=[
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: Developers",
-        "Intended Audience :: Science/Research",
-        "Intended Audience :: Education",
-        "License :: OSI Approved :: MIT License",
+        f"Development Status :: {DEVELOPMENT_STATUS}",
+        *[f"Intended Audience :: {audience}" for audience in INTENDED_AUDIENCES],
+        f"License :: OSI Approved :: {LICENSE} License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
-        "Topic :: Software Development :: Libraries :: Python Modules",
-        "Topic :: Education",
+        *[f"Programming Language :: Python :: {version}" for version in SUPPORTED_PYTHON_VERSIONS],
+        *TOPICS,
     ],
-    keywords="eda vlsi synthesis optimization simulation verilog yosys",
-    python_requires=">=3.8",
+    keywords=" ".join(PYPI_KEYWORDS),
+    python_requires=f">={MIN_PYTHON_VERSION}",
     install_requires=read_requirements(),
     extras_require={
         "dev": [

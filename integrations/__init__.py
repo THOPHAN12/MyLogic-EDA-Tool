@@ -7,5 +7,7 @@ External tool integrations:
 - gtkwave: GTKWave waveform viewer integration
 """
 
-__version__ = "2.0.0"
-__author__ = "MyLogic EDA Tool Team"
+from constants import PROJECT_VERSION, PROJECT_AUTHOR
+
+__version__ = PROJECT_VERSION
+__author__ = PROJECT_AUTHOR

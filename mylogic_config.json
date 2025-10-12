@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "shell": {
     "prompt": "mylogic> ",
     "history_size": 1000,

@@ -1,7 +1,7 @@
 {
   "test_suite": {
     "name": "MyLogic EDA Tool Test Suite",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "Comprehensive test suite for MyLogic EDA Tool algorithms"
   },
   "algorithms": {

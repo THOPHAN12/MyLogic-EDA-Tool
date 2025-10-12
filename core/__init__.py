@@ -31,5 +31,5 @@ from .vlsi_cad.placement import *
 from .vlsi_cad.routing import *
 from .vlsi_cad.timing_analysis import *
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __author__ = "MyLogic EDA Tool Team"

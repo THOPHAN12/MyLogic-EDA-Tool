@@ -40,9 +40,9 @@ from frontends.verilog import parse_verilog_file
 from frontends.simple_arithmetic_verilog import parse_arithmetic_verilog_simple
 
 # Thông tin phiên bản
-VERSION = "1.0.0"
-AUTHOR = "MyLogic EDA Tool"
-DESCRIPTION = "Unified Electronic Design Automation Tool"
+VERSION = "2.0.0"
+AUTHOR = "MyLogic EDA Tool Team"
+DESCRIPTION = "Unified Electronic Design Automation Tool with Advanced VLSI CAD Algorithms"
 
 def setup_logging(debug: bool = False, log_file: Optional[str] = None) -> None:
     """Thiết lập cấu hình logging."""
@@ -125,7 +125,7 @@ def create_shell(mode: str, config: Dict[str, Any], file_path: Optional[str] = N
     """Create appropriate shell based on mode."""
     shell = VectorShell(config)
     print("=" * 60)
-    print("MyLogic EDA Tool - Vector Edition v1.0.0")
+    print("MyLogic EDA Tool - Vector Edition v2.0.0")
     print("Enhanced Electronic Design Automation Tool")
     print("With Vector Simulation Support")
     print("=" * 60)

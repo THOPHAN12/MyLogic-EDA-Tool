@@ -9,5 +9,5 @@ Simulation engines và algorithms:
 
 from .arithmetic_simulation import *
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __author__ = "MyLogic EDA Tool Team"

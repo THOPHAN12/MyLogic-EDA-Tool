@@ -208,7 +208,7 @@ class StrashOptimizer:
             'optimization_type': 'structural_hashing'
         }
 
-def apply_strash(netlist: Dict[str, Any]) -> Dict[str, Any]:
+def structural_hashing(netlist: Dict[str, Any]) -> Dict[str, Any]:
     """
     Convenience function để áp dụng Structural Hashing.
     

@@ -90,26 +90,29 @@ class DCEOptimizer:
         reachable = set()
         queue = []
         
-        # Start from all output ports
+        # Start from all output ports using output_mapping
+        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
         outputs = netlist.get('outputs', [])
+        
         for output in outputs:
-            if isinstance(output, dict) and 'name' in output:
-                output_name = output['name']
-            elif isinstance(output, str):
+            if isinstance(output, str):
                 output_name = output
-            else:
-                continue
-                
-            # Find nodes that drive this output
-            for node_name, node in netlist.get('nodes', {}).items():
-                if isinstance(node, dict) and node.get('output') == output_name:
-                    queue.append(node_name)
-                    reachable.add(node_name)
+                # Find the node that drives this output
+                if output_name in output_mapping:
+                    node_id = output_mapping[output_name]
+                    queue.append(node_id)
+                    reachable.add(node_id)
+                    logger.debug(f"Starting from output {output_name} -> node {node_id}")
         
         # BFS to find all reachable nodes
         while queue:
             current_node = queue.pop(0)
-            node = netlist.get('nodes', {}).get(current_node, {})
+            # Find node by ID in list
+            node = None
+            for n in netlist.get('nodes', []):
+                if isinstance(n, dict) and n.get('id') == current_node:
+                    node = n
+                    break
             
             # Check if node is a dictionary
             if not isinstance(node, dict):
@@ -142,21 +145,23 @@ class DCEOptimizer:
         Returns:
             Netlist with dead nodes removed
         """
-        nodes = netlist.get('nodes', {})
+        nodes = netlist.get('nodes', [])
         dead_nodes = []
         
         # Find dead nodes
-        for node_name in nodes:
-            if node_name not in reachable_nodes:
-                dead_nodes.append(node_name)
+        for i, node in enumerate(nodes):
+            if isinstance(node, dict) and 'id' in node:
+                node_id = node['id']
+                if node_id not in reachable_nodes:
+                    dead_nodes.append(i)
         
         # Count dead nodes before removing
         self.removed_nodes = len(dead_nodes)
         
-        # Remove dead nodes
-        for node_name in dead_nodes:
-            del nodes[node_name]
-            logger.debug(f"Removed dead node: {node_name}")
+        # Remove dead nodes (in reverse order to maintain indices)
+        for i in reversed(dead_nodes):
+            logger.debug(f"Removed dead node: {nodes[i].get('id', 'unknown')}")
+            del nodes[i]
         
         # Update netlist
         netlist['nodes'] = nodes
@@ -392,7 +397,7 @@ class DCEOptimizer:
             'removed_wires': self.removed_wires
         }
 
-def apply_dce(netlist: Dict[str, Any], level: str = "basic") -> Dict[str, Any]:
+def dead_code_elimination(netlist: Dict[str, Any], level: str = "basic") -> Dict[str, Any]:
     """
     Apply Dead Code Elimination to a netlist.
     

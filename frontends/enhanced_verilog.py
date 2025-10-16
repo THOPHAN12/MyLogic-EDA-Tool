@@ -43,10 +43,11 @@ def parse_enhanced_verilog(path: str) -> Dict:
         "attrs": {"source_file": path, "vector_widths": {}}
     }
     
-    # Extract module name and body
-    module_match = re.search(r'module\s+(\w+)\s*\([^)]*\)\s*;', src, re.DOTALL)
+    # Extract module name and port list
+    module_match = re.search(r'module\s+(\w+)\s*\(([^)]*)\)\s*;', src, re.DOTALL)
     if module_match:
         net['name'] = module_match.group(1)
+        port_list = module_match.group(2)
         # Extract module body (between module declaration and endmodule)
         module_end = module_match.end()
         endmodule_match = re.search(r'endmodule', src[module_end:])
@@ -55,7 +56,31 @@ def parse_enhanced_verilog(path: str) -> Dict:
         else:
             module_body = src[module_end:]
     else:
+        port_list = ""
         module_body = src  # Fallback to entire source
+    
+    # Extract vector inputs from port list first
+    port_input_matches = re.findall(r'input\s+\[(\d+):(\d+)\]\s+([^\n]+?)(?:,\s*$|\n)', port_list, re.MULTILINE)
+    for msb, lsb, signals_str in port_input_matches:
+        # Remove trailing comma and split by comma
+        signals_str = signals_str.rstrip(',').strip()
+        signals = [s.strip() for s in signals_str.split(',')]
+        width = int(msb) - int(lsb) + 1
+        for signal in signals:
+            signal = re.sub(r'//.*$', '', signal).strip()
+            if signal and signal not in net['inputs']:
+                net['inputs'].append(signal)
+                net['attrs']['vector_widths'][signal] = width
+    
+    # Extract scalar inputs from port list first
+    port_scalar_inputs = re.findall(r'input\s+([^[,\n)]+)', port_list)
+    for signals_str in port_scalar_inputs:
+        signals = [s.strip() for s in signals_str.split(',')]
+        for signal in signals:
+            signal = re.sub(r'//.*$', '', signal).strip()
+            if signal and signal not in net['inputs']:
+                net['inputs'].append(signal)
+                net['attrs']['vector_widths'][signal] = 1
     
     # Extract vector inputs from module body only
     input_matches = re.findall(r'input\s+\[(\d+):(\d+)\]\s+([^;]+)', module_body)
@@ -78,7 +103,30 @@ def parse_enhanced_verilog(path: str) -> Dict:
                 net['inputs'].append(signal)
                 net['attrs']['vector_widths'][signal] = 1
     
-    # Extract vector outputs
+    # Extract vector outputs from port list first
+    port_output_matches = re.findall(r'output\s+\[(\d+):(\d+)\]\s+([^\n]+?)(?:,\s*$|\n)', port_list, re.MULTILINE)
+    for msb, lsb, signals_str in port_output_matches:
+        # Remove trailing comma and split by comma
+        signals_str = signals_str.rstrip(',').strip()
+        signals = [s.strip() for s in signals_str.split(',')]
+        width = int(msb) - int(lsb) + 1
+        for signal in signals:
+            signal = re.sub(r'//.*$', '', signal).strip()
+            if signal and signal not in net['outputs']:
+                net['outputs'].append(signal)
+                net['attrs']['vector_widths'][signal] = width
+    
+    # Extract scalar outputs from port list first
+    port_scalar_outputs = re.findall(r'output\s+([^[,\n)]+)', port_list)
+    for signals_str in port_scalar_outputs:
+        signals = [s.strip() for s in signals_str.split(',')]
+        for signal in signals:
+            signal = re.sub(r'//.*$', '', signal).strip()
+            if signal and signal not in net['outputs']:
+                net['outputs'].append(signal)
+                net['attrs']['vector_widths'][signal] = 1
+    
+    # Extract vector outputs from module body
     output_matches = re.findall(r'output\s+\[(\d+):(\d+)\]\s+([^;]+)', module_body)
     for msb, lsb, signals_str in output_matches:
         signals = [s.strip() for s in signals_str.split(',')]

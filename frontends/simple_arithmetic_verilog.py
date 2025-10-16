@@ -55,8 +55,8 @@ def parse_arithmetic_verilog_simple(path: str) -> Dict:
             net['inputs'].append(signal)
             net['attrs']['vector_widths'][signal] = width
     
-    # Extract scalar inputs (including multiple inputs per line)
-    scalar_input_lines = re.findall(r'input\s+([^;]+);', src)
+    # Extract scalar inputs (only scalar, not vector)
+    scalar_input_lines = re.findall(r'input\s+([^[;]+);', src)
     for line in scalar_input_lines:
         # Split by comma and clean up
         signals = [s.strip() for s in line.split(',')]
@@ -76,8 +76,8 @@ def parse_arithmetic_verilog_simple(path: str) -> Dict:
             net['outputs'].append(signal)
             net['attrs']['vector_widths'][signal] = width
     
-    # Extract scalar outputs (including multiple outputs per line)
-    scalar_output_lines = re.findall(r'output\s+([^;]+);', src)
+    # Extract scalar outputs (only scalar, not vector)
+    scalar_output_lines = re.findall(r'output\s+([^[;]+);', src)
     for line in scalar_output_lines:
         # Split by comma and clean up
         signals = [s.strip() for s in line.split(',')]

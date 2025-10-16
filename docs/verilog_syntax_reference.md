@@ -277,6 +277,74 @@ and (output, input1, input2);
 or (result, a, b);
 ```
 
+## 8.5. 🏗️ **Module Instantiations**
+
+### Named Port Connections (Recommended)
+```verilog
+// Instantiate mux2to1 module
+mux2to1 mux_inst (
+    .a(data_a),
+    .b(data_b),
+    .sel(select),
+    .out(result)
+);
+
+// Instantiate ALU module
+alu alu_inst (
+    .a(operand_a),
+    .b(operand_b),
+    .op(operation),
+    .result(alu_result),
+    .zero(zero_flag),
+    .overflow(overflow_flag)
+);
+```
+
+### Positional Port Connections
+```verilog
+// Instantiate with positional connections
+mux2to1 mux_inst (data_a, data_b, select, result);
+alu alu_inst (operand_a, operand_b, operation, alu_result, zero_flag, overflow_flag);
+```
+
+### Mixed Connections
+```verilog
+// Mix named and positional connections
+module_name inst_name (
+    .port_name(signal_name),
+    signal_name,  // positional
+    .port_name(signal_name)
+);
+```
+
+### Bit Range Connections
+```verilog
+// Connect bit ranges
+module_name inst_name (
+    .port_name(signal_name[3:0]),
+    .port_name(signal_name[7:4])
+);
+```
+
+### Constant Connections
+```verilog
+// Connect constants
+module_name inst_name (
+    .port_name(4'b0000),
+    .port_name(1'b1),
+    .port_name(8'hFF)
+);
+```
+
+### Unconnected Ports
+```verilog
+// Leave ports unconnected
+module_name inst_name (
+    .port_name(signal_name),
+    .unused_port()  // Not connected
+);
+```
+
 ---
 
 ## 9. 🔄 **Multiplexer Logic**
@@ -432,6 +500,7 @@ MyLogic EDA Tool hỗ trợ các node types sau:
 - **BUF**: Buffer operations
 - **MUX**: Multiplexer operations
 - **COMPLEX**: Complex expressions
+- **MODULE**: Module instantiations
 
 ---
 

@@ -291,6 +291,90 @@ def parse_verilog(path: str) -> Dict:
             net['attrs']['output_mapping'][output] = gate_id
             node_counter += 1
     
+    # Extract module instantiations (improved regex)
+    # Match: module_name instance_name (connections);
+    # Handle both single line and multi-line instantiations
+    # Use a simpler approach: find module_name instance_name ( then extract until matching )
+    module_inst_pattern = r'(\w+)\s+(\w+)\s*\('
+    module_inst_matches = re.findall(module_inst_pattern, module_body)
+    
+    for module_type, inst_name in module_inst_matches:
+        # Skip if it's a gate (already handled above)
+        if module_type.lower() in ['and', 'or', 'xor', 'nand', 'nor', 'not', 'buf']:
+            continue
+            
+        # Find the full instantiation line to extract connections
+        # Look for the pattern: module_type inst_name ( ... );
+        # Use a more robust approach to handle nested parentheses
+        pattern = rf'{re.escape(module_type)}\s+{re.escape(inst_name)}\s*\('
+        match = re.search(pattern, module_body)
+        
+        if match:
+            # Find the matching closing parenthesis
+            start_pos = match.end() - 1  # Position of opening (
+            paren_count = 0
+            end_pos = start_pos
+            
+            for i, char in enumerate(module_body[start_pos:], start_pos):
+                if char == '(':
+                    paren_count += 1
+                elif char == ')':
+                    paren_count -= 1
+                    if paren_count == 0:
+                        end_pos = i
+                        break
+            
+            # Extract connections between parentheses
+            connections = module_body[start_pos + 1:end_pos]
+        else:
+            connections = ""
+        
+        conns = []
+        if match:
+            # Parse connections (named or positional)
+            # Handle both named (.port(signal)) and positional (signal) connections
+            if connections.strip():
+                # Split by comma, but be careful with nested parentheses
+                parts = []
+                current_part = ""
+                paren_count = 0
+                
+                for char in connections:
+                    if char == '(':
+                        paren_count += 1
+                    elif char == ')':
+                        paren_count -= 1
+                    elif char == ',' and paren_count == 0:
+                        parts.append(current_part.strip())
+                        current_part = ""
+                        continue
+                    current_part += char
+                
+                if current_part.strip():
+                    parts.append(current_part.strip())
+                
+                conns = parts
+        
+        # Create module instantiation node
+        module_id = inst_name if inst_name else f"{module_type}_{node_counter}"
+        net['nodes'].append({
+            "id": module_id,
+            "type": "MODULE",
+            "module_type": module_type,
+            "connections": conns,
+            "fanins": []  # Will be populated based on connections
+        })
+        
+        # Store module instantiation info
+        if 'module_instantiations' not in net['attrs']:
+            net['attrs']['module_instantiations'] = {}
+        net['attrs']['module_instantiations'][module_id] = {
+            "module_type": module_type,
+            "connections": conns
+        }
+        
+        node_counter += 1
+    
     return net
 
 # Helper functions for expression parsing

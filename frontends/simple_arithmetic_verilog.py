@@ -55,12 +55,17 @@ def parse_arithmetic_verilog_simple(path: str) -> Dict:
             net['inputs'].append(signal)
             net['attrs']['vector_widths'][signal] = width
     
-    # Extract scalar inputs
-    scalar_inputs = re.findall(r'input\s+(\w+)', src)
-    for signal in scalar_inputs:
-        if signal not in net['inputs']:
-            net['inputs'].append(signal)
-            net['attrs']['vector_widths'][signal] = 1
+    # Extract scalar inputs (including multiple inputs per line)
+    scalar_input_lines = re.findall(r'input\s+([^;]+);', src)
+    for line in scalar_input_lines:
+        # Split by comma and clean up
+        signals = [s.strip() for s in line.split(',')]
+        for signal in signals:
+            # Remove any extra whitespace or comments
+            signal = re.sub(r'//.*$', '', signal).strip()
+            if signal and signal not in net['inputs']:
+                net['inputs'].append(signal)
+                net['attrs']['vector_widths'][signal] = 1
     
     # Extract vector outputs
     output_matches = re.findall(r'output\s+\[(\d+):(\d+)\]\s+([^;]+)', src)
@@ -71,20 +76,142 @@ def parse_arithmetic_verilog_simple(path: str) -> Dict:
             net['outputs'].append(signal)
             net['attrs']['vector_widths'][signal] = width
     
-    # Extract scalar outputs
-    scalar_outputs = re.findall(r'output\s+(\w+)', src)
-    for signal in scalar_outputs:
-        if signal not in net['outputs']:
-            net['outputs'].append(signal)
-            net['attrs']['vector_widths'][signal] = 1
+    # Extract scalar outputs (including multiple outputs per line)
+    scalar_output_lines = re.findall(r'output\s+([^;]+);', src)
+    for line in scalar_output_lines:
+        # Split by comma and clean up
+        signals = [s.strip() for s in line.split(',')]
+        for signal in signals:
+            # Remove any extra whitespace or comments
+            signal = re.sub(r'//.*$', '', signal).strip()
+            if signal and signal not in net['outputs']:
+                net['outputs'].append(signal)
+                net['attrs']['vector_widths'][signal] = 1
     
-    # Extract assign statements with arithmetic operations
+    # Extract assign statements with arithmetic and logic operations
     assign_matches = re.findall(r'assign\s+(\w+)\s*=\s*([^;]+);', src)
     node_counter = 0
     
     for lhs, rhs in assign_matches:
+        # Parse logic gates first (higher priority)
+        if '^' in rhs and not any(op in rhs for op in ['+', '-', '*', '/']):
+            # XOR operation
+            operands = [op.strip() for op in rhs.split('^')]
+            if len(operands) >= 2:
+                # Create XOR nodes for multiple operands
+                current_id = operands[0]
+                for i in range(1, len(operands)):
+                    xor_id = f"xor_{node_counter}"
+                    node_counter += 1
+                    net['nodes'].append({
+                        "id": xor_id,
+                        "type": "XOR",
+                        "fanins": [[current_id, False], [operands[i], False]]
+                    })
+                    current_id = xor_id
+                
+                # Create BUF node for output
+                buf_id = f"buf_{node_counter}"
+                node_counter += 1
+                net['nodes'].append({
+                    "id": buf_id,
+                    "type": "BUF",
+                    "fanins": [[current_id, False]]
+                })
+                
+                # Store output mapping
+                if 'output_mapping' not in net['attrs']:
+                    net['attrs']['output_mapping'] = {}
+                net['attrs']['output_mapping'][lhs] = buf_id
+        
+        elif '&' in rhs and not any(op in rhs for op in ['+', '-', '*', '/', '^']):
+            # AND operation
+            operands = [op.strip() for op in rhs.split('&')]
+            if len(operands) >= 2:
+                # Create AND nodes for multiple operands
+                current_id = operands[0]
+                for i in range(1, len(operands)):
+                    and_id = f"and_{node_counter}"
+                    node_counter += 1
+                    net['nodes'].append({
+                        "id": and_id,
+                        "type": "AND",
+                        "fanins": [[current_id, False], [operands[i], False]]
+                    })
+                    current_id = and_id
+                
+                # Create BUF node for output
+                buf_id = f"buf_{node_counter}"
+                node_counter += 1
+                net['nodes'].append({
+                    "id": buf_id,
+                    "type": "BUF",
+                    "fanins": [[current_id, False]]
+                })
+                
+                # Store output mapping
+                if 'output_mapping' not in net['attrs']:
+                    net['attrs']['output_mapping'] = {}
+                net['attrs']['output_mapping'][lhs] = buf_id
+        
+        elif '|' in rhs and not any(op in rhs for op in ['+', '-', '*', '/', '^', '&']):
+            # OR operation
+            operands = [op.strip() for op in rhs.split('|')]
+            if len(operands) >= 2:
+                # Create OR nodes for multiple operands
+                current_id = operands[0]
+                for i in range(1, len(operands)):
+                    or_id = f"or_{node_counter}"
+                    node_counter += 1
+                    net['nodes'].append({
+                        "id": or_id,
+                        "type": "OR",
+                        "fanins": [[current_id, False], [operands[i], False]]
+                    })
+                    current_id = or_id
+                
+                # Create BUF node for output
+                buf_id = f"buf_{node_counter}"
+                node_counter += 1
+                net['nodes'].append({
+                    "id": buf_id,
+                    "type": "BUF",
+                    "fanins": [[current_id, False]]
+                })
+                
+                # Store output mapping
+                if 'output_mapping' not in net['attrs']:
+                    net['attrs']['output_mapping'] = {}
+                net['attrs']['output_mapping'][lhs] = buf_id
+        
+        elif '~' in rhs and not any(op in rhs for op in ['+', '-', '*', '/', '^', '&', '|']):
+            # NOT operation
+            operand = rhs.replace('~', '').strip()
+            # Create NOT node
+            not_id = f"not_{node_counter}"
+            node_counter += 1
+            net['nodes'].append({
+                "id": not_id,
+                "type": "NOT",
+                "fanins": [[operand, False]]
+            })
+            
+            # Create BUF node for output
+            buf_id = f"buf_{node_counter}"
+            node_counter += 1
+            net['nodes'].append({
+                "id": buf_id,
+                "type": "BUF",
+                "fanins": [[not_id, False]]
+            })
+            
+            # Store output mapping
+            if 'output_mapping' not in net['attrs']:
+                net['attrs']['output_mapping'] = {}
+            net['attrs']['output_mapping'][lhs] = buf_id
+        
         # Parse arithmetic expression
-        if '+' in rhs:
+        elif '+' in rhs:
             # Addition
             operands = [op.strip() for op in rhs.split('+')]
             if len(operands) == 2:

@@ -57,9 +57,12 @@ def parse_enhanced_verilog(path: str) -> Dict:
             net['inputs'].append(signal)
             net['attrs']['vector_widths'][signal] = width
     
-    # Extract scalar inputs (including multiple inputs per line)
+    # Extract scalar inputs (only if not already parsed as vector)
     scalar_input_lines = re.findall(r'input\s+([^;]+);', src)
     for line in scalar_input_lines:
+        # Skip if this line contains vector declarations
+        if '[' in line and ']' in line:
+            continue
         # Split by comma and clean up
         signals = [s.strip() for s in line.split(',')]
         for signal in signals:
@@ -78,9 +81,12 @@ def parse_enhanced_verilog(path: str) -> Dict:
             net['outputs'].append(signal)
             net['attrs']['vector_widths'][signal] = width
     
-    # Extract scalar outputs (including multiple outputs per line)
+    # Extract scalar outputs (only if not already parsed as vector)
     scalar_output_lines = re.findall(r'output\s+([^;]+);', src)
     for line in scalar_output_lines:
+        # Skip if this line contains vector declarations
+        if '[' in line and ']' in line:
+            continue
         # Split by comma and clean up
         signals = [s.strip() for s in line.split(',')]
         for signal in signals:

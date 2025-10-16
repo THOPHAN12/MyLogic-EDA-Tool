@@ -36,8 +36,7 @@ from typing import Optional, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cli.vector_shell import VectorShell
-from frontends.verilog import parse_verilog_file
-from frontends.simple_arithmetic_verilog import parse_arithmetic_verilog_simple
+from frontends.unified_verilog import parse_verilog
 
 # Import constants
 from constants import (
@@ -138,7 +137,7 @@ def create_shell(mode: str, config: Dict[str, Any], file_path: Optional[str] = N
     # Auto-load file if provided
     if file_path:
         try:
-            netlist = parse_arithmetic_verilog_simple(file_path)
+            netlist = parse_verilog(file_path)
             shell.netlist = netlist
             shell.current_netlist = netlist  # Also set current_netlist for optimization commands
             shell.filename = file_path

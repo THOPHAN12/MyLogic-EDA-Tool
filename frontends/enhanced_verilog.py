@@ -91,10 +91,32 @@ def parse_enhanced_verilog(path: str) -> Dict:
                 net['attrs']['vector_widths'][signal] = 1
     
     # Extract assign statements with enhanced parsing
-    assign_matches = re.findall(r'assign\s+(\w+)\s*=\s*([^;]+);', src)
+    assign_matches = re.findall(r'assign\s+([^=]+)\s*=\s*([^;]+);', src)
     node_counter = 0
     
     for lhs, rhs in assign_matches:
+        # Clean up LHS (remove extra whitespace)
+        lhs = lhs.strip()
+        
+        # Handle bit assignments like flags[0], flags[1]
+        if '[' in lhs and ']' in lhs:
+            # Extract signal name from bit assignment
+            signal_name = lhs.split('[')[0]
+            # For bit assignments, we'll create a simple BUF node
+            buf_id = f"buf_{node_counter}"
+            net['nodes'].append({
+                "id": buf_id,
+                "type": "BUF",
+                "fanins": [[rhs.strip(), False]]
+            })
+            
+            # Store output mapping for the bit
+            if 'output_mapping' not in net['attrs']:
+                net['attrs']['output_mapping'] = {}
+            net['attrs']['output_mapping'][lhs] = buf_id
+            node_counter += 1
+            continue
+        
         # Parse different types of expressions
         if _is_ternary_operator(rhs):
             # Handle ternary operator: condition ? value1 : value2

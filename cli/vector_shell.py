@@ -151,7 +151,7 @@ class VectorShell:
             print(f"  Name    : {name}")
             print(f"  Inputs  : {len(inputs)}")
             print(f"  Outputs : {len(outputs)}")
-            print(f"  Wires   : 0")
+            print(f"  Wires   : {len(self.netlist.get('wires', []))}")
             print(f"  Nodes   : {len(nodes)}")
             
             if vector_widths:

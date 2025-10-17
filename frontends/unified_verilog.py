@@ -171,8 +171,29 @@ def parse_verilog(path: str) -> Dict:
                 net['outputs'].append(signal)
                 net['attrs']['vector_widths'][signal] = 1
     
-    # Extract wire declarations
-    wire_matches = re.findall(r'wire\s+\[(\d+):(\d+)\]\s+([^;]+)', module_body)
+    # Extract wire declarations (both with and without assignments)
+    # Pattern 1: wire [3:0] temp1 = a + b;
+    wire_assign_matches = re.findall(r'wire\s+\[(\d+):(\d+)\]\s+([^=]+)\s*=\s*([^;]+);', module_body)
+    for msb, lsb, signals_str, assignment in wire_assign_matches:
+        signals = [s.strip() for s in signals_str.split(',')]
+        width = int(msb) - int(lsb) + 1
+        for signal in signals:
+            if signal not in net['wires']:
+                net['wires'].append(f"{signal} = {assignment.strip()}")
+                net['attrs']['vector_widths'][f"{signal} = {assignment.strip()}"] = width
+    
+    # Pattern 2: wire temp3 = a[0] & b[0]; (scalar only, not vector)
+    scalar_wire_assign_matches = re.findall(r'wire\s+([^[=]+)\s*=\s*([^;]+);', module_body)
+    for signals_str, assignment in scalar_wire_assign_matches:
+        signals = [s.strip() for s in signals_str.split(',')]
+        for signal in signals:
+            signal = re.sub(r'//.*$', '', signal).strip()
+            if signal and f"{signal} = {assignment.strip()}" not in net['wires']:
+                net['wires'].append(f"{signal} = {assignment.strip()}")
+                net['attrs']['vector_widths'][f"{signal} = {assignment.strip()}"] = 1
+    
+    # Pattern 3: wire [3:0] temp1; (declaration only)
+    wire_matches = re.findall(r'wire\s+\[(\d+):(\d+)\]\s+([^;=]+);', module_body)
     for msb, lsb, signals_str in wire_matches:
         signals = [s.strip() for s in signals_str.split(',')]
         width = int(msb) - int(lsb) + 1
@@ -181,8 +202,8 @@ def parse_verilog(path: str) -> Dict:
                 net['wires'].append(signal)
                 net['attrs']['vector_widths'][signal] = width
     
-    # Extract scalar wire declarations
-    scalar_wire_lines = re.findall(r'wire\s+([^[;]+);', module_body)
+    # Pattern 4: wire temp1; (scalar declaration only)
+    scalar_wire_lines = re.findall(r'wire\s+([^[;=]+);', module_body)
     for line in scalar_wire_lines:
         signals = [s.strip() for s in line.split(',')]
         for signal in signals:

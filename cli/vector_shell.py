@@ -164,17 +164,11 @@ class VectorShell:
                         width_groups[width] = []
                     width_groups[width].append(signal)
                 
-                # Display grouped by width with limits
+                # Display grouped by width - show all signals
                 for width in sorted(width_groups.keys(), reverse=True):
                     signals = width_groups[width]
-                    if len(signals) <= 5:
-                        # Show all if 5 or fewer
-                        print(f"    {width}-bit: {', '.join(signals)}")
-                    else:
-                        # Show first 3 and count
-                        shown = signals[:3]
-                        remaining = len(signals) - 3
-                        print(f"    {width}-bit: {', '.join(shown)} ... (+{remaining} more)")
+                    # Show all signals for each width
+                    print(f"    {width}-bit: {', '.join(signals)}")
                 
                 # Summary
                 total_signals = len(vector_widths)

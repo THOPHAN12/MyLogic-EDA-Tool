@@ -65,9 +65,11 @@ def parse_verilog(path: str) -> Dict:
         "attrs": {"source_file": path, "vector_widths": {}, "output_mapping": {}}
     }
     
-    # Extract module name and port list
-    module_match = re.search(r'module\s+(\w+)\s*\(([^)]*)\)\s*;', src, re.DOTALL)
-    if module_match:
+    # Extract module name and port list - find the LAST module (usually top module)
+    module_matches = list(re.finditer(r'module\s+(\w+)\s*\(([^)]*)\)\s*;', src, re.DOTALL))
+    if module_matches:
+        # Use the last module found (top module)
+        module_match = module_matches[-1]
         net['name'] = module_match.group(1)
         port_list = module_match.group(2)
         # Extract module body (between module declaration and endmodule)

@@ -203,13 +203,11 @@ MyLogic-EDA-Tool/
 │   │   └── simulation_overview.md # Simulation overview
 │   └── report/                 # Project reports
 │       └── report_outline.md   # Report structure
-├── 📁 examples/                # Example designs
-│   ├── full_adder.v           # Basic adder
-│   ├── arithmetic_operations.v # Multi-bit arithmetic
-│   ├── bitwise_operations.v   # Bitwise operations
-│   ├── complex_arithmetic.v   # Complex operations
-│   ├── simple_multiplier.v    # Simple multiplier
-│   └── sequential_counter.v   # Sequential counter
+├── 📁 examples/                # Example designs (4 representative examples)
+│   ├── arithmetic_operations.v # Basic arithmetic operations (+, -, *, /)
+│   ├── full_adder.v           # Full adder with logic gates (XOR, AND, OR)
+│   ├── priority_encoder.v     # Priority encoder with ternary operators
+│   └── comprehensive_combinational.v # Complete syntax reference
 ├── 📁 tests/                   # Test suite
 │   ├── README.md              # Test documentation
 │   ├── test_config.json       # Test configuration

@@ -48,6 +48,7 @@ class VectorShell:
         self.commands = {
             'read': self._read_file,
             'stats': self._show_stats,
+            'vectors': self._show_vector_details,
             'simulate': self._simulate_unified,
             'vsimulate': self._simulate_vector_netlist,
             'history': self._show_history,
@@ -155,8 +156,32 @@ class VectorShell:
             print(f"  Nodes   : {len(nodes)}")
             
             if vector_widths:
-                print(f"  Vector widths: {vector_widths}")
+                print(f"  Vector widths:")
+                # Group by width for better readability
+                width_groups = {}
+                for signal, width in vector_widths.items():
+                    if width not in width_groups:
+                        width_groups[width] = []
+                    width_groups[width].append(signal)
+                
+                # Display grouped by width with limits
+                for width in sorted(width_groups.keys(), reverse=True):
+                    signals = width_groups[width]
+                    if len(signals) <= 5:
+                        # Show all if 5 or fewer
+                        print(f"    {width}-bit: {', '.join(signals)}")
+                    else:
+                        # Show first 3 and count
+                        shown = signals[:3]
+                        remaining = len(signals) - 3
+                        print(f"    {width}-bit: {', '.join(shown)} ... (+{remaining} more)")
+                
+                # Summary
+                total_signals = len(vector_widths)
+                unique_widths = len(width_groups)
+                print(f"  Summary: {total_signals} signals across {unique_widths} bit widths")
                 print(f"  Type    : Vector (n-bit)")
+                print(f"  Use 'vectors' command for detailed view")
             else:
                 print(f"  Type    : Scalar (1-bit)")
         else:
@@ -168,6 +193,35 @@ class VectorShell:
             print(f"  Wires   : {len(getattr(self.netlist, 'wires', []))}")
             print(f"  Nodes   : {len(getattr(self.netlist, 'nodes', []))}")
             print(f"  Type    : Scalar (1-bit)")
+
+    def _show_vector_details(self, parts=None):
+        """Hiển thị chi tiết vector widths."""
+        if not self.netlist:
+            print("[WARNING] No netlist loaded.")
+            return
+        
+        if isinstance(self.netlist, dict):
+            vector_widths = self.netlist.get('attrs', {}).get('vector_widths', {})
+            if not vector_widths:
+                print("No vector information available.")
+                return
+            
+            print("Detailed Vector Widths:")
+            # Group by width
+            width_groups = {}
+            for signal, width in vector_widths.items():
+                if width not in width_groups:
+                    width_groups[width] = []
+                width_groups[width].append(signal)
+            
+            # Display all signals grouped by width
+            for width in sorted(width_groups.keys(), reverse=True):
+                signals = width_groups[width]
+                print(f"\n{width}-bit signals ({len(signals)} total):")
+                for i, signal in enumerate(signals, 1):
+                    print(f"  {i:2d}. {signal}")
+        else:
+            print("Vector details only available for vector netlists.")
 
     def _simulate_unified(self, parts=None):
         """Simulation thống nhất tự động phát hiện vector vs scalar."""

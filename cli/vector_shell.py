@@ -136,23 +136,26 @@ class VectorShell:
 
     def _show_stats(self, parts=None):
         """Hiển thị thống kê mạch."""
-        if not self.netlist:
+        # Use current_netlist if available, otherwise use netlist
+        netlist_to_show = self.current_netlist if self.current_netlist else self.netlist
+        
+        if not netlist_to_show:
             print("[WARNING] No netlist loaded.")
             return
         
-        if isinstance(self.netlist, dict):
+        if isinstance(netlist_to_show, dict):
             # Vector netlist
-            name = self.netlist.get('name', 'unknown')
-            inputs = self.netlist.get('inputs', [])
-            outputs = self.netlist.get('outputs', [])
-            nodes = self.netlist.get('nodes', [])
-            vector_widths = self.netlist.get('attrs', {}).get('vector_widths', {})
+            name = netlist_to_show.get('name', 'unknown')
+            inputs = netlist_to_show.get('inputs', [])
+            outputs = netlist_to_show.get('outputs', [])
+            nodes = netlist_to_show.get('nodes', [])
+            vector_widths = netlist_to_show.get('attrs', {}).get('vector_widths', {})
             
             print("Circuit statistics:")
             print(f"  Name    : {name}")
             print(f"  Inputs  : {len(inputs)}")
             print(f"  Outputs : {len(outputs)}")
-            print(f"  Wires   : {len(self.netlist.get('wires', []))}")
+            print(f"  Wires   : {len(netlist_to_show.get('wires', []))}")
             print(f"  Nodes   : {len(nodes)}")
             
             if vector_widths:

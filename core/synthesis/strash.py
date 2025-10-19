@@ -47,10 +47,10 @@ class StrashOptimizer:
         Returns:
             Optimized netlist with duplicate nodes removed
         """
-        logger.info("Starting Structural Hashing optimization...")
+        print(">>> Starting Structural Hashing optimization...")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
-            logger.warning("Invalid netlist format")
+            print("WARNING: Invalid netlist format")
             return netlist
         
         # Convert nodes list to dict if needed
@@ -66,6 +66,10 @@ class StrashOptimizer:
         # Create hash table for nodes
         self.hash_table = {}
         optimized_nodes = {}
+        removed_details = []  # Store details of removed nodes
+        
+        print(f"Original nodes: {original_nodes}")
+        print("Analyzing nodes...")
         
         # Process each node
         for node_id, node_data in nodes_dict.items():
@@ -77,18 +81,51 @@ class StrashOptimizer:
                     # Node exists, skip it
                     existing_node = self.hash_table[hash_key]
                     self.removed_nodes += 1
-                    logger.debug(f"Removed duplicate node {node_id} -> {existing_node}")
+                    
+                    # Store removal details
+                    node_type = node_data.get('type', 'UNKNOWN')
+                    fanins = node_data.get('fanins', [])
+                    fanin_str = ', '.join([f'{f[0]}' for f in fanins]) if fanins else 'none'
+                    removed_details.append({
+                        'id': node_id,
+                        'type': node_type,
+                        'fanins': fanin_str,
+                        'replaced_by': existing_node
+                    })
+                    
+                    print(f"REMOVED: {node_id} ({node_type}) - inputs: [{fanin_str}] -> replaced by {existing_node}")
                 else:
-                    # New node, add to hash table and optimized_nodes
-                    self.hash_table[hash_key] = node_id
-                    optimized_nodes[node_id] = node_data
+                    # Check for redundant BUF nodes
+                    if node_data.get('type') == 'BUF' and self._is_redundant_buffer(node_data, nodes_dict):
+                        # Remove redundant buffer
+                        self.removed_nodes += 1
+                        
+                        node_type = node_data.get('type', 'UNKNOWN')
+                        fanins = node_data.get('fanins', [])
+                        fanin_str = ', '.join([f'{f[0]}' for f in fanins]) if fanins else 'none'
+                        removed_details.append({
+                            'id': node_id,
+                            'type': node_type,
+                            'fanins': fanin_str,
+                            'replaced_by': fanins[0][0] if fanins else 'direct_connection'
+                        })
+                        
+                        print(f"REMOVED: {node_id} ({node_type}) - inputs: [{fanin_str}] -> replaced by direct connection")
+                    else:
+                        # New node, add to hash table and optimized_nodes
+                        self.hash_table[hash_key] = node_id
+                        optimized_nodes[node_id] = node_data
             else:
                 # Non-gate node (input, output, constant)
                 optimized_nodes[node_id] = node_data
         
         # Update netlist
         optimized_netlist = netlist.copy()
-        optimized_netlist['nodes'] = optimized_nodes
+        # Convert back to list format if original was list
+        if isinstance(nodes_data, list):
+            optimized_netlist['nodes'] = list(optimized_nodes.values())
+        else:
+            optimized_netlist['nodes'] = optimized_nodes
         
         # Update wire connections
         optimized_netlist = self._update_wire_connections(optimized_netlist)
@@ -96,18 +133,58 @@ class StrashOptimizer:
         final_nodes = len(optimized_netlist['nodes'])
         reduction = original_nodes - final_nodes
         
-        logger.info(f"Strash optimization completed:")
-        logger.info(f"  Original nodes: {original_nodes}")
-        logger.info(f"  Optimized nodes: {final_nodes}")
-        logger.info(f"  Removed nodes: {reduction}")
-        logger.info(f"  Reduction: {(reduction/original_nodes)*100:.1f}%")
+        print()
+        print("=== STRASH OPTIMIZATION RESULTS ===")
+        print(f"  Original nodes: {original_nodes}")
+        print(f"  Optimized nodes: {final_nodes}")
+        print(f"  Removed nodes: {reduction}")
+        print(f"  Reduction: {(reduction/original_nodes)*100:.1f}%")
+        
+        if removed_details:
+            print()
+            print("=== REMOVED NODES DETAILS ===")
+            for detail in removed_details:
+                print(f"  - {detail['id']} ({detail['type']}) - inputs: [{detail['fanins']}] -> replaced by {detail['replaced_by']}")
+        
+        print()
+        print("Strash optimization completed!")
         
         return optimized_netlist
     
     def _is_gate_node(self, node_data: Dict[str, Any]) -> bool:
         """Check if node is a gate node."""
-        gate_types = ['AND', 'OR', 'XOR', 'NAND', 'NOR', 'XNOR', 'NOT', 'BUF']
+        gate_types = ['AND', 'OR', 'XOR', 'NAND', 'NOR', 'XNOR', 'NOT', 'BUF', 'ADD', 'SUB', 'MUL', 'DIV']
         return node_data.get('type', '') in gate_types
+    
+    def _is_redundant_buffer(self, node_data: Dict[str, Any], nodes_dict: Dict[str, Any]) -> bool:
+        """
+        Check if a BUF node is redundant (can be removed).
+        
+        A BUF node is redundant if:
+        1. It's a BUF node
+        2. Its input is not used by any other node (except this BUF)
+        3. Or it's just a simple pass-through buffer
+        """
+        if node_data.get('type') != 'BUF':
+            return False
+            
+        fanins = node_data.get('fanins', [])
+        if not fanins:
+            return False
+            
+        input_node = fanins[0][0]
+        
+        # Count how many times this input is used
+        usage_count = 0
+        for other_node_id, other_node_data in nodes_dict.items():
+            other_fanins = other_node_data.get('fanins', [])
+            for fanin in other_fanins:
+                if fanin[0] == input_node:
+                    usage_count += 1
+        
+        # If input is used by more than 1 node, BUF might be needed for fanout
+        # For now, let's be conservative and only remove BUF if input is used by exactly 1 node
+        return usage_count == 1
     
     def _create_hash_key(self, node_data: Dict[str, Any], optimized_nodes: Dict[str, Any]) -> Tuple[str, str, str]:
         """
@@ -121,7 +198,10 @@ class StrashOptimizer:
             Hash key tuple (gate_type, input1, input2)
         """
         gate_type = node_data.get('type', '')
-        inputs = node_data.get('inputs', [])
+        fanins = node_data.get('fanins', [])
+        
+        # Extract input names from fanins
+        inputs = [f[0] for f in fanins] if fanins else []
         
         # Sort inputs to ensure canonical form
         sorted_inputs = sorted(inputs)

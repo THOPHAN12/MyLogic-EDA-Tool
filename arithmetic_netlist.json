@@ -1,0 +1,218 @@
+{
+  "metadata": {
+    "tool": "MyLogic EDA Tool v2.0.0",
+    "export_time": "2025-10-19T23:08:04.532529",
+    "source_file": "examples/arithmetic_operations.v",
+    "version": "2.0.0"
+  },
+  "netlist": {
+    "name": "arithmetic_operations",
+    "inputs": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "outputs": [
+      "sum_out",
+      "diff_out",
+      "prod_out",
+      "quot_out"
+    ],
+    "wires": [
+      {
+        "id": "wire_0",
+        "source": "a",
+        "destination": "add_0",
+        "type": "connection"
+      },
+      {
+        "id": "wire_1",
+        "source": "b",
+        "destination": "add_0",
+        "type": "connection"
+      },
+      {
+        "id": "wire_2",
+        "source": "add_0",
+        "destination": "buf_1",
+        "type": "connection"
+      },
+      {
+        "id": "wire_3",
+        "source": "c",
+        "destination": "sub_2",
+        "type": "connection"
+      },
+      {
+        "id": "wire_4",
+        "source": "d",
+        "destination": "sub_2",
+        "type": "connection"
+      },
+      {
+        "id": "wire_5",
+        "source": "sub_2",
+        "destination": "buf_3",
+        "type": "connection"
+      },
+      {
+        "id": "wire_6",
+        "source": "a",
+        "destination": "mul_4",
+        "type": "connection"
+      },
+      {
+        "id": "wire_7",
+        "source": "b",
+        "destination": "mul_4",
+        "type": "connection"
+      },
+      {
+        "id": "wire_8",
+        "source": "mul_4",
+        "destination": "buf_5",
+        "type": "connection"
+      },
+      {
+        "id": "wire_9",
+        "source": "c",
+        "destination": "div_6",
+        "type": "connection"
+      },
+      {
+        "id": "wire_10",
+        "source": "d",
+        "destination": "div_6",
+        "type": "connection"
+      },
+      {
+        "id": "wire_11",
+        "source": "div_6",
+        "destination": "buf_7",
+        "type": "connection"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "add_0",
+        "type": "ADD",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "buf_1",
+        "type": "BUF",
+        "fanins": [
+          [
+            "add_0",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "sub_2",
+        "type": "SUB",
+        "fanins": [
+          [
+            "c",
+            false
+          ],
+          [
+            "d",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "buf_3",
+        "type": "BUF",
+        "fanins": [
+          [
+            "sub_2",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "mul_4",
+        "type": "MUL",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "buf_5",
+        "type": "BUF",
+        "fanins": [
+          [
+            "mul_4",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "div_6",
+        "type": "DIV",
+        "fanins": [
+          [
+            "c",
+            false
+          ],
+          [
+            "d",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "buf_7",
+        "type": "BUF",
+        "fanins": [
+          [
+            "div_6",
+            false
+          ]
+        ]
+      }
+    ],
+    "attrs": {
+      "source_file": "examples/arithmetic_operations.v",
+      "vector_widths": {
+        "a": 4,
+        "b": 4,
+        "c": 4,
+        "d": 4,
+        "sum_out": 5,
+        "diff_out": 5,
+        "prod_out": 8,
+        "quot_out": 4
+      },
+      "output_mapping": {
+        "sum_out": "buf_1",
+        "diff_out": "buf_3",
+        "prod_out": "buf_5",
+        "quot_out": "buf_7"
+      },
+      "parsing_stats": {
+        "total_wires": 12,
+        "wire_generation": "automatic"
+      }
+    }
+  }
+}

@@ -22,13 +22,27 @@ from typing import Dict, List, Any, Optional
 
 def parse_verilog(path: str) -> Dict:
     """
-    Parse Verilog file với hỗ trợ đầy đủ tất cả tính năng.
+    Enhanced Verilog Parser với hỗ trợ đầy đủ tất cả tính năng.
+    
+    Hỗ trợ:
+    - Module declarations (port list style và module body style)
+    - Vector và scalar inputs/outputs/wires
+    - Logic gates (AND, OR, XOR, NOT, NAND, NOR, BUF)
+    - Arithmetic operations (+, -, *, /)
+    - Bitwise operations (&, |, ^, ~)
+    - Ternary operators (condition ? value1 : value2)
+    - Complex expressions với parentheses
+    - Bit assignments (flags[0], flags[1])
+    - Wire declarations với initial assignments
+    - Gate instantiations
+    - Module instantiations
+    - Improved error handling và validation
     
     Args:
         path: Đường dẫn đến file Verilog
         
     Returns:
-        Dict chứa netlist với cấu trúc:
+        Dict chứa enhanced netlist với cấu trúc:
         {
             "name": str,
             "inputs": List[str],
@@ -38,7 +52,10 @@ def parse_verilog(path: str) -> Dict:
             "attrs": {
                 "source_file": str,
                 "vector_widths": Dict[str, int],
-                "output_mapping": Dict[str, str]
+                "output_mapping": Dict[str, str],
+                "wire_mapping": Dict[str, str],
+                "module_instantiations": Dict[str, Dict],
+                "parsing_stats": Dict[str, Any]
             }
         }
     """
@@ -397,6 +414,53 @@ def parse_verilog(path: str) -> Dict:
         }
         
         node_counter += 1
+    
+    # Generate wire connections between nodes
+    net = _generate_wire_connections(net)
+    
+    return net
+
+def _generate_wire_connections(net: Dict) -> Dict:
+    """
+    Generate wire connections between nodes based on fanins.
+    
+    Args:
+        net: Netlist dictionary
+        
+    Returns:
+        Netlist with wire connections added
+    """
+    wires = []
+    wire_counter = 0
+    
+    # Create wires for each node's fanins
+    for node in net.get('nodes', []):
+        node_id = node.get('id', '')
+        fanins = node.get('fanins', [])
+        
+        for fanin in fanins:
+            if len(fanin) >= 1:
+                source = fanin[0]
+                destination = node_id
+                
+                # Create wire connection
+                wire_id = f"wire_{wire_counter}"
+                wires.append({
+                    "id": wire_id,
+                    "source": source,
+                    "destination": destination,
+                    "type": "connection"
+                })
+                wire_counter += 1
+    
+    # Add wires to netlist
+    net['wires'] = wires
+    
+    # Add parsing statistics
+    if 'parsing_stats' not in net['attrs']:
+        net['attrs']['parsing_stats'] = {}
+    net['attrs']['parsing_stats']['total_wires'] = len(wires)
+    net['attrs']['parsing_stats']['wire_generation'] = 'automatic'
     
     return net
 

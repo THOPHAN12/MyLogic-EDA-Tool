@@ -49,6 +49,11 @@ class VectorShell:
             'read': self._read_file,
             'stats': self._show_stats,
             'vectors': self._show_vector_details,
+            'nodes': self._show_node_details,
+            'wires': self._show_wire_details,
+            'modules': self._show_module_details,
+            'export': self._export_json,
+            'export_json': self._export_json,
             'simulate': self._simulate_unified,
             'vsimulate': self._simulate_vector_netlist,
             'history': self._show_history,
@@ -135,7 +140,7 @@ class VectorShell:
             print(f"[ERROR] Failed to read file: {e}")
 
     def _show_stats(self, parts=None):
-        """Hiển thị thống kê mạch."""
+        """Enhanced circuit statistics with detailed analysis."""
         # Use current_netlist if available, otherwise use netlist
         netlist_to_show = self.current_netlist if self.current_netlist else self.netlist
         
@@ -149,17 +154,19 @@ class VectorShell:
             inputs = netlist_to_show.get('inputs', [])
             outputs = netlist_to_show.get('outputs', [])
             nodes = netlist_to_show.get('nodes', [])
+            wires = netlist_to_show.get('wires', [])
             vector_widths = netlist_to_show.get('attrs', {}).get('vector_widths', {})
             
-            print("Circuit statistics:")
+            print("=== ENHANCED CIRCUIT STATISTICS ===")
             print(f"  Name    : {name}")
             print(f"  Inputs  : {len(inputs)}")
             print(f"  Outputs : {len(outputs)}")
-            print(f"  Wires   : {len(netlist_to_show.get('wires', []))}")
+            print(f"  Wires   : {len(wires)}")
             print(f"  Nodes   : {len(nodes)}")
             
+            # Enhanced vector widths analysis
             if vector_widths:
-                print(f"  Vector widths:")
+                print("\n  Vector Analysis:")
                 # Group by width for better readability
                 width_groups = {}
                 for signal, width in vector_widths.items():
@@ -167,20 +174,58 @@ class VectorShell:
                         width_groups[width] = []
                     width_groups[width].append(signal)
                 
-                # Display grouped by width - show all signals
+                # Display grouped by width - show all signals with detailed info
                 for width in sorted(width_groups.keys(), reverse=True):
                     signals = width_groups[width]
-                    # Show all signals for each width
-                    print(f"    {width}-bit: {', '.join(signals)}")
+                    print(f"    {width}-bit ({len(signals)} signals): {', '.join(signals)}")
                 
-                # Summary
+                # Enhanced summary
                 total_signals = len(vector_widths)
                 unique_widths = len(width_groups)
                 print(f"  Summary: {total_signals} signals across {unique_widths} bit widths")
-                print(f"  Type    : Vector (n-bit)")
-                print(f"  Use 'vectors' command for detailed view")
-            else:
-                print(f"  Type    : Scalar (1-bit)")
+            
+            # Enhanced node analysis
+            if nodes:
+                node_types = {}
+                for node in nodes:
+                    node_type = node.get('type', 'UNKNOWN')
+                    node_types[node_type] = node_types.get(node_type, 0) + 1
+                
+                print("\n  Node Analysis:")
+                for node_type, count in sorted(node_types.items()):
+                    percentage = (count / len(nodes)) * 100
+                    print(f"    {node_type}: {count} ({percentage:.1f}%)")
+            
+            # Wire analysis
+            if wires:
+                print(f"\n  Wire Analysis:")
+                print(f"    Total wires: {len(wires)}")
+                # Analyze wire types if available
+                wire_types = {}
+                for wire in wires:
+                    if isinstance(wire, dict):
+                        wire_type = wire.get('type', 'unknown')
+                        wire_types[wire_type] = wire_types.get(wire_type, 0) + 1
+                    else:
+                        wire_types['simple'] = wire_types.get('simple', 0) + 1
+                
+                for wire_type, count in wire_types.items():
+                    print(f"    {wire_type}: {count}")
+            
+            # Module instantiation analysis
+            module_insts = netlist_to_show.get('attrs', {}).get('module_instantiations', {})
+            if module_insts:
+                print(f"\n  Module Instantiations:")
+                print(f"    Total modules: {len(module_insts)}")
+                for inst_name, inst_info in module_insts.items():
+                    module_type = inst_info.get('module_type', 'unknown')
+                    connections = inst_info.get('connections', [])
+                    print(f"    {inst_name} ({module_type}): {len(connections)} connections")
+            
+            print(f"\n  Type    : Vector (n-bit)")
+            print("  Use 'vectors' command for detailed view")
+            print("  Use 'nodes' command for node details")
+            print("  Use 'wires' command for wire analysis")
         else:
             # Scalar netlist object
             print("Circuit statistics:")
@@ -301,12 +346,39 @@ class VectorShell:
         os.system('cls' if os.name == 'nt' else 'clear')
 
     def _show_help(self, parts=None):
-        """Hiển thị các commands có sẵn."""
-        print("Commands:")
+        """Enhanced help with all available commands."""
+        print("=== ENHANCED MYLOGIC EDA TOOL COMMANDS ===")
+        print()
+        print("File Operations:")
         print("  read <file>           - Load a .logic or .v file")
-        print("  stats                 - Show circuit statistics")
+        print("  stats                 - Enhanced circuit statistics")
+        print("  vectors               - Detailed vector width analysis")
+        print("  nodes                 - Detailed node information")
+        print("  wires                 - Detailed wire analysis")
+        print("  modules               - Module instantiation details")
+        print("  export [file]         - Export netlist to JSON file")
+        print()
+        print("Simulation:")
         print("  simulate              - Run simulation (auto-detect vector/scalar)")
         print("  vsimulate             - Run vector simulation (n-bit, legacy)")
+        print()
+        print("Logic Synthesis (ABC-inspired):")
+        print("  strash                - Structural hashing optimization")
+        print("  dce                   - Dead code elimination")
+        print("  cse                   - Common subexpression elimination")
+        print("  constprop             - Constant propagation")
+        print("  balance               - Logic balancing")
+        print("  synthesis             - Complete synthesis flow")
+        print()
+        print("VLSI CAD Algorithms:")
+        print("  bdd                   - Binary Decision Diagram operations")
+        print("  sat                   - SAT solver operations")
+        print("  verify                - Formal verification")
+        print("  placement             - Cell placement algorithms")
+        print("  routing               - Wire routing algorithms")
+        print("  timing                - Static timing analysis")
+        print()
+        print("Utility:")
         print("  history               - Show command history")
         print("  clear                 - Clear screen")
         print("  help                  - Show this help")
@@ -932,6 +1004,145 @@ class VectorShell:
         print("Simulated Annealing Placement Demo:")
         print("  Implementation sẽ chạy SA algorithm")
         print("  Sử dụng temperature-based optimization")
+    
+    def _show_node_details(self, parts=None):
+        """Show detailed node information."""
+        if not self.current_netlist:
+            print("No netlist loaded. Use 'read <file>' first.")
+            return
+        
+        netlist_to_show = self.current_netlist if self.current_netlist else self.netlist
+        nodes = netlist_to_show.get('nodes', [])
+        
+        if not nodes:
+            print("No nodes available.")
+            return
+        
+        print("Detailed Node Information:")
+        print("=" * 50)
+        
+        for i, node in enumerate(nodes):
+            node_id = node.get('id', f'node_{i}')
+            node_type = node.get('type', 'UNKNOWN')
+            fanins = node.get('fanins', [])
+            fanin_str = ', '.join([f'{f[0]}' for f in fanins]) if fanins else 'none'
+            
+            print(f"\n{i+1:2d}. {node_id} ({node_type})")
+            print(f"     Inputs: [{fanin_str}]")
+            
+            # Show additional node attributes
+            if 'module_type' in node:
+                print(f"     Module: {node['module_type']}")
+            if 'connections' in node:
+                print(f"     Connections: {len(node['connections'])}")
+        
+        print(f"\nTotal: {len(nodes)} nodes")
+    
+    def _show_wire_details(self, parts=None):
+        """Show detailed wire information."""
+        if not self.current_netlist:
+            print("No netlist loaded. Use 'read <file>' first.")
+            return
+        
+        netlist_to_show = self.current_netlist if self.current_netlist else self.netlist
+        wires = netlist_to_show.get('wires', [])
+        
+        if not wires:
+            print("No wires available.")
+            return
+        
+        print("Detailed Wire Information:")
+        print("=" * 50)
+        
+        for i, wire in enumerate(wires):
+            if isinstance(wire, dict):
+                wire_id = wire.get('id', f'wire_{i}')
+                wire_type = wire.get('type', 'unknown')
+                source = wire.get('source', 'unknown')
+                destination = wire.get('destination', 'unknown')
+                
+                print(f"\n{i+1:2d}. {wire_id} ({wire_type})")
+                print(f"     Source: {source}")
+                print(f"     Destination: {destination}")
+            else:
+                print(f"\n{i+1:2d}. {wire}")
+        
+        print(f"\nTotal: {len(wires)} wires")
+    
+    def _show_module_details(self, parts=None):
+        """Show detailed module instantiation information."""
+        if not self.current_netlist:
+            print("No netlist loaded. Use 'read <file>' first.")
+            return
+        
+        netlist_to_show = self.current_netlist if self.current_netlist else self.netlist
+        module_insts = netlist_to_show.get('attrs', {}).get('module_instantiations', {})
+        
+        if not module_insts:
+            print("No module instantiations available.")
+            return
+        
+        print("Detailed Module Instantiation Information:")
+        print("=" * 50)
+        
+        for i, (inst_name, inst_info) in enumerate(module_insts.items(), 1):
+            module_type = inst_info.get('module_type', 'unknown')
+            connections = inst_info.get('connections', [])
+            
+            print(f"\n{i:2d}. {inst_name} ({module_type})")
+            print(f"     Connections: {len(connections)}")
+            for j, conn in enumerate(connections):
+                print(f"       {j+1}. {conn}")
+        
+        print(f"\nTotal: {len(module_insts)} module instantiations")
+    
+    def _export_json(self, parts=None):
+        """Export netlist to JSON file."""
+        if not self.current_netlist:
+            print("No netlist loaded. Use 'read <file>' first.")
+            return
+        
+        # Get filename from command or use default
+        if parts and len(parts) > 1:
+            filename = parts[1]
+            if not filename.endswith('.json'):
+                filename += '.json'
+        else:
+            # Use current filename with .json extension
+            if hasattr(self, 'filename') and self.filename:
+                base_name = self.filename.replace('.v', '').replace('.logic', '')
+                filename = f"{base_name}_netlist.json"
+            else:
+                filename = "netlist.json"
+        
+        try:
+            import json
+            from datetime import datetime
+            
+            # Prepare export data
+            export_data = {
+                "metadata": {
+                    "tool": "MyLogic EDA Tool v2.0.0",
+                    "export_time": datetime.now().isoformat(),
+                    "source_file": getattr(self, 'filename', 'unknown'),
+                    "version": "2.0.0"
+                },
+                "netlist": self.current_netlist
+            }
+            
+            # Write JSON file
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"[OK] Successfully exported netlist to: {filename}")
+            print(f"[INFO] File contains:")
+            print(f"   - {len(self.current_netlist.get('nodes', []))} nodes")
+            print(f"   - {len(self.current_netlist.get('wires', []))} wires")
+            print(f"   - {len(self.current_netlist.get('inputs', []))} inputs")
+            print(f"   - {len(self.current_netlist.get('outputs', []))} outputs")
+            
+        except Exception as e:
+            print(f"[ERROR] Error exporting JSON: {e}")
     
     def _demo_maze_routing(self):
         """Minh họa maze routing."""

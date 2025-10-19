@@ -1,0 +1,102 @@
+{
+  "metadata": {
+    "tool": "MyLogic EDA Tool v2.0.0",
+    "export_time": "2025-10-19T23:07:47.604783",
+    "source_file": "examples/priority_encoder.v",
+    "version": "2.0.0"
+  },
+  "netlist": {
+    "name": "priority_encoder",
+    "inputs": [
+      "in"
+    ],
+    "outputs": [
+      "out",
+      "valid"
+    ],
+    "wires": [
+      {
+        "id": "wire_0",
+        "source": "(in[7]) ? 3'b111 :\n               (in[6]) ? 3'b110 :\n               (in[5]) ? 3'b101 :\n               (in[4]) ? 3'b100 :\n               (in[3]) ? 3'b011 :\n               (in[2]) ? 3'b010 :\n               (in[1]) ? 3'b001 :\n               3'b000",
+        "destination": "mux_0",
+        "type": "connection"
+      },
+      {
+        "id": "wire_1",
+        "source": "mux_0",
+        "destination": "buf_1",
+        "type": "connection"
+      },
+      {
+        "id": "wire_2",
+        "source": "(in != 8'b00000000) ? 1'b1 : 1'b0",
+        "destination": "mux_2",
+        "type": "connection"
+      },
+      {
+        "id": "wire_3",
+        "source": "mux_2",
+        "destination": "buf_3",
+        "type": "connection"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "mux_0",
+        "type": "MUX",
+        "fanins": [
+          [
+            "(in[7]) ? 3'b111 :\n               (in[6]) ? 3'b110 :\n               (in[5]) ? 3'b101 :\n               (in[4]) ? 3'b100 :\n               (in[3]) ? 3'b011 :\n               (in[2]) ? 3'b010 :\n               (in[1]) ? 3'b001 :\n               3'b000",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "buf_1",
+        "type": "BUF",
+        "fanins": [
+          [
+            "mux_0",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "mux_2",
+        "type": "MUX",
+        "fanins": [
+          [
+            "(in != 8'b00000000) ? 1'b1 : 1'b0",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "buf_3",
+        "type": "BUF",
+        "fanins": [
+          [
+            "mux_2",
+            false
+          ]
+        ]
+      }
+    ],
+    "attrs": {
+      "source_file": "examples/priority_encoder.v",
+      "vector_widths": {
+        "in": 8,
+        "out": 3,
+        "valid": 1
+      },
+      "output_mapping": {
+        "out": "buf_1",
+        "valid": "buf_3"
+      },
+      "parsing_stats": {
+        "total_wires": 4,
+        "wire_generation": "automatic"
+      }
+    }
+  }
+}

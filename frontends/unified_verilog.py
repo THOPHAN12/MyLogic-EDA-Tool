@@ -13,8 +13,6 @@ Hỗ trợ đầy đủ tất cả tính năng:
 - Bit assignments (flags[0], flags[1])
 - Wire declarations
 - Gate instantiations
-
-Tương thích với tất cả examples trong thư mục examples/
 """
 
 import re
@@ -257,6 +255,63 @@ def parse_verilog(path: str) -> Dict:
             continue
         
         # Parse different types of expressions
+        # 1) Handle arithmetic and logical shifts first (longer tokens before shorter)
+        if '<<<' in rhs:
+            _parse_ashift_left(net, lhs, rhs, node_counter)
+            node_counter += 2  # ASHL + BUF
+        elif '>>>' in rhs:
+            _parse_ashift_right(net, lhs, rhs, node_counter)
+            node_counter += 2  # ASHR + BUF
+        elif '<<' in rhs:
+            _parse_shift_left(net, lhs, rhs, node_counter)
+            node_counter += 2  # SHL + BUF
+        elif '>>' in rhs:
+            _parse_shift_right(net, lhs, rhs, node_counter)
+            node_counter += 2  # SHR + BUF
+
+        # 2) Modulo
+        elif '%' in rhs:
+            _parse_modulo(net, lhs, rhs, node_counter)
+            node_counter += 2  # MOD + BUF
+
+        # 3) Equality and comparison operators (check two-char tokens before one-char)
+        elif '==' in rhs or '!=' in rhs:
+            _parse_equality_ops(net, lhs, rhs, node_counter)
+            node_counter += 2  # CMP + BUF
+        elif any(op in rhs for op in ['<=', '>=', '<', '>']):
+            _parse_relational_ops(net, lhs, rhs, node_counter)
+            node_counter += 2  # CMP + BUF
+
+        # 4) Logical operators
+        elif '&&' in rhs:
+            _parse_logical_and(net, lhs, rhs, node_counter)
+            node_counter += 2  # LAND + BUF
+        elif '||' in rhs:
+            _parse_logical_or(net, lhs, rhs, node_counter)
+            node_counter += 2  # LOR + BUF
+        elif rhs.strip().startswith('!'):
+            _parse_logical_not(net, lhs, rhs, node_counter)
+            node_counter += 2  # LNOT + BUF
+
+        # 5) Bitwise with negation forms (NAND, NOR, XNOR)
+        elif '~&' in rhs:
+            _parse_nand_operation(net, lhs, rhs, node_counter)
+            node_counter += 2  # NAND + BUF
+        elif ('~^' in rhs) or ('^~' in rhs):
+            _parse_xnor_operation(net, lhs, rhs, node_counter)
+            node_counter += 2  # XNOR + BUF
+        elif '~|' in rhs:
+            _parse_nor_operation(net, lhs, rhs, node_counter)
+            node_counter += 2  # NOR + BUF
+
+        # 6) Concatenation and slicing
+        elif _is_concatenation(rhs):
+            _parse_concatenation(net, lhs, rhs, node_counter)
+            node_counter += 2  # CONCAT + BUF
+        elif _is_slice(rhs):
+            _parse_slice(net, lhs, rhs, node_counter)
+            node_counter += 2  # SLICE + BUF
+
         if _is_ternary_operator(rhs):
             # Handle ternary operator: condition ? value1 : value2
             _parse_ternary_operator(net, lhs, rhs, node_counter)
@@ -417,6 +472,9 @@ def parse_verilog(path: str) -> Dict:
     
     # Generate wire connections between nodes
     net = _generate_wire_connections(net)
+
+    # Summarize operators/gates used
+    net = _add_operator_summary(net)
     
     return net
 
@@ -462,6 +520,54 @@ def _generate_wire_connections(net: Dict) -> Dict:
     net['attrs']['parsing_stats']['total_wires'] = len(wires)
     net['attrs']['parsing_stats']['wire_generation'] = 'automatic'
     
+    return net
+
+def _add_operator_summary(net: Dict) -> Dict:
+    """Build a summary of gate/operator usage and add it to attrs.
+
+    The summary counts node types present in net['nodes'] and provides
+    totals per category and overall totals. This enables the CLI to
+    display: how many AND/OR/XOR, arithmetic ops, shifts, comparisons, etc.
+    """
+    nodes = net.get('nodes', [])
+    type_counts: Dict[str, int] = {}
+    for node in nodes:
+        t = node.get('type', 'UNKNOWN')
+        type_counts[t] = type_counts.get(t, 0) + 1
+
+    # Group into high-level categories (best-effort)
+    category_map = {
+        'logic': {'AND','OR','XOR','NAND','NOR','NOT','BUF','XNOR'},
+        'arith': {'ADD','SUB','MUL','DIV','MOD'},
+        'shift': {'SHL','SHR','ASHL','ASHR'},
+        'compare': {'EQ','NE','LT','LE','GT','GE'},
+        'logical': {'LAND','LOR','LNOT'},
+        'struct': {'MUX','CONCAT','SLICE','MODULE','COMPLEX'},
+    }
+    category_counts: Dict[str, int] = {k: 0 for k in category_map}
+    for t, c in type_counts.items():
+        for cat, members in category_map.items():
+            if t in members:
+                category_counts[cat] += c
+
+    # Attach to attrs
+    attrs = net.setdefault('attrs', {})
+    attrs['operator_summary'] = {
+        'type_counts': type_counts,
+        'category_counts': category_counts,
+        'total_nodes': sum(type_counts.values()),
+    }
+
+    # Also mirror some totals into parsing_stats for convenience
+    stats = attrs.setdefault('parsing_stats', {})
+    stats['total_nodes'] = attrs['operator_summary']['total_nodes']
+    stats['logic_nodes'] = category_counts['logic']
+    stats['arith_nodes'] = category_counts['arith']
+    stats['shift_nodes'] = category_counts['shift']
+    stats['compare_nodes'] = category_counts['compare']
+    stats['logical_nodes'] = category_counts['logical']
+    stats['struct_nodes'] = category_counts['struct']
+
     return net
 
 # Helper functions for expression parsing
@@ -708,4 +814,279 @@ def _parse_simple_assignment(net: Dict, lhs: str, rhs: str, node_counter: int):
     })
     
     # Store output mapping
+    net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_modulo(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse modulo operation (%)."""
+    operands = [op.strip() for op in rhs.split('%')]
+    if len(operands) == 2:
+        mod_id = f"mod_{node_counter}"
+        net['nodes'].append({
+            "id": mod_id,
+            "type": "MOD",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[mod_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_shift_left(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse logical left shift (<<)."""
+    operands = [op.strip() for op in rhs.split('<<')]
+    if len(operands) == 2:
+        shl_id = f"shl_{node_counter}"
+        net['nodes'].append({
+            "id": shl_id,
+            "type": "SHL",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[shl_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_shift_right(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse logical right shift (>>)."""
+    operands = [op.strip() for op in rhs.split('>>')]
+    if len(operands) == 2:
+        shr_id = f"shr_{node_counter}"
+        net['nodes'].append({
+            "id": shr_id,
+            "type": "SHR",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[shr_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_ashift_left(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse arithmetic left shift (<<<)."""
+    operands = [op.strip() for op in rhs.split('<<<')]
+    if len(operands) == 2:
+        ashl_id = f"ashl_{node_counter}"
+        net['nodes'].append({
+            "id": ashl_id,
+            "type": "ASHL",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[ashl_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_ashift_right(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse arithmetic right shift (>>>)."""
+    operands = [op.strip() for op in rhs.split('>>>')]
+    if len(operands) == 2:
+        ashr_id = f"ashr_{node_counter}"
+        net['nodes'].append({
+            "id": ashr_id,
+            "type": "ASHR",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[ashr_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_equality_ops(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse == and !=."""
+    op = '==' if '==' in rhs else '!='
+    operands = [opnd.strip() for opnd in rhs.split(op)]
+    if len(operands) == 2:
+        node_id = f"eq_{node_counter}" if op == '==' else f"ne_{node_counter}"
+        node_type = "EQ" if op == '==' else "NE"
+        net['nodes'].append({
+            "id": node_id,
+            "type": node_type,
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[node_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_relational_ops(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse <, <=, >, >= (pick the first matching operator)."""
+    for op, t in [('<=', 'LE'), ('>=', 'GE'), ('<', 'LT'), ('>', 'GT')]:
+        if op in rhs:
+            operands = [opnd.strip() for opnd in rhs.split(op)]
+            if len(operands) == 2:
+                cmp_id = f"cmp_{t.lower()}_{node_counter}"
+                net['nodes'].append({
+                    "id": cmp_id,
+                    "type": t,
+                    "fanins": [[operands[0], False], [operands[1], False]]
+                })
+                buf_id = f"buf_{node_counter + 1}"
+                net['nodes'].append({
+                    "id": buf_id,
+                    "type": "BUF",
+                    "fanins": [[cmp_id, False]]
+                })
+                net['attrs']['output_mapping'][lhs] = buf_id
+                return
+
+def _parse_logical_and(net: Dict, lhs: str, rhs: str, node_counter: int):
+    operands = [op.strip() for op in rhs.split('&&')]
+    if len(operands) == 2:
+        land_id = f"land_{node_counter}"
+        net['nodes'].append({
+            "id": land_id,
+            "type": "LAND",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[land_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_logical_or(net: Dict, lhs: str, rhs: str, node_counter: int):
+    operands = [op.strip() for op in rhs.split('||')]
+    if len(operands) == 2:
+        lor_id = f"lor_{node_counter}"
+        net['nodes'].append({
+            "id": lor_id,
+            "type": "LOR",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[lor_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_logical_not(net: Dict, lhs: str, rhs: str, node_counter: int):
+    operand = rhs.lstrip('!').strip()
+    lnot_id = f"lnot_{node_counter}"
+    net['nodes'].append({
+        "id": lnot_id,
+        "type": "LNOT",
+        "fanins": [[operand, False]]
+    })
+    buf_id = f"buf_{node_counter + 1}"
+    net['nodes'].append({
+        "id": buf_id,
+        "type": "BUF",
+        "fanins": [[lnot_id, False]]
+    })
+    net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_nand_operation(net: Dict, lhs: str, rhs: str, node_counter: int):
+    operands = [op.strip() for op in rhs.split('~&')]
+    if len(operands) == 2:
+        nand_id = f"nand_{node_counter}"
+        net['nodes'].append({
+            "id": nand_id,
+            "type": "NAND",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[nand_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_nor_operation(net: Dict, lhs: str, rhs: str, node_counter: int):
+    operands = [op.strip() for op in rhs.split('~|')]
+    if len(operands) == 2:
+        nor_id = f"nor_{node_counter}"
+        net['nodes'].append({
+            "id": nor_id,
+            "type": "NOR",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[nor_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_xnor_operation(net: Dict, lhs: str, rhs: str, node_counter: int):
+    # supports either ~^ or ^~ (treat as XNOR)
+    split_op = '~^' if '~^' in rhs else '^~'
+    operands = [op.strip() for op in rhs.split(split_op)]
+    if len(operands) == 2:
+        xnor_id = f"xnor_{node_counter}"
+        net['nodes'].append({
+            "id": xnor_id,
+            "type": "XNOR",
+            "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[xnor_id, False]]
+        })
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _is_concatenation(expr: str) -> bool:
+    expr = expr.strip()
+    return expr.startswith('{') and expr.endswith('}')
+
+def _parse_concatenation(net: Dict, lhs: str, rhs: str, node_counter: int):
+    inner = rhs.strip()[1:-1].strip()
+    # split by commas (no nested braces handling for simplicity)
+    parts = [p.strip() for p in inner.split(',') if p.strip()]
+    concat_id = f"concat_{node_counter}"
+    net['nodes'].append({
+        "id": concat_id,
+        "type": "CONCAT",
+        "fanins": [[p, False] for p in parts]
+    })
+    buf_id = f"buf_{node_counter + 1}"
+    net['nodes'].append({
+        "id": buf_id,
+        "type": "BUF",
+        "fanins": [[concat_id, False]]
+    })
+    net['attrs']['output_mapping'][lhs] = buf_id
+
+def _is_slice(expr: str) -> bool:
+    return bool(re.search(r"\w+\s*\[[^\]]+\]", expr))
+
+def _parse_slice(net: Dict, lhs: str, rhs: str, node_counter: int):
+    # Treat slice as a SLICE node with one fanin being the slice expression string
+    slice_id = f"slice_{node_counter}"
+    net['nodes'].append({
+        "id": slice_id,
+        "type": "SLICE",
+        "fanins": [[rhs.strip(), False]]
+    })
+    buf_id = f"buf_{node_counter + 1}"
+    net['nodes'].append({
+        "id": buf_id,
+        "type": "BUF",
+        "fanins": [[slice_id, False]]
+    })
     net['attrs']['output_mapping'][lhs] = buf_id

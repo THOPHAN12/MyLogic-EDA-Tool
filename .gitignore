@@ -1,27 +1,212 @@
-# Environment variables
-.env
+# MyLogic EDA Tool - Git Ignore Configuration
 
-# Python cache
+# ============================================
+# Python
+# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Log files
-*.log
+# ============================================
+# Virtual Environments
+# ============================================
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.virtualenv/
 
-# IDE files
+# ============================================
+# Environment Variables
+# ============================================
+.env
+.env.local
+.env.production
+.env.development
+
+# ============================================
+# IDE and Editors
+# ============================================
+# VS Code
 .vscode/
+*.code-workspace
+
+# PyCharm
 .idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
 *.swp
 *.swo
+*~
+.vim/
 
-# OS files
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Eclipse
+.project
+.pydevproject
+.settings/
+
+# ============================================
+# Operating System
+# ============================================
+# macOS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+
+# Windows
 Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ============================================
+# Logs
+# ============================================
+*.log
+logs/
+*.log.*
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ============================================
+# Testing
+# ============================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+.hypothesis/
+.tox/
+nosetests.xml
+coverage.xml
+*.coveragerc
+
+# ============================================
+# MyPy
+# ============================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ============================================
+# Project Specific
+# ============================================
+# Output directories
+outputs/
+output/
+temp/
+tmp/
 
 # Temporary files
 *.tmp
 *.temp
+*.bak
+*.old
 
-# Personal workspace files
-*.code-workspace
+# JSON outputs (exclude examples)
+*.json
+!mylogic_config.json
+!test_config.json
+!examples/*.json
+!tests/**/*.json
+!techlibs/*.json
+
+# SVG outputs (exclude examples)
+*.svg
+!examples/*.svg
+
+# Generated files
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Distribution / packaging
+*.tar.gz
+*.zip
+*.whl
+*.egg
+
+# Documentation builds
+docs/_build/
+docs/_static/
+docs/_templates/
+site/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Backup files
+*~
+*.bak
+*.backup
+*.orig
+
+# Git submodules
+.git/modules/
+
+# ============================================
+# Project Output Files
+# ============================================
+# Netlist outputs
+*_netlist.json
+*_yosys.json
+
+# Circuit diagrams
+*_circuit.svg
+*_diagram.svg
+
+# Synthesis outputs
+*.blif
+*.aig
+*.bench
+
+# ============================================
+# Tools Directory (has its own .gitignore)
+# ============================================
+# tools/ directory has its own .gitignore

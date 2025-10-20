@@ -1,0 +1,18 @@
+# MyLogic Tools - Requirements
+# =============================
+# Core dependencies for the tools package
+
+# No external dependencies required for core functionality
+# All tools use Python standard library
+
+# Optional dependencies for enhanced features:
+# - matplotlib>=3.5 (for advanced visualization)
+# - graphviz>=0.20 (for graph rendering)
+
+# Development dependencies:
+# - pytest>=7.0 (for testing)
+# - pytest-cov>=3.0 (for coverage)
+# - black>=22.0 (for code formatting)
+# - flake8>=4.0 (for linting)
+# - mypy>=0.950 (for type checking)
+

@@ -1,0 +1,40 @@
+# MyLogic Tools - Manifest for package distribution
+
+# Include documentation
+include README.md
+include LICENSE
+include CHANGELOG.md
+include CONTRIBUTING.md
+include ORGANIZATION_SUMMARY.md
+include requirements.txt
+
+# Include all README files in subdirectories
+recursive-include converters *.md
+recursive-include analyzers *.md
+recursive-include visualizers *.md
+recursive-include utilities *.md
+
+# Include all Python files
+recursive-include converters *.py
+recursive-include analyzers *.py
+recursive-include visualizers *.py
+recursive-include utilities *.py
+
+# Exclude compiled Python files
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *$py.class
+
+# Exclude temporary files
+global-exclude *.tmp
+global-exclude *.temp
+global-exclude *.log
+global-exclude .DS_Store
+global-exclude Thumbs.db
+
+# Exclude IDE files
+global-exclude .vscode
+global-exclude .idea
+global-exclude *.swp
+global-exclude *.swo
+

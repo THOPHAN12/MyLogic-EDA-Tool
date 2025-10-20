@@ -98,6 +98,9 @@ class VectorShell:
             except (EOFError, KeyboardInterrupt):
                 print("\nExiting.")
                 break
+            except Exception as e:
+                print(f"[ERROR] Input error: {e}")
+                continue
 
             if not cmd:
                 continue
@@ -110,7 +113,10 @@ class VectorShell:
 
             # Kiểm tra xem command có tồn tại trong từ điển commands không
             if op in self.commands:
-                self.commands[op](parts)
+                try:
+                    self.commands[op](parts)
+                except Exception as e:
+                    print(f"[ERROR] Command error: {e}")
             else:
                 print(f"[ERROR] Unknown command: {op}")
                 print("Type 'help' for available commands.")

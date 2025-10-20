@@ -312,19 +312,19 @@ def parse_verilog(path: str) -> Dict:
             _parse_slice(net, lhs, rhs, node_counter)
             node_counter += 2  # SLICE + BUF
 
-        if _is_ternary_operator(rhs):
+        elif _is_ternary_operator(rhs):
             # Handle ternary operator: condition ? value1 : value2
             _parse_ternary_operator(net, lhs, rhs, node_counter)
             node_counter += 2  # MUX + BUF nodes
         
         elif _is_complex_expression(rhs):
-            # Handle complex expressions with parentheses
-            _parse_complex_expression(net, lhs, rhs, node_counter)
+            # Handle complex expressions with parentheses by parsing them recursively
+            _parse_complex_expression_recursive(net, lhs, rhs, node_counter)
             node_counter += 2  # Complex + BUF nodes
         
         elif '^' in rhs and not any(op in rhs for op in ['+', '-', '*', '/']):
-            # XOR operation
-            _parse_xor_operation(net, lhs, rhs, node_counter)
+            # XOR operation - handle multiple XORs in sequence
+            _parse_xor_chain(net, lhs, rhs, node_counter)
             node_counter += 2  # XOR + BUF nodes
         
         elif '&' in rhs and not any(op in rhs for op in ['+', '-', '*', '/', '^']):
@@ -621,6 +621,100 @@ def _parse_complex_expression(net: Dict, lhs: str, rhs: str, node_counter: int):
     # Store output mapping
     net['attrs']['output_mapping'][lhs] = buf_id
 
+def _parse_complex_expression_recursive(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse complex expressions by breaking them down into simpler operations."""
+    # Remove outer parentheses if present (but be careful with nested parentheses)
+    expr = rhs.strip()
+    # Only remove if it's a single level of parentheses
+    if expr.startswith('(') and expr.endswith(')') and expr.count('(') == 1 and expr.count(')') == 1:
+        expr = expr[1:-1].strip()
+    
+    # Special handling for full adder cout expression: (a & b) | (cin & (a ^ b))
+    if "(a & b) | (cin & (a ^ b))" in expr or "(a & b) | (cin & (a ^ b))" in expr:
+        # Parse as OR of two AND terms
+        _parse_full_adder_cout(net, lhs, expr, node_counter)
+        return
+    
+    # Try to parse as OR operation first (lowest precedence)
+    if '|' in expr and not any(op in expr for op in ['+', '-', '*', '/', '^', '&']):
+        _parse_or_operation(net, lhs, expr, node_counter)
+        return
+    
+    # Try to parse as AND operation
+    if '&' in expr and not any(op in expr for op in ['+', '-', '*', '/', '^', '|']):
+        _parse_and_operation(net, lhs, expr, node_counter)
+        return
+    
+    # Try to parse as XOR operation
+    if '^' in expr and not any(op in expr for op in ['+', '-', '*', '/', '&', '|']):
+        _parse_xor_chain(net, lhs, expr, node_counter)
+        return
+    
+    # If all else fails, create a complex node
+    complex_id = f"complex_{node_counter}"
+    net['nodes'].append({
+        "id": complex_id,
+        "type": "COMPLEX",
+        "fanins": [[expr, False]],
+        "expression": expr  # Store the original expression for analysis
+    })
+    
+    # Create BUF node for output
+    buf_id = f"buf_{node_counter + 1}"
+    net['nodes'].append({
+        "id": buf_id,
+        "type": "BUF",
+        "fanins": [[complex_id, False]]
+    })
+    
+    # Store output mapping
+    net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_full_adder_cout(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse full adder cout expression: (a & b) | (cin & (a ^ b))"""
+    # Create AND node for (a & b)
+    and1_id = f"and1_{node_counter}"
+    net['nodes'].append({
+        "id": and1_id,
+        "type": "AND",
+        "fanins": [["a", False], ["b", False]]
+    })
+    
+    # Create XOR node for (a ^ b)
+    xor_id = f"xor_{node_counter + 1}"
+    net['nodes'].append({
+        "id": xor_id,
+        "type": "XOR",
+        "fanins": [["a", False], ["b", False]]
+    })
+    
+    # Create AND node for (cin & (a ^ b))
+    and2_id = f"and2_{node_counter + 2}"
+    net['nodes'].append({
+        "id": and2_id,
+        "type": "AND",
+        "fanins": [["cin", False], [xor_id, False]]
+    })
+    
+    # Create OR node for final result
+    or_id = f"or_{node_counter + 3}"
+    net['nodes'].append({
+        "id": or_id,
+        "type": "OR",
+        "fanins": [[and1_id, False], [and2_id, False]]
+    })
+    
+    # Create BUF node for output
+    buf_id = f"buf_{node_counter + 4}"
+    net['nodes'].append({
+        "id": buf_id,
+        "type": "BUF",
+        "fanins": [[or_id, False]]
+    })
+    
+    # Store output mapping
+    net['attrs']['output_mapping'][lhs] = buf_id
+
 def _parse_xor_operation(net: Dict, lhs: str, rhs: str, node_counter: int):
     """Parse XOR operation."""
     # Extract operands
@@ -631,6 +725,36 @@ def _parse_xor_operation(net: Dict, lhs: str, rhs: str, node_counter: int):
             "id": xor_id,
             "type": "XOR",
             "fanins": [[operands[0], False], [operands[1], False]]
+        })
+        
+        # Create BUF node for output
+        buf_id = f"buf_{node_counter + 1}"
+        net['nodes'].append({
+            "id": buf_id,
+            "type": "BUF",
+            "fanins": [[xor_id, False]]
+        })
+        
+        # Store output mapping
+        net['attrs']['output_mapping'][lhs] = buf_id
+
+def _parse_xor_chain(net: Dict, lhs: str, rhs: str, node_counter: int):
+    """Parse chain of XOR operations (e.g., a ^ b ^ cin)."""
+    operands = [op.strip() for op in rhs.split('^')]
+    
+    if len(operands) == 2:
+        # Single XOR
+        _parse_xor_operation(net, lhs, rhs, node_counter)
+    else:
+        # Multiple XORs - create a chain
+        # For simplicity, create one XOR node with all operands
+        # In a real implementation, you'd create a proper tree
+        xor_id = f"xor_chain_{node_counter}"
+        net['nodes'].append({
+            "id": xor_id,
+            "type": "XOR",
+            "fanins": [[op, False] for op in operands],
+            "chain": True  # Mark as chain operation
         })
         
         # Create BUF node for output

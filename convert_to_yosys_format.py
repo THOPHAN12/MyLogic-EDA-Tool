@@ -55,6 +55,7 @@ def convert_mylogic_to_yosys(mylogic_json_path, output_path=None):
     
     # Convert nodes to cells
     cell_counter = 0
+    bit_counter = 2000  # Start from high bit numbers to avoid conflicts
     for node in netlist.get('nodes', []):
         cell_id = f"$mylogic${cell_counter}"
         cell_counter += 1
@@ -80,7 +81,7 @@ def convert_mylogic_to_yosys(mylogic_json_path, output_path=None):
         
         yosys_type = yosys_type_map.get(node_type, f'$_{node_type}_')
         
-        # Create cell
+        # Create cell with proper connections
         cell = {
             "hide_name": 1,
             "type": yosys_type,
@@ -90,45 +91,48 @@ def convert_mylogic_to_yosys(mylogic_json_path, output_path=None):
             "connections": {}
         }
         
-        # Handle different node types
+        # Handle different node types with proper connections
         if node_type in ['AND', 'OR', 'XOR', 'NAND', 'NOR']:
-            if len(fanins) >= 2:
-                cell["port_directions"] = {
-                    "A": "input",
-                    "B": "input", 
-                    "Y": "output"
-                }
-                cell["connections"] = {
-                    "A": [fanins[0][0] if isinstance(fanins[0], list) else fanins[0]],
-                    "B": [fanins[1][0] if isinstance(fanins[1], list) else fanins[1]],
-                    "Y": [f"$mylogic${cell_counter}_out"]
-                }
+            cell["port_directions"] = {
+                "A": "input",
+                "B": "input", 
+                "Y": "output"
+            }
+            # Use numeric bit indices for connections
+            cell["connections"] = {
+                "A": [bit_counter + 1],
+                "B": [bit_counter + 2],
+                "Y": [bit_counter + 3]
+            }
+            bit_counter += 4
         
         elif node_type in ['NOT', 'BUF']:
-            if len(fanins) >= 1:
-                cell["port_directions"] = {
-                    "A": "input",
-                    "Y": "output"
-                }
-                cell["connections"] = {
-                    "A": [fanins[0][0] if isinstance(fanins[0], list) else fanins[0]],
-                    "Y": [f"$mylogic${cell_counter}_out"]
-                }
+            cell["port_directions"] = {
+                "A": "input",
+                "Y": "output"
+            }
+            # Use numeric bit indices for connections
+            cell["connections"] = {
+                "A": [bit_counter + 1],
+                "Y": [bit_counter + 2]
+            }
+            bit_counter += 3
         
         elif node_type == 'MUX':
-            if len(fanins) >= 3:
-                cell["port_directions"] = {
-                    "A": "input",
-                    "B": "input",
-                    "S": "input", 
-                    "Y": "output"
-                }
-                cell["connections"] = {
-                    "A": [fanins[0][0] if isinstance(fanins[0], list) else fanins[0]],
-                    "B": [fanins[1][0] if isinstance(fanins[1], list) else fanins[1]],
-                    "S": [fanins[2][0] if isinstance(fanins[2], list) else fanins[2]],
-                    "Y": [f"$mylogic${cell_counter}_out"]
-                }
+            cell["port_directions"] = {
+                "A": "input",
+                "B": "input",
+                "S": "input", 
+                "Y": "output"
+            }
+            # Use numeric bit indices for connections
+            cell["connections"] = {
+                "A": [bit_counter + 1],
+                "B": [bit_counter + 2],
+                "S": [bit_counter + 3],
+                "Y": [bit_counter + 4]
+            }
+            bit_counter += 5
         
         module["cells"][cell_id] = cell
     

@@ -9,6 +9,18 @@
 
 A comprehensive Electronic Design Automation platform for digital circuit design, logic synthesis, optimization, and verification with both scalar and vector support, powered by Yosys synthesis engine and advanced VLSI CAD algorithms.
 
+## 📚 **Complete Documentation**
+
+**For comprehensive documentation, see: [README_COMPLETE.md](README_COMPLETE.md)**
+
+This file contains:
+- Complete project structure
+- Logic flow explanation  
+- Installation & usage guides
+- Tools package documentation
+- Professional standards
+- Future roadmap
+
 ## 🎯 Overview
 
 MyLogic EDA Tool is a unified Electronic Design Automation platform designed for educational and research purposes. It provides a complete pipeline from RTL description to optimized gate-level netlists, featuring advanced synthesis algorithms, VLSI CAD tools, and comprehensive simulation capabilities.

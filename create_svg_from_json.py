@@ -78,84 +78,137 @@ def create_svg_manually(json_file, output_svg):
     module_name = list(modules.keys())[0]
     module_data = modules[module_name]
     
-    # Tạo SVG content
+    # Tạo SVG content với connections
     svg_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="800" viewBox="0 0 1000 800">
   <defs>
     <style>
       .module-box {{ fill: #e1f5fe; stroke: #01579b; stroke-width: 2; }}
       .port-box {{ fill: #f3e5f5; stroke: #4a148c; stroke-width: 1; }}
       .cell-box {{ fill: #fff3e0; stroke: #e65100; stroke-width: 1; }}
+      .connection-line {{ stroke: #333; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }}
+      .connection-text {{ font-family: Arial, sans-serif; font-size: 10px; fill: #666; }}
       .text {{ font-family: Arial, sans-serif; font-size: 12px; }}
       .title {{ font-size: 16px; font-weight: bold; }}
       .port-text {{ font-size: 10px; }}
     </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
   </defs>
   
   <!-- Background -->
-  <rect width="800" height="600" fill="#fafafa"/>
+  <rect width="1000" height="800" fill="#fafafa"/>
   
   <!-- Title -->
-  <text x="400" y="30" text-anchor="middle" class="text title" fill="#1976d2">
+  <text x="500" y="30" text-anchor="middle" class="text title" fill="#1976d2">
     Circuit Diagram: {module_name}
   </text>
   
   <!-- Module Box -->
-  <rect x="50" y="60" width="700" height="500" class="module-box" rx="10"/>
-  <text x="400" y="85" text-anchor="middle" class="text title" fill="#01579b">
+  <rect x="50" y="60" width="900" height="700" class="module-box" rx="10"/>
+  <text x="500" y="85" text-anchor="middle" class="text title" fill="#01579b">
     {module_name}
   </text>
 """
     
-    # Thêm ports
+    # Thêm ports với positioning tốt hơn
     ports = module_data.get('ports', {})
-    y_pos = 120
+    port_positions = {}
+    
+    # Input ports ở bên trái
+    input_y = 150
     for port_name, port_info in ports.items():
-        direction = port_info.get('direction', 'unknown')
-        bits = port_info.get('bits', [])
-        color = "#4caf50" if direction == "input" else "#f44336"
-        
-        svg_content += f"""
-  <!-- Port: {port_name} -->
-  <rect x="70" y="{y_pos}" width="100" height="30" class="port-box" fill="{color}"/>
-  <text x="120" y="{y_pos + 20}" text-anchor="middle" class="text port-text" fill="white">
-    {port_name} ({direction})
+        if port_info.get('direction') == 'input':
+            bits = port_info.get('bits', [])
+            svg_content += f"""
+  <!-- Input Port: {port_name} -->
+  <rect x="80" y="{input_y}" width="120" height="40" class="port-box" fill="#4caf50"/>
+  <text x="140" y="{input_y + 15}" text-anchor="middle" class="text port-text" fill="white">
+    {port_name} (input)
   </text>
-  <text x="180" y="{y_pos + 20}" class="text port-text" fill="#666">
-    bits: {bits}
+  <text x="140" y="{input_y + 30}" text-anchor="middle" class="text port-text" fill="white">
+    bits: {len(bits)}
   </text>
 """
-        y_pos += 40
+            port_positions[port_name] = (140, input_y + 20)  # Center position
+            input_y += 60
     
-    # Thêm cells
+    # Output ports ở bên phải
+    output_y = 150
+    for port_name, port_info in ports.items():
+        if port_info.get('direction') == 'output':
+            bits = port_info.get('bits', [])
+            svg_content += f"""
+  <!-- Output Port: {port_name} -->
+  <rect x="800" y="{output_y}" width="120" height="40" class="port-box" fill="#f44336"/>
+  <text x="860" y="{output_y + 15}" text-anchor="middle" class="text port-text" fill="white">
+    {port_name} (output)
+  </text>
+  <text x="860" y="{output_y + 30}" text-anchor="middle" class="text port-text" fill="white">
+    bits: {len(bits)}
+  </text>
+"""
+            port_positions[port_name] = (860, output_y + 20)  # Center position
+            output_y += 60
+    
+    # Thêm cells ở giữa với positioning tốt hơn
     cells = module_data.get('cells', {})
+    cell_positions = {}
     y_pos = 300
+    
     for cell_id, cell_info in cells.items():
         cell_type = cell_info.get('type', 'unknown')
         connections = cell_info.get('connections', {})
         
+        # Position cells ở giữa
+        cell_x = 400
+        cell_y = y_pos
+        
         svg_content += f"""
   <!-- Cell: {cell_id} -->
-  <rect x="200" y="{y_pos}" width="150" height="40" class="cell-box"/>
-  <text x="275" y="{y_pos + 15}" text-anchor="middle" class="text" fill="#e65100">
+  <rect x="{cell_x}" y="{cell_y}" width="150" height="50" class="cell-box"/>
+  <text x="{cell_x + 75}" y="{cell_y + 20}" text-anchor="middle" class="text" fill="#e65100">
     {cell_id}
   </text>
-  <text x="275" y="{y_pos + 30}" text-anchor="middle" class="text" fill="#e65100">
+  <text x="{cell_x + 75}" y="{cell_y + 35}" text-anchor="middle" class="text" fill="#e65100">
     {cell_type}
   </text>
 """
         
-        # Thêm connections info
-        conn_text = ""
-        for port, bits in connections.items():
-            conn_text += f"{port}:{bits} "
+        # Lưu vị trí cell
+        cell_positions[cell_id] = (cell_x + 75, cell_y + 25)  # Center position
         
-        svg_content += f"""
-  <text x="370" y="{y_pos + 20}" class="text port-text" fill="#666">
-    {conn_text.strip()}
+        y_pos += 80
+    
+    # Thêm connections giữa ports và cells
+    svg_content += """
+  <!-- Connections -->
+"""
+    
+    # Kết nối input ports đến cells
+    for port_name, (port_x, port_y) in port_positions.items():
+        if port_name in ['in']:  # Input ports
+            for cell_id, (cell_x, cell_y) in cell_positions.items():
+                # Tạo đường kết nối từ input port đến cell
+                svg_content += f"""
+  <line x1="{port_x}" y1="{port_y}" x2="{cell_x}" y2="{cell_y}" class="connection-line"/>
+  <text x="{(port_x + cell_x) // 2}" y="{(port_y + cell_y) // 2}" class="connection-text">
+    {port_name} → {cell_id}
   </text>
 """
-        y_pos += 60
+    
+    # Kết nối cells đến output ports
+    for cell_id, (cell_x, cell_y) in cell_positions.items():
+        for port_name, (port_x, port_y) in port_positions.items():
+            if port_name in ['out', 'valid']:  # Output ports
+                # Tạo đường kết nối từ cell đến output port
+                svg_content += f"""
+  <line x1="{cell_x}" y1="{cell_y}" x2="{port_x}" y2="{port_y}" class="connection-line"/>
+  <text x="{(cell_x + port_x) // 2}" y="{(cell_y + port_y) // 2}" class="connection-text">
+    {cell_id} → {port_name}
+  </text>
+"""
     
     # Thêm netnames
     netnames = module_data.get('netnames', {})

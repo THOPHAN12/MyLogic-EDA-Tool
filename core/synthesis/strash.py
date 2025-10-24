@@ -318,6 +318,11 @@ def structural_hashing(netlist: Dict[str, Any]) -> Dict[str, Any]:
     optimizer = StrashOptimizer()
     return optimizer.optimize(netlist)
 
+def apply_strash(netlist: Dict[str, Any]) -> Dict[str, Any]:
+    """Alias wrapper to match synthesis_flow usage."""
+    optimizer = StrashOptimizer()
+    return optimizer.optimize(netlist)
+
 # Test function
 def test_strash():
     """Test Structural Hashing với simple circuit."""

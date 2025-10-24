@@ -411,6 +411,11 @@ def dead_code_elimination(netlist: Dict[str, Any], level: str = "basic") -> Dict
     optimizer = DCEOptimizer()
     return optimizer.optimize(netlist, level)
 
+def apply_dce(netlist: Dict[str, Any], level: str = "basic") -> Dict[str, Any]:
+    """Alias wrapper to match synthesis_flow usage."""
+    optimizer = DCEOptimizer()
+    return optimizer.optimize(netlist, level)
+
 def dce_analysis(netlist: Dict[str, Any]) -> Dict[str, Any]:
     """
     Analyze netlist for dead code without removing it.

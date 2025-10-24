@@ -524,12 +524,12 @@ class VectorShell:
             return
         
         try:
-            from core.optimization.balance import LogicBalancer
+            from core.optimization.balance import BalanceOptimizer
             
             print("[INFO] Running Logic Balancing...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
-            optimizer = LogicBalancer()
+            optimizer = BalanceOptimizer()
             optimized_netlist = optimizer.optimize(self.current_netlist)
             self.current_netlist = optimized_netlist
             

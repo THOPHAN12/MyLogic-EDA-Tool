@@ -83,8 +83,9 @@ def vector_divide(a: VectorValue, b: VectorValue) -> VectorValue:
 
 def vector_not(a: VectorValue) -> VectorValue:
     """Bitwise NOT of a vector value."""
-    result_bits = [not b for b in a.bits]
-    return VectorValue(result_bits)
+    # Invert within width using masking
+    mask = (1 << a.width) - 1
+    return VectorValue((~a.to_int()) & mask, a.width)
 
 
 def simulate_arithmetic_netlist(netlist: Dict[str, Any], inputs: Dict[str, Union[int, str, List[bool], VectorValue]]) -> Dict[str, VectorValue]:
@@ -145,9 +146,9 @@ def simulate_arithmetic_netlist(netlist: Dict[str, Any], inputs: Dict[str, Union
                 if a_val is not None and b_val is not None:
                     # Apply inversions
                     if a_inv:
-                        a_val = VectorValue([not b for b in a_val.bits])
+                        a_val = vector_not(a_val)
                     if b_inv:
-                        b_val = VectorValue([not b for b in b_val.bits])
+                        b_val = vector_not(b_val)
                     
                     result = vector_multiply(a_val, b_val)
                     node_values[node_id] = result
@@ -163,9 +164,9 @@ def simulate_arithmetic_netlist(netlist: Dict[str, Any], inputs: Dict[str, Union
                 if a_val is not None and b_val is not None:
                     # Apply inversions
                     if a_inv:
-                        a_val = VectorValue([not b for b in a_val.bits])
+                        a_val = vector_not(a_val)
                     if b_inv:
-                        b_val = VectorValue([not b for b in b_val.bits])
+                        b_val = vector_not(b_val)
                     
                     result = vector_add(a_val, b_val)
                     node_values[node_id] = result
@@ -181,9 +182,9 @@ def simulate_arithmetic_netlist(netlist: Dict[str, Any], inputs: Dict[str, Union
                 if a_val is not None and b_val is not None:
                     # Apply inversions
                     if a_inv:
-                        a_val = VectorValue([not b for b in a_val.bits])
+                        a_val = vector_not(a_val)
                     if b_inv:
-                        b_val = VectorValue([not b for b in b_val.bits])
+                        b_val = vector_not(b_val)
                     
                     result = vector_subtract(a_val, b_val)
                     node_values[node_id] = result
@@ -199,9 +200,9 @@ def simulate_arithmetic_netlist(netlist: Dict[str, Any], inputs: Dict[str, Union
                 if a_val is not None and b_val is not None:
                     # Apply inversions
                     if a_inv:
-                        a_val = VectorValue([not b for b in a_val.bits])
+                        a_val = vector_not(a_val)
                     if b_inv:
-                        b_val = VectorValue([not b for b in b_val.bits])
+                        b_val = vector_not(b_val)
                     
                     try:
                         result = vector_divide(a_val, b_val)
@@ -221,9 +222,9 @@ def simulate_arithmetic_netlist(netlist: Dict[str, Any], inputs: Dict[str, Union
                 if a_val is not None and b_val is not None:
                     # Apply inversions
                     if a_inv:
-                        a_val = VectorValue([not b for b in a_val.bits])
+                        a_val = vector_not(a_val)
                     if b_inv:
-                        b_val = VectorValue([not b for b in b_val.bits])
+                        b_val = vector_not(b_val)
                     
                     result = vector_and(a_val, b_val)
                     node_values[node_id] = result
@@ -283,7 +284,7 @@ def simulate_arithmetic_netlist(netlist: Dict[str, Any], inputs: Dict[str, Union
                 
                 if input_val is not None:
                     if inv:
-                        result = VectorValue([not b for b in input_val.bits])
+                        result = vector_not(input_val)
                     else:
                         result = input_val
                     node_values[node_id] = result

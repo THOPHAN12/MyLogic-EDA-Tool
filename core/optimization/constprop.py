@@ -16,6 +16,25 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = logging.getLogger(__name__)
 
+def _nodes_to_dict(nodes_any: Any) -> Tuple[Dict[str, Any], str]:
+    if isinstance(nodes_any, dict):
+        return nodes_any, 'dict'
+    if isinstance(nodes_any, list):
+        nodes_dict: Dict[str, Any] = {}
+        for i, n in enumerate(nodes_any):
+            if isinstance(n, dict):
+                key = str(n.get('id', i))
+                if 'id' not in n:
+                    n = {**n, 'id': key}
+                nodes_dict[key] = n
+        return nodes_dict, 'list'
+    return {}, 'unknown'
+
+def _nodes_from_dict(nodes_dict: Dict[str, Any], fmt: str) -> Any:
+    if fmt == 'list':
+        return list(nodes_dict.values())
+    return nodes_dict
+
 class ConstPropOptimizer:
     """
     Constant Propagation optimizer.
@@ -46,13 +65,16 @@ class ConstPropOptimizer:
             logger.warning("Invalid netlist format")
             return netlist
             
-        original_nodes = len(netlist['nodes'])
+        nodes_dict, original_fmt = _nodes_to_dict(netlist.get('nodes', {}))
+        netlist_local = netlist.copy()
+        netlist_local['nodes'] = nodes_dict
+        original_nodes = len(nodes_dict)
         
         # Khởi tạo constant values từ inputs và constants
-        self._initialize_constants(netlist)
+        self._initialize_constants(netlist_local)
         
         # Propagate constants qua mạch
-        optimized_netlist = self._propagate_constants(netlist)
+        optimized_netlist = self._propagate_constants(netlist_local)
         
         # Simplify logic với known constants
         optimized_netlist = self._simplify_logic(optimized_netlist)
@@ -67,7 +89,9 @@ class ConstPropOptimizer:
         logger.info(f"  Propagated constants: {self.propagated_constants}")
         logger.info(f"  Simplified gates: {self.simplified_gates}")
         
-        return optimized_netlist
+        optimized_out = optimized_netlist.copy()
+        optimized_out['nodes'] = _nodes_from_dict(optimized_netlist['nodes'], original_fmt)
+        return optimized_out
     
     def _initialize_constants(self, netlist: Dict[str, Any]):
         """
@@ -107,21 +131,17 @@ class ConstPropOptimizer:
         max_passes = 10
         for pass_num in range(max_passes):
             constants_found = False
-            
             for node_id, node_data in optimized_netlist['nodes'].items():
                 if self._is_gate_node(node_data):
                     # Kiểm tra xem tất cả inputs có phải constants không
                     inputs = node_data.get('inputs', [])
-                    
                     if all(inp in self.constant_values for inp in inputs):
                         # Tất cả inputs là constants, tính output
                         output_value = self._evaluate_gate(node_data, inputs)
                         self.constant_values[node_id] = output_value
                         self.propagated_constants += 1
                         constants_found = True
-                        
                         logger.debug(f"Propagated constant {output_value} cho node {node_id}")
-            
             if not constants_found:
                 break
         
@@ -145,7 +165,7 @@ class ConstPropOptimizer:
             Boolean output value
         """
         gate_type = node_data.get('type', '')
-        input_values = [self.constant_values[inp] for inp in inputs]
+        input_values = [self.constant_values.get(inp, False) for inp in inputs]
         
         if gate_type == 'AND':
             return all(input_values)

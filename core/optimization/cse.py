@@ -16,6 +16,25 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = logging.getLogger(__name__)
 
+def _nodes_to_dict(nodes_any: Any) -> Tuple[Dict[str, Any], str]:
+    if isinstance(nodes_any, dict):
+        return nodes_any, 'dict'
+    if isinstance(nodes_any, list):
+        nodes_dict: Dict[str, Any] = {}
+        for i, n in enumerate(nodes_any):
+            if isinstance(n, dict):
+                key = str(n.get('id', i))
+                if 'id' not in n:
+                    n = {**n, 'id': key}
+                nodes_dict[key] = n
+        return nodes_dict, 'list'
+    return {}, 'unknown'
+
+def _nodes_from_dict(nodes_dict: Dict[str, Any], fmt: str) -> Any:
+    if fmt == 'list':
+        return list(nodes_dict.values())
+    return nodes_dict
+
 class CSEOptimizer:
     """
     Common Subexpression Elimination optimizer.
@@ -46,17 +65,21 @@ class CSEOptimizer:
             logger.warning("Invalid netlist format")
             return netlist
             
-        original_nodes = len(netlist['nodes'])
+        # Normalize nodes
+        nodes_dict, original_fmt = _nodes_to_dict(netlist.get('nodes', {}))
+        netlist_local = netlist.copy()
+        netlist_local['nodes'] = nodes_dict
+        original_nodes = len(nodes_dict)
         
         # Tìm common subexpressions
-        subexpressions = self._find_common_subexpressions(netlist)
+        subexpressions = self._find_common_subexpressions(netlist_local)
         
         if not subexpressions:
             logger.info("Không tìm thấy common subexpressions")
             return netlist
         
         # Tạo shared nodes
-        optimized_netlist = self._create_shared_nodes(netlist, subexpressions)
+        optimized_netlist = self._create_shared_nodes(netlist_local, subexpressions)
         
         # Cập nhật connections
         optimized_netlist = self._update_connections(optimized_netlist)
@@ -71,7 +94,10 @@ class CSEOptimizer:
         logger.info(f"  Created shared nodes: {self.created_shared_nodes}")
         logger.info(f"  Reduction: {(reduction/original_nodes)*100:.1f}%")
         
-        return optimized_netlist
+        # Restore original format
+        optimized_netlist_out = optimized_netlist.copy()
+        optimized_netlist_out['nodes'] = _nodes_from_dict(optimized_netlist['nodes'], original_fmt)
+        return optimized_netlist_out
     
     def _find_common_subexpressions(self, netlist: Dict[str, Any]) -> Dict[str, List[str]]:
         """
@@ -123,7 +149,11 @@ class CSEOptimizer:
             Expression signature string
         """
         gate_type = node_data.get('type', '')
-        inputs = node_data.get('inputs', [])
+        inputs = node_data.get('inputs')
+        if inputs is None:
+            # Fallback to fanins (take source names only)
+            fanins = node_data.get('fanins', [])
+            inputs = [fi[0] if isinstance(fi, (list, tuple)) and fi else fi for fi in fanins]
         
         # Sort inputs để đảm bảo canonical form
         sorted_inputs = sorted(inputs)
@@ -186,7 +216,7 @@ class CSEOptimizer:
             Netlist với updated connections
         """
         # Cập nhật wire connections
-        if 'wires' in netlist:
+        if 'wires' in netlist and isinstance(netlist['wires'], dict):
             updated_wires = {}
             for wire_id, wire_data in netlist['wires'].items():
                 updated_wire = wire_data.copy()

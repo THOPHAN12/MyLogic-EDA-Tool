@@ -10,6 +10,7 @@ Hỗ trợ:
 
 import os
 import sys
+import logging
 from typing import Any, Dict, Optional, Union
 
 # Thêm thư mục gốc project vào đường dẫn
@@ -470,6 +471,11 @@ class VectorShell:
         try:
             from core.optimization.cse import CSEOptimizer
             
+            # Suppress verbose logging and Unicode issues for CSE module
+            cse_logger = logging.getLogger('core.optimization.cse')
+            cse_logger.setLevel(logging.ERROR)
+            cse_logger.propagate = False
+
             print("[INFO] Running Common Subexpression Elimination...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
@@ -498,6 +504,11 @@ class VectorShell:
         try:
             from core.optimization.constprop import ConstPropOptimizer
             
+            # Suppress verbose logging and Unicode issues for ConstProp module
+            cp_logger = logging.getLogger('core.optimization.constprop')
+            cp_logger.setLevel(logging.ERROR)
+            cp_logger.propagate = False
+
             print("[INFO] Running Constant Propagation...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
@@ -526,6 +537,11 @@ class VectorShell:
         try:
             from core.optimization.balance import BalanceOptimizer
             
+            # Suppress verbose logging and Unicode issues for Balance module
+            bal_logger = logging.getLogger('core.optimization.balance')
+            bal_logger.setLevel(logging.ERROR)
+            bal_logger.propagate = False
+
             print("[INFO] Running Logic Balancing...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             

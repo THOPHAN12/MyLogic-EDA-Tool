@@ -16,6 +16,28 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def _nodes_to_dict(nodes_any: Any) -> Tuple[Dict[str, Any], str]:
+    """Normalize nodes to dict keyed by node id; return (dict, original_format)."""
+    if isinstance(nodes_any, dict):
+        return nodes_any, 'dict'
+    if isinstance(nodes_any, list):
+        nodes_dict: Dict[str, Any] = {}
+        for i, n in enumerate(nodes_any):
+            if isinstance(n, dict):
+                key = str(n.get('id', i))
+                # ensure node has id
+                if 'id' not in n:
+                    n = {**n, 'id': key}
+                nodes_dict[key] = n
+        return nodes_dict, 'list'
+    return {}, 'unknown'
+
+def _nodes_from_dict(nodes_dict: Dict[str, Any], fmt: str) -> Any:
+    """Convert nodes dict back to original format."""
+    if fmt == 'list':
+        return list(nodes_dict.values())
+    return nodes_dict
+
 class DCEOptimizer:
     """
     Dead Code Elimination optimizer với hỗ trợ Don't Cares.
@@ -51,6 +73,9 @@ class DCEOptimizer:
         
         # Create a copy to avoid modifying original
         optimized_netlist = netlist.copy()
+        # Normalize nodes to dict
+        nodes_dict, original_fmt = _nodes_to_dict(optimized_netlist.get('nodes', {}))
+        optimized_netlist['nodes'] = nodes_dict
         
         # Extract Don't Care conditions
         if level in ["advanced", "aggressive"]:
@@ -75,6 +100,8 @@ class DCEOptimizer:
         
         logger.info(f"DCE completed: removed {self.removed_nodes} nodes, {self.removed_wires} wires")
         
+        # Convert nodes back to original format
+        optimized_netlist['nodes'] = _nodes_from_dict(optimized_netlist.get('nodes', {}), original_fmt)
         return optimized_netlist
     
     def _find_reachable_nodes(self, netlist: Dict[str, Any]) -> Set[str]:
@@ -107,12 +134,19 @@ class DCEOptimizer:
         # BFS to find all reachable nodes
         while queue:
             current_node = queue.pop(0)
-            # Find node by ID in list
+            # Find node by ID
             node = None
-            for n in netlist.get('nodes', []):
-                if isinstance(n, dict) and n.get('id') == current_node:
-                    node = n
-                    break
+            nodes_any = netlist.get('nodes', {})
+            if isinstance(nodes_any, dict):
+                for n in nodes_any.values():
+                    if isinstance(n, dict) and n.get('id') == current_node:
+                        node = n
+                        break
+            else:
+                for n in nodes_any:
+                    if isinstance(n, dict) and n.get('id') == current_node:
+                        node = n
+                        break
             
             # Check if node is a dictionary
             if not isinstance(node, dict):
@@ -145,7 +179,7 @@ class DCEOptimizer:
         Returns:
             Netlist with dead nodes removed
         """
-        nodes = netlist.get('nodes', [])
+        nodes = list(netlist.get('nodes', {}).values()) if isinstance(netlist.get('nodes'), dict) else netlist.get('nodes', [])
         dead_nodes = []
         
         # Find dead nodes
@@ -163,8 +197,9 @@ class DCEOptimizer:
             logger.debug(f"Removed dead node: {nodes[i].get('id', 'unknown')}")
             del nodes[i]
         
-        # Update netlist
-        netlist['nodes'] = nodes
+        # Update netlist (nodes stored as dict internally)
+        nodes_dict, _ = _nodes_to_dict(nodes)
+        netlist['nodes'] = nodes_dict
         
         return netlist
     
@@ -351,8 +386,8 @@ class DCEOptimizer:
         redundant_pairs = []
         
         # Find functionally equivalent nodes
-        for node1_name, node1 in nodes.items():
-            for node2_name, node2 in nodes.items():
+        for node1_name, node1 in list(nodes.items()):
+            for node2_name, node2 in list(nodes.items()):
                 if node1_name >= node2_name:  # Avoid duplicate checks
                     continue
                 

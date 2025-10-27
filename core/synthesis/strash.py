@@ -66,6 +66,8 @@ class StrashOptimizer:
         # Create hash table for nodes
         self.hash_table = {}
         optimized_nodes = {}
+        # Track replacements to update output_mapping later
+        replacement_map: Dict[str, str] = {}
         removed_details = []  # Store details of removed nodes
         
         print(f"Original nodes: {original_nodes}")
@@ -109,6 +111,9 @@ class StrashOptimizer:
                             'fanins': fanin_str,
                             'replaced_by': fanins[0][0] if fanins else 'direct_connection'
                         })
+                        # Record replacement for mapping update
+                        if fanins:
+                            replacement_map[str(node_id)] = str(fanins[0][0])
                         
                         print(f"REMOVED: {node_id} ({node_type}) - inputs: [{fanin_str}] -> replaced by direct connection")
                     else:
@@ -129,6 +134,17 @@ class StrashOptimizer:
         
         # Update wire connections
         optimized_netlist = self._update_wire_connections(optimized_netlist)
+
+        # Update output_mapping to point to replacements (if any)
+        try:
+            attrs = optimized_netlist.setdefault('attrs', {})
+            out_map = attrs.setdefault('output_mapping', {})
+            for out_name, node_ref in list(out_map.items()):
+                node_ref_str = str(node_ref)
+                if node_ref_str in replacement_map:
+                    out_map[out_name] = replacement_map[node_ref_str]
+        except Exception:
+            pass
         
         final_nodes = len(optimized_netlist['nodes'])
         reduction = original_nodes - final_nodes

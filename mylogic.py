@@ -53,7 +53,23 @@ def setup_logging(debug: bool = False, log_file: Optional[str] = None) -> None:
     level = logging.DEBUG if debug else logging.INFO
     format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     
-    handlers = [logging.StreamHandler(sys.stdout)]
+    # Ensure console uses UTF-8 to avoid UnicodeEncodeError on Windows
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')
+        if hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+    # Stream handler with UTF-8 encoding for Windows consoles
+    stream_handler = logging.StreamHandler(sys.stdout)
+    try:
+        stream_handler.setStream(open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1))
+    except Exception:
+        # Fallback quietly if not supported
+        pass
+    handlers = [stream_handler]
     
     if log_file:
         handlers.append(logging.FileHandler(log_file))

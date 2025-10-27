@@ -519,6 +519,17 @@ def _generate_wire_connections(net: Dict) -> Dict:
         net['attrs']['parsing_stats'] = {}
     net['attrs']['parsing_stats']['total_wires'] = len(wires)
     net['attrs']['parsing_stats']['wire_generation'] = 'automatic'
+
+    # Ensure output_mapping exists: map each declared output to its driving node if present
+    out_map = net['attrs'].setdefault('output_mapping', {})
+    for node in net.get('nodes', []):
+        node_id = node.get('id')
+        if not node_id:
+            continue
+        # If any output name equals this node id, bind it
+        for out_name in net.get('outputs', []):
+            if out_name not in out_map and out_name == node_id:
+                out_map[out_name] = node_id
     
     return net
 

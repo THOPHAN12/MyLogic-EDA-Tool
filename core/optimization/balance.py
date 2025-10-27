@@ -17,6 +17,25 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = logging.getLogger(__name__)
 
+def _nodes_to_dict(nodes_any: Any) -> Tuple[Dict[str, Any], str]:
+    if isinstance(nodes_any, dict):
+        return nodes_any, 'dict'
+    if isinstance(nodes_any, list):
+        nodes_dict: Dict[str, Any] = {}
+        for i, n in enumerate(nodes_any):
+            if isinstance(n, dict):
+                key = str(n.get('id', i))
+                if 'id' not in n:
+                    n = {**n, 'id': key}
+                nodes_dict[key] = n
+        return nodes_dict, 'list'
+    return {}, 'unknown'
+
+def _nodes_from_dict(nodes_dict: Dict[str, Any], fmt: str) -> Any:
+    if fmt == 'list':
+        return list(nodes_dict.values())
+    return nodes_dict
+
 class BalanceOptimizer:
     """
     Logic Balancing optimizer.
@@ -47,13 +66,16 @@ class BalanceOptimizer:
             logger.warning("Invalid netlist format")
             return netlist
             
-        original_nodes = len(netlist['nodes'])
+        nodes_dict, original_fmt = _nodes_to_dict(netlist.get('nodes', {}))
+        netlist_local = netlist.copy()
+        netlist_local['nodes'] = nodes_dict
+        original_nodes = len(nodes_dict)
         
         # Tính logic levels cho tất cả nodes
-        self._calculate_logic_levels(netlist)
+        self._calculate_logic_levels(netlist_local)
         
         # Cân bằng logic depth
-        balanced_netlist = self._balance_logic_depth(netlist)
+        balanced_netlist = self._balance_logic_depth(netlist_local)
         
         final_nodes = len(balanced_netlist['nodes'])
         
@@ -63,7 +85,9 @@ class BalanceOptimizer:
         logger.info(f"  Max logic level: {self.max_level}")
         logger.info(f"  Balanced nodes: {self.balanced_nodes}")
         
-        return balanced_netlist
+        balanced_out = balanced_netlist.copy()
+        balanced_out['nodes'] = _nodes_from_dict(balanced_netlist['nodes'], original_fmt)
+        return balanced_out
     
     def _calculate_logic_levels(self, netlist: Dict[str, Any]):
         """

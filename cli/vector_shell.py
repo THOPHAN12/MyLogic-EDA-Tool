@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Union
 # Thêm thư mục gốc project vào đường dẫn
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from frontends.unified_verilog import parse_verilog
+from frontends.pyverilog import parse_verilog
 from core.simulation.arithmetic_simulation import simulate_arithmetic_netlist
 from core.simulation.arithmetic_simulation import VectorValue
 

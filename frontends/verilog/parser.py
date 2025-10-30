@@ -30,6 +30,7 @@ from .tokenizer import (
 from .node_builder import NodeBuilder, WireGenerator
 from .constants import *
 from .operations import *
+from .expression_parser import parse_complex_expression
 
 
 def parse_verilog(path: str) -> Dict[str, Any]:
@@ -364,42 +365,57 @@ def _dispatch_assign_parser(lhs: str, rhs: str, node_builder: NodeBuilder):
         parse_slice(node_builder, lhs, rhs)
         return
     
-    # 2. Shift operations (check trước comparison vì >> có thể nhầm với >)
+    # 2. Complex expressions với parentheses
+    # Check trước các simple operators
+    if '(' in rhs and ')' in rhs:
+        # Có parentheses - có thể là complex expression
+        # Check xem có nhiều operators không
+        has_multiple_ops = sum([
+            rhs.count('&'), rhs.count('|'), rhs.count('^'),
+            rhs.count('+'), rhs.count('-')
+        ]) > 1
+        
+        if has_multiple_ops:
+            # Complex expression, dùng expression parser
+            parse_complex_expression(node_builder, lhs, rhs)
+            return
+    
+    # 3. Shift operations (check trước comparison vì >> có thể nhầm với >)
     shift_op = detect_shift_operator(rhs)
     if shift_op:
         from .operations.shift import parse_shift_operation
         parse_shift_operation(node_builder, shift_op, lhs, rhs)
         return
     
-    # 3. Comparison operations
+    # 4. Comparison operations
     comp_op = detect_comparison_operator(rhs)
     if comp_op:
         from .operations.comparison import parse_comparison_operation
         parse_comparison_operation(node_builder, comp_op, lhs, rhs)
         return
     
-    # 4. Logical operations  
+    # 5. Logical operations  
     logical_op = detect_logical_operator(rhs)
     if logical_op:
         from .operations.logical import parse_logical_operation
         parse_logical_operation(node_builder, logical_op, lhs, rhs)
         return
     
-    # 5. Bitwise operations
+    # 6. Bitwise operations
     bitwise_op = detect_bitwise_operator(rhs)
     if bitwise_op:
         from .operations.bitwise import parse_bitwise_operation
         parse_bitwise_operation(node_builder, bitwise_op, lhs, rhs)
         return
     
-    # 6. Arithmetic operations
+    # 7. Arithmetic operations
     arith_op = detect_arithmetic_operator(rhs)
     if arith_op:
         from .operations.arithmetic import parse_arithmetic_operation
         parse_arithmetic_operation(node_builder, arith_op, lhs, rhs)
         return
     
-    # 7. Simple assignment (fallback)
+    # 8. Simple assignment (fallback)
     node_builder.create_simple_assignment(lhs, rhs)
 
 

@@ -36,7 +36,7 @@ from typing import Optional, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cli.vector_shell import VectorShell
-from frontends.pyverilog import parse_verilog
+from parsers import parse_verilog
 
 # Import constants
 from constants import (

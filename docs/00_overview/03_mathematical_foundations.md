@@ -7,6 +7,7 @@
 
 ## THÔNG TIN TÀI LIỆU
 
+**Đề tài**: Phát triển công cụ tổng hợp, tối ưu luận lý, và ánh xạ công nghệ  
 **Chủ đề**: Nền tảng toán học cho Electronic Design Automation  
 **Tác giả**: MyLogic Development Team  
 **Năm**: 2025  

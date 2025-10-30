@@ -7,7 +7,8 @@
 
 ## THÔNG TIN ĐỒ ÁN
 
-**Tên đề tài**: Phát triển thuật toán tổng hợp logic cho công cụ EDA  
+**Tên đề tài**: Phát triển công cụ tổng hợp, tối ưu luận lý, và ánh xạ công nghệ  
+**Module**: Synthesis (Tổng hợp logic)  
 **Sinh viên thực hiện**: MyLogic Development Team  
 **Năm thực hiện**: 2025  
 **Phiên bản**: 2.0

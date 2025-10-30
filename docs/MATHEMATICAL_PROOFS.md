@@ -7,6 +7,7 @@
 
 ## THÔNG TIN TÀI LIỆU
 
+**Đề tài**: Phát triển công cụ tổng hợp, tối ưu luận lý, và ánh xạ công nghệ  
 **Chủ đề**: Chứng minh toán học cho các thuật toán EDA  
 **Tác giả**: MyLogic Development Team  
 **Năm**: 2025  

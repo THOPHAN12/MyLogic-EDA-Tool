@@ -172,8 +172,8 @@
 
 ## V. KHÓA LUẬN VÀ ĐỒ ÁN / THESES AND PROJECTS
 
-[28] MyLogic EDA Tool Development Team, "MyLogic: A Comprehensive Open-Source EDA Tool for Logic Synthesis and Optimization," Đồ Án 2, 2025.
-   - **Trích dẫn**: Đồ án này
+[28] MyLogic EDA Tool Development Team, "Phát triển công cụ tổng hợp, tối ưu luận lý, và ánh xạ công nghệ," Đồ Án 2, 2025.
+   - **Trích dẫn**: Đồ án này - MyLogic EDA Tool
 
 ---
 

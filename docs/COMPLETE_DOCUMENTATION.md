@@ -7,7 +7,7 @@
 
 ## THÔNG TIN ĐỒ ÁN
 
-**Tên đề tài**: MyLogic EDA Tool - Công cụ tự động hóa thiết kế mạch điện tử  
+**Tên đề tài**: Phát triển công cụ tổng hợp, tối ưu luận lý, và ánh xạ công nghệ  
 **Sinh viên thực hiện**: MyLogic Development Team  
 **Năm thực hiện**: 2025  
 **Phiên bản**: 2.0.0  

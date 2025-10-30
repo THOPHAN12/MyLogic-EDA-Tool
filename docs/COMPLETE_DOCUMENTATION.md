@@ -1,6 +1,6 @@
 # MyLogic EDA Tool v2.0.0 - Complete Documentation
 
-**ĐỒ ÁN TỐT NGHIỆP**  
+**ĐỒ ÁN 2**  
 **BÁO CÁO HOÀN CHỈNH**
 
 ---
@@ -554,4 +554,4 @@ Dự án đáp ứng cả nhu cầu academic research và industrial application
 **Date**: October 30, 2025  
 **Version**: 2.0.0  
 **License**: MIT  
-**Document Type**: Báo cáo đồ án tốt nghiệp - Complete Documentation
+**Document Type**: Báo cáo Đồ Án 2 - Complete Documentation

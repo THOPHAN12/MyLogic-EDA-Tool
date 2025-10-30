@@ -1,6 +1,6 @@
 # LÝ THUYẾT TỔNG HỢP LOGIC - PHÂN TÍCH CHI TIẾT
 
-**Đồ Án Tốt Nghiệp - Phần Lý Thuyết Chuyên Sâu**  
+**Đồ Án 2 - Phần Lý Thuyết Chuyên Sâu**  
 **MyLogic EDA Tool**
 
 ---

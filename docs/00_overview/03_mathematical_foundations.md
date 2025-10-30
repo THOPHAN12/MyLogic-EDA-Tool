@@ -1,6 +1,6 @@
 # NỀN TẢNG TOÁN HỌC CHO EDA TOOLS
 
-**Đồ Án Tốt Nghiệp**  
+**Đồ Án 2**  
 **MyLogic EDA Tool - Công Cụ Tự Động Hóa Thiết Kế Mạch Điện Tử**
 
 ---
@@ -478,4 +478,4 @@ Hiểu rõ các foundations này là essential cho việc phát triển và sử
 **Phiên bản**: 2.0  
 **Ngày**: 2025-10-30  
 **Tác giả**: MyLogic Development Team  
-**Loại tài liệu**: Báo cáo đồ án - Mathematical Foundations
+**Loại tài liệu**: Báo cáo Đồ Án 2 - Mathematical Foundations

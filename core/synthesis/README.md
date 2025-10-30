@@ -1,6 +1,6 @@
 # 🔧 SYNTHESIS MODULE - THUẬT TOÁN TỔNG HỢP LOGIC
 
-**Đồ Án Tốt Nghiệp**  
+**Đồ Án 2**  
 **MyLogic EDA Tool - Công Cụ Tự Động Hóa Thiết Kế Mạch Điện Tử**
 
 ---
@@ -260,4 +260,4 @@ Kết quả thực nghiệm cho thấy synthesis flow có thể giảm area 25-4
 **Ngày cập nhật**: 2025-10-30  
 **Tác giả**: MyLogic EDA Tool Team  
 **Phiên bản**: 2.0  
-**Loại tài liệu**: Báo cáo đồ án tốt nghiệp - Synthesis Module
+**Loại tài liệu**: Báo cáo Đồ Án 2 - Synthesis Module

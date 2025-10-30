@@ -1,6 +1,6 @@
 # MATHEMATICAL PROOFS - CHỨNG MINH TOÁN HỌC CHI TIẾT
 
-**Đồ Án Tốt Nghiệp - Phần Chứng Minh Toán Học**  
+**Đồ Án 2 - Phần Chứng Minh Toán Học**  
 **MyLogic EDA Tool**
 
 ---

@@ -1,14 +1,16 @@
-"""Academic alias for parsers.
+"""
+Parsers Module - Export parse_verilog cho compatibility
 
-Re-exports the project's Verilog parser under a concise, consistent namespace.
+File này export parse_verilog để code hiện tại không bị break.
+
+Current imports in codebase:
+    from parsers import parse_verilog
+
+Được redirect đến:
+    frontends.verilog.parser.parse_verilog
 """
 
-try:
-    # Preferred current parser module
-    from frontends.pyverilog import parse_verilog  # type: ignore
-except Exception:  # fallback if module path differs
-    from frontends.unified_verilog import parse_verilog  # type: ignore
+# Import từ frontends
+from frontends.verilog import parse_verilog
 
-__all__ = ["parse_verilog"]
-
-
+__all__ = ['parse_verilog']

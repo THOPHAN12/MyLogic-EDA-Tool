@@ -59,7 +59,7 @@ class CSEOptimizer:
         Returns:
             Optimized netlist với shared subexpressions
         """
-        logger.info("Bắt đầu Common Subexpression Elimination...")
+        logger.info("Starting Common Subexpression Elimination...")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
             logger.warning("Invalid netlist format")
@@ -75,7 +75,7 @@ class CSEOptimizer:
         subexpressions = self._find_common_subexpressions(netlist_local)
         
         if not subexpressions:
-            logger.info("Không tìm thấy common subexpressions")
+            logger.info("No common subexpressions found")
             return netlist
         
         # Tạo shared nodes
@@ -127,7 +127,7 @@ class CSEOptimizer:
             if len(nodes) > 1
         }
         
-        logger.info(f"Tìm thấy {len(common_expressions)} common subexpressions")
+        logger.info(f"Found {len(common_expressions)} common subexpressions")
         for expr, nodes in common_expressions.items():
             logger.debug(f"Expression '{expr}' xuất hiện {len(nodes)} lần: {nodes}")
         

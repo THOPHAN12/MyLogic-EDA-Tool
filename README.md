@@ -9,17 +9,19 @@
 
 A comprehensive Electronic Design Automation platform for digital circuit design, logic synthesis, optimization, and verification with both scalar and vector support, powered by Yosys synthesis engine and advanced VLSI CAD algorithms.
 
-## 📚 **Complete Documentation**
+## 📚 **Documentation**
 
-**For comprehensive documentation, see: [README_COMPLETE.md](README_COMPLETE.md)**
+### 📖 Main Documents
+- **[QUICKSTART](docs/QUICKSTART.md)** - Bắt đầu ngay trong 5 phút
+- **[Synthesis Guide](docs/SYNTHESIS_GUIDE.md)** - Hướng dẫn synthesis flow
+- **[Complete Documentation](docs/COMPLETE_DOCUMENTATION.md)** - Tài liệu đầy đủ
+- **[Documentation Index](docs/INDEX.md)** - Danh mục tất cả tài liệu
 
-This file contains:
-- Complete project structure
-- Logic flow explanation  
-- Installation & usage guides
-- Tools package documentation
-- Professional standards
-- Future roadmap
+### 🎓 Quick Links
+- [Installation](#-installation) - Cài đặt
+- [Usage](#-quick-start) - Sử dụng cơ bản
+- [Examples](examples/) - Ví dụ thực tế
+- [Contributing](tools/CONTRIBUTING.md) - Đóng góp
 
 ## 🎯 Overview
 

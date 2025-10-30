@@ -49,7 +49,7 @@ class SynthesisFlow:
         Returns:
             Synthesized netlist
         """
-        logger.info(f"Bắt đầu Complete Logic Synthesis Flow - Level: {optimization_level}")
+        logger.info(f"Starting Complete Logic Synthesis Flow - Level: {optimization_level}")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
             logger.warning("Invalid netlist format")

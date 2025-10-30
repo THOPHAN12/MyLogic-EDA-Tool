@@ -59,7 +59,7 @@ class ConstPropOptimizer:
         Returns:
             Optimized netlist với propagated constants
         """
-        logger.info("Bắt đầu Constant Propagation...")
+        logger.info("Starting Constant Propagation...")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
             logger.warning("Invalid netlist format")
@@ -82,7 +82,7 @@ class ConstPropOptimizer:
         final_nodes = len(optimized_netlist['nodes'])
         reduction = original_nodes - final_nodes
         
-        logger.info(f"Constant Propagation hoàn thành:")
+        logger.info(f"Constant Propagation completed:")
         logger.info(f"  Original nodes: {original_nodes}")
         logger.info(f"  Optimized nodes: {final_nodes}")
         logger.info(f"  Removed nodes: {reduction}")
@@ -145,7 +145,7 @@ class ConstPropOptimizer:
             if not constants_found:
                 break
         
-        logger.info(f"Propagated {self.propagated_constants} constants trong {pass_num + 1} passes")
+        logger.info(f"Propagated {self.propagated_constants} constants in {pass_num + 1} passes")
         return optimized_netlist
     
     def _is_gate_node(self, node_data: Dict[str, Any]) -> bool:
@@ -279,7 +279,7 @@ def test_constprop():
     print(f"  Nodes: {len(optimized['nodes'])}")
     
     # Verify optimization
-    print("✅ Constant Propagation test passed!")
+    print("[PASSED] Constant Propagation test passed!")
 
 if __name__ == "__main__":
     test_constprop()

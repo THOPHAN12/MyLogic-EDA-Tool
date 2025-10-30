@@ -60,7 +60,7 @@ class BalanceOptimizer:
         Returns:
             Balanced netlist với optimized logic depth
         """
-        logger.info("Bắt đầu Logic Balancing...")
+        logger.info("Starting Logic Balancing...")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
             logger.warning("Invalid netlist format")
@@ -79,7 +79,7 @@ class BalanceOptimizer:
         
         final_nodes = len(balanced_netlist['nodes'])
         
-        logger.info(f"Logic Balancing hoàn thành:")
+        logger.info(f"Logic Balancing completed:")
         logger.info(f"  Original nodes: {original_nodes}")
         logger.info(f"  Balanced nodes: {final_nodes}")
         logger.info(f"  Max logic level: {self.max_level}")
@@ -307,7 +307,7 @@ def test_balance():
     print(f"  Nodes: {len(balanced['nodes'])}")
     
     # Verify balancing
-    print("✅ Logic Balancing test passed!")
+    print("[PASSED] Logic Balancing test passed!")
 
 if __name__ == "__main__":
     test_balance()

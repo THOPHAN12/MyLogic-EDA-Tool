@@ -56,8 +56,12 @@ class StrashOptimizer:
         # Convert nodes list to dict if needed
         nodes_data = netlist['nodes']
         if isinstance(nodes_data, list):
-            # Convert list to dict with index as key
-            nodes_dict = {i: node for i, node in enumerate(nodes_data)}
+            # Convert list to dict with node ID as key (not index)
+            nodes_dict = {}
+            for i, node in enumerate(nodes_data):
+                # Use node's 'id' field if available, otherwise use index
+                node_id = node.get('id', i)
+                nodes_dict[node_id] = node
         else:
             nodes_dict = nodes_data
             

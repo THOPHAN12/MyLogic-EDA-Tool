@@ -1,54 +1,86 @@
-# Nền Tảng Toán Học cho EDA Tools
+# NỀN TẢNG TOÁN HỌC CHO EDA TOOLS
+
+**Đồ Án Tốt Nghiệp**  
+**MyLogic EDA Tool - Công Cụ Tự Động Hóa Thiết Kế Mạch Điện Tử**
+
+---
+
+## THÔNG TIN TÀI LIỆU
+
+**Chủ đề**: Nền tảng toán học cho Electronic Design Automation  
+**Tác giả**: MyLogic Development Team  
+**Năm**: 2025  
+**Phiên bản**: 2.0
+
+---
+
+## TÓM TẮT / ABSTRACT
+
+Tài liệu này trình bày các nền tảng toán học cốt lõi được sử dụng trong công cụ EDA (Electronic Design Automation), bao gồm Boolean Algebra, Graph Theory, Binary Decision Diagrams (BDD), SAT Solving, và các thuật toán optimization. Các khái niệm được trình bày với formal definitions, theorems, và proofs dựa trên các tài liệu nghiên cứu hàng đầu [1], [2], [6], [8].
+
+**Từ khóa**: Boolean algebra, graph theory, BDD, SAT solving, optimization algorithms, complexity theory, EDA
+
+---
 
 ## 1. Boolean Algebra Fundamentals
 
 ### 1.1. Boolean Functions
+
+**Định nghĩa formal** [1]:
 ```
 Boolean function: F: B^n → B^m
 where B = {0, 1}
 ```
 
-**Basic Operations:**
+**Basic Operations** [1]:
 - AND (∧): x ∧ y
 - OR (∨): x ∨ y  
 - NOT (¬): ¬x
 - XOR (⊕): x ⊕ y = (x ∧ ¬y) ∨ (¬x ∧ y)
 
-**Laws:**
+**Laws** [1]:
 - Commutative: x ∧ y = y ∧ x
 - Associative: (x ∧ y) ∧ z = x ∧ (y ∧ z)
 - Distributive: x ∧ (y ∨ z) = (x ∧ y) ∨ (x ∧ z)
 - De Morgan's: ¬(x ∧ y) = ¬x ∨ ¬y
 
+Các laws này form một Boolean algebra structure với identity elements (0, 1) và complement operation (¬) [1].
+
 ### 1.2. Normal Forms
 
-**Sum of Products (SOP):**
+**Sum of Products (SOP)** [1], [14]:
 ```
 F = (a ∧ b ∧ ¬c) ∨ (¬a ∧ c) ∨ (b ∧ c)
 ```
 
-**Product of Sums (POS):**
+**Product of Sums (POS)** [1], [14]:
 ```
 F = (a ∨ b ∨ c) ∧ (¬a ∨ b) ∧ (a ∨ ¬c)
 ```
 
-**Canonical Forms:**
-- Minterm canonical form: Σm(...)
-- Maxterm canonical form: ΠM(...)
+**Canonical Forms** [1]:
+- Minterm canonical form: Σm(...) - unique representation
+- Maxterm canonical form: ΠM(...) - dual của minterm form
+
+Brayton et al. [14] chỉ ra rằng two-level minimization (Espresso algorithm) hoạt động trên SOP form để minimize số literals.
 
 ## 2. Graph Theory for Circuit Representation
 
 ### 2.1. Directed Acyclic Graph (DAG)
 
+**Định nghĩa** [6]:
 Circuit được represent bằng DAG G = (V, E):
 - V: set of nodes (gates, inputs, outputs)
 - E: set of directed edges (wires)
 - Acyclic: no cycles (combinational logic)
 
-**Properties:**
+**Properties** [6]:
 - Topological ordering exists
 - Can compute node levels
 - Support incremental computation
+
+**Theorem (Topological Sort)** [6]:
+Mọi DAG có ít nhất một topological ordering. Ordering này có thể tìm được trong O(V + E) time bằng DFS hoặc Kahn's algorithm.
 
 ### 2.2. Netlist as Hypergraph
 
@@ -65,44 +97,53 @@ Netlist = Hypergraph H = (V, N):
 
 ### 3.1. Reduced Ordered BDD (ROBDD)
 
-**Definition:**
+**Definition** [8]:
 BDD là cấu trúc dữ liệu đại diện Boolean function dưới dạng directed acyclic graph.
 
-**Properties:**
+**Properties** [8], [9]:
 - Unique canonical form (với variable ordering cố định)
 - Compact representation for many functions
 - Efficient operations (AND, OR, XOR in polynomial time)
 
-**Shannon Expansion:**
+**Shannon Expansion** [8]:
 ```
 F(x₁, x₂, ..., xₙ) = x₁ · F(1, x₂, ..., xₙ) + x̄₁ · F(0, x₂, ..., xₙ)
                     = x₁ · F_x₁ + x̄₁ · F_x̄₁
 ```
 
-**Complexity:**
+Bryant [8] chỉ ra rằng Shannon expansion là foundation cho BDD construction và manipulation.
+
+**Complexity** [8], [9]:
 - Best case: O(n) nodes
 - Worst case: O(2^n) nodes (depends on variable ordering)
 - Operations: O(|F| × |G|) for F op G
+
+**Theorem (Canonicity)** [8]:
+Với variable ordering cố định π, mỗi Boolean function F có unique ROBDD representation. Điều này cho phép equivalence checking trong O(1) time (compare pointers).
 
 ## 4. Satisfiability (SAT)
 
 ### 4.1. Boolean Satisfiability Problem
 
-**Problem Definition:**
+**Problem Definition** [10]:
 Cho công thức Boolean F trong CNF (Conjunctive Normal Form), tìm assignment làm F = 1 hoặc chứng minh không tồn tại.
 
-**CNF Format:**
+**CNF Format** [10]:
 ```
 F = (x₁ ∨ ¬x₂ ∨ x₃) ∧ (¬x₁ ∨ x₂) ∧ (x₂ ∨ ¬x₃)
 ```
 
-**Complexity:**
-- NP-complete problem
+**Complexity** [6]:
+- NP-complete problem [6, Chapter 34]
 - Exponential worst-case time
 - Practical solvers efficient for many instances
 
+**Cook's Theorem** [6]:
+SAT là NP-complete problem đầu tiên được chứng minh. Mọi problem trong NP có thể reduce về SAT trong polynomial time.
+
 ### 4.2. DPLL Algorithm
 
+**Algorithm** [10]:
 ```
 DPLL(F, assignment):
   if F is empty: return SAT, assignment
@@ -124,11 +165,15 @@ DPLL(F, assignment):
   return DPLL(F[x=0], assignment ∪ {¬x})
 ```
 
-**Enhancements:**
-- Conflict-Driven Clause Learning (CDCL)
-- Non-chronological backtracking
+Davis, Logemann, và Loveland [10] giới thiệu DPLL algorithm vào 1962, là foundation cho tất cả modern SAT solvers.
+
+**Enhancements** [11]:
+- Conflict-Driven Clause Learning (CDCL) [11]
+- Non-chronological backtracking [11]
 - Watched literals
 - Restart strategies
+
+GRASP [11] là first CDCL solver, introducing conflict analysis và learned clauses, cải thiện performance dramatically so với basic DPLL.
 
 ## 5. Graph Algorithms for Physical Design
 
@@ -388,21 +433,49 @@ where L is Laplacian matrix
 
 **Spectral partitioning:** Use eigenvector corresponding to second smallest eigenvalue (Fiedler vector)
 
-## 12. References
+---
 
-### Textbooks:
-- "Introduction to Algorithms" - Cormen et al.
-- "Algorithm Design" - Kleinberg & Tardos
-- "Logic Synthesis and Verification" - Hachtel & Somenzi
-- "VLSI Physical Design" - Kahng et al.
+## 📚 TÀI LIỆU THAM KHẢO / REFERENCES
 
-### Papers:
-- "Logic Minimization Algorithms for VLSI Synthesis" - Brayton et al.
-- "Efficient Implementation of BDDs" - Bryant
-- "GRASP: A New Search Algorithm for Satisfiability" - Silva & Sakallah
+**Xem chi tiết tại**: [../REFERENCES.md](../REFERENCES.md)
+
+### Tài liệu chính / Primary References:
+
+[1] G. D. Hachtel and F. Somenzi, *Logic Synthesis and Verification Algorithms*, Springer, 1996.
+
+[2] G. De Micheli, *Synthesis and Optimization of Digital Circuits*, McGraw-Hill, 1994.
+
+[4] A. B. Kahng, J. Lienig, I. L. Markov, and J. Hu, *VLSI Physical Design: From Graph Partitioning to Timing Closure*, Springer, 2011.
+
+[5] S. H. Gerez, *Algorithms for VLSI Design Automation*, John Wiley & Sons, 1999.
+
+[6] T. H. Cormen, C. E. Leiserson, R. L. Rivest, and C. Stein, *Introduction to Algorithms*, 3rd ed., MIT Press, 2009.
+
+[7] J. Kleinberg and É. Tardos, *Algorithm Design*, Addison-Wesley, 2005.
+
+[8] R. E. Bryant, "Graph-Based Algorithms for Boolean Function Manipulation," *IEEE Trans. Computers*, vol. C-35, no. 8, pp. 677-691, 1986.
+
+[9] K. S. Brace, R. L. Rudell, and R. E. Bryant, "Efficient Implementation of a BDD Package," in *Proc. 27th ACM/IEEE DAC*, 1990, pp. 40-45.
+
+[10] M. Davis, G. Logemann, and D. Loveland, "A Machine Program for Theorem-Proving," *Comm. ACM*, vol. 5, no. 7, pp. 394-397, 1962.
+
+[11] J. P. Marques-Silva and K. A. Sakallah, "GRASP: A Search Algorithm for Propositional Satisfiability," *IEEE Trans. Computers*, vol. 48, no. 5, pp. 506-521, 1999.
+
+[14] R. K. Brayton et al., "Logic Minimization Algorithms for VLSI Synthesis," *Proc. IEEE*, vol. 72, no. 10, pp. 1340-1362, 1984.
+
+**Danh sách đầy đủ**: Xem [../REFERENCES.md](../REFERENCES.md) cho toàn bộ tài liệu tham khảo với citations đầy đủ.
 
 ---
 
-**Phiên bản:** 1.0  
-**Ngày:** 2025-10-30
+## KẾT LUẬN / CONCLUSION
 
+Tài liệu này đã trình bày các nền tảng toán học cốt lõi cho EDA tools, từ Boolean algebra cơ bản đến các thuật toán optimization phức tạp. Các khái niệm được present với formal definitions, theorems, và complexity analysis dựa trên các tài liệu nghiên cứu hàng đầu [1], [2], [6], [8].
+
+Hiểu rõ các foundations này là essential cho việc phát triển và sử dụng hiệu quả các EDA tools như MyLogic, cũng như để nghiên cứu và cải tiến các thuật toán synthesis và optimization.
+
+---
+
+**Phiên bản**: 2.0  
+**Ngày**: 2025-10-30  
+**Tác giả**: MyLogic Development Team  
+**Loại tài liệu**: Báo cáo đồ án - Mathematical Foundations

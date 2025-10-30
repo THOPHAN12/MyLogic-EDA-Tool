@@ -14,7 +14,7 @@ Mỗi operation tạo ra:
 """
 
 from typing import Dict
-from ..node_builder import NodeBuilder
+from ..core.node_builder import NodeBuilder
 
 
 def parse_arithmetic_operation(

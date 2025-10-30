@@ -15,7 +15,7 @@ Example:
     4'b1010 & 4'b0011 = 4'b0010 (AND từng bit)
 """
 
-from ..node_builder import NodeBuilder
+from ..core.node_builder import NodeBuilder
 
 
 def parse_logical_operation(

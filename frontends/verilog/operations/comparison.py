@@ -12,7 +12,7 @@ Hỗ trợ các phép toán:
 Kết quả: Tất cả trả về 1-bit (1 = true, 0 = false)
 """
 
-from ..node_builder import NodeBuilder
+from ..core.node_builder import NodeBuilder
 
 
 def parse_comparison_operation(

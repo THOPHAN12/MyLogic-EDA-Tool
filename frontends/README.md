@@ -15,16 +15,20 @@ Parser đã được **refactor hoàn toàn** từ 1 file monolithic (1228 dòng
 frontends/
 ├── README.md                 # Documentation này
 ├── __init__.py              # Export parse_verilog
-└── verilog/                 # Verilog Parser Module (MODULAR)
+└── verilog/                 # Verilog Parser Module (ORGANIZED)
     ├── __init__.py
-    ├── README.md            # Chi tiết Verilog parser
-    ├── ARCHITECTURE.md      # Kiến trúc & code reuse
-    ├── constants.py         # Regex patterns, hằng số
-    ├── tokenizer.py         # Tokenization & cleaning
-    ├── node_builder.py      # Builder pattern cho nodes
-    ├── parser.py            # Main parser logic
-    ├── expression_parser.py # Complex expression handling
-    └── operations/          # Operation parsers (modular)
+    ├── docs/                # 📚 Documentation (organized)
+    │   ├── INDEX.md         # Navigation guide
+    │   ├── README.md        # Comprehensive guide
+    │   └── ARCHITECTURE.md  # Design & architecture
+    ├── core/                # 🎯 Core Implementation (organized)
+    │   ├── __init__.py
+    │   ├── constants.py     # Regex patterns, hằng số
+    │   ├── tokenizer.py     # Tokenization & cleaning
+    │   ├── node_builder.py  # Builder pattern cho nodes
+    │   ├── parser.py        # Main parser logic
+    │   └── expression_parser.py # Complex expression handling
+    └── operations/          # 🔧 Operation Parsers (modular)
         ├── __init__.py
         ├── arithmetic.py   # +, -, *, /, %
         ├── bitwise.py      # &, |, ^, ~, NAND, NOR, XNOR
@@ -376,8 +380,11 @@ if '**' in rhs:
 
 ## 📚 Documentation
 
-- **[verilog/README.md](verilog/README.md)** - Chi tiết Verilog parser
-- **[verilog/ARCHITECTURE.md](verilog/ARCHITECTURE.md)** - Kiến trúc & code reuse
+### Organized Documentation Structure
+
+- **[verilog/docs/INDEX.md](verilog/docs/INDEX.md)** - Documentation navigation guide
+- **[verilog/docs/README.md](verilog/docs/README.md)** - Comprehensive Verilog parser guide
+- **[verilog/docs/ARCHITECTURE.md](verilog/docs/ARCHITECTURE.md)** - Design & code reuse architecture
 - **Docstrings**: Mọi function đều có docstring tiếng Việt chi tiết
 - **Inline comments**: Comments giải thích logic quan trọng
 
@@ -504,10 +511,12 @@ MIT License - See LICENSE file for details
 
 ## 🔗 Related Documentation
 
-- **Main Project**: [../../README.md](../../README.md)
-- **Verilog Parser Details**: [verilog/README.md](verilog/README.md)
-- **Architecture Deep Dive**: [verilog/ARCHITECTURE.md](verilog/ARCHITECTURE.md)
-- **API Reference**: [../../docs/00_overview/api_reference.md](../../docs/00_overview/api_reference.md)
+- **Main Project**: [../README.md](../README.md)
+- **Verilog Parser Documentation**: [verilog/docs/](verilog/docs/)
+  - [INDEX.md](verilog/docs/INDEX.md) - Navigation
+  - [README.md](verilog/docs/README.md) - Comprehensive guide
+  - [ARCHITECTURE.md](verilog/docs/ARCHITECTURE.md) - Architecture
+- **API Reference**: [../docs/00_overview/api_reference.md](../docs/00_overview/api_reference.md)
 
 ---
 

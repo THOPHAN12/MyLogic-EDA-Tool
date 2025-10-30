@@ -16,7 +16,7 @@ Example:
     8'sb11000101 >>> 2 = 8'sb11110001 (arithmetic, giữ sign bit 1)
 """
 
-from ..node_builder import NodeBuilder
+from ..core.node_builder import NodeBuilder
 
 
 def parse_shift_operation(

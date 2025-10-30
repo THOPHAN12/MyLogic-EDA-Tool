@@ -17,7 +17,7 @@ Lưu ý:
 """
 
 from typing import List
-from ..node_builder import NodeBuilder
+from ..core.node_builder import NodeBuilder
 
 
 def parse_bitwise_operation(

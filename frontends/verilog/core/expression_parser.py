@@ -21,9 +21,9 @@ from typing import Dict, List, Tuple, Optional
 from .node_builder import NodeBuilder
 
 # Import operation parsers để tái sử dụng
-from .operations.bitwise import parse_bitwise_operation
-from .operations.logical import parse_logical_operation
-from .operations.arithmetic import parse_arithmetic_operation
+from ..operations.bitwise import parse_bitwise_operation
+from ..operations.logical import parse_logical_operation
+from ..operations.arithmetic import parse_arithmetic_operation
 
 
 class ExpressionParser:

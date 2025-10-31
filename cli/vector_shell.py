@@ -946,6 +946,10 @@ class VectorShell:
             print("Strategies: area, delay, balanced")
             return
         
+        if not self.current_netlist:
+            print("[ERROR] No netlist loaded. Use 'read <file>' and 'synthesis <level>' first.")
+            return
+        
         strategy = parts[1].lower()
         
         try:
@@ -957,15 +961,59 @@ class VectorShell:
             library = create_standard_library()
             mapper = TechnologyMapper(library)
             
-            # Thêm demo logic nodes
-            logic_nodes = [
-                LogicNode("n1", "AND(A,B)", ["a", "b"], "temp1"),
-                LogicNode("n2", "OR(C,D)", ["c", "d"], "temp2"),
-                LogicNode("n3", "XOR(temp1,temp2)", ["temp1", "temp2"], "out"),
-            ]
+            # Convert netlist nodes to LogicNodes
+            nodes = self.current_netlist.get('nodes', {})
             
-            for node in logic_nodes:
-                mapper.add_logic_node(node)
+            # Normalize nodes to list if dict
+            if isinstance(nodes, dict):
+                nodes_list = list(nodes.values())
+            else:
+                nodes_list = nodes if isinstance(nodes, list) else []
+            
+            # Create LogicNodes from netlist
+            for i, node_data in enumerate(nodes_list):
+                if not isinstance(node_data, dict):
+                    continue
+                
+                node_id = node_data.get('id', f'node_{i}')
+                node_type = node_data.get('type', 'UNKNOWN')
+                
+                # Get inputs/fanins
+                inputs = node_data.get('inputs', [])
+                fanins = node_data.get('fanins', [])
+                
+                # Extract input signals from fanins (fanins format: [['signal', False], ...])
+                input_signals = []
+                if fanins:
+                    for fanin in fanins:
+                        if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
+                            input_signals.append(str(fanin[0]))
+                        elif isinstance(fanin, str):
+                            input_signals.append(fanin)
+                elif inputs:
+                    input_signals = [str(inp) for inp in inputs]
+                
+                # Create function string based on node type and inputs
+                if len(input_signals) >= 2:
+                    # 2+ input gates: AND(A,B), OR(A,B), XOR(A,B), etc.
+                    function = f"{node_type}({','.join(input_signals[:2])})"  # Use first 2 inputs for now
+                elif len(input_signals) == 1:
+                    # Single input: NOT(A), BUF(A)
+                    function = f"{node_type}({input_signals[0]})"
+                else:
+                    # No inputs (constants, inputs, etc.)
+                    function = node_type
+                
+                # Get output
+                output = node_data.get('output', node_id)
+                
+                # Create LogicNode
+                logic_node = LogicNode(str(node_id), function, input_signals, str(output))
+                mapper.add_logic_node(logic_node)
+            
+            if len(mapper.logic_network) == 0:
+                print("[WARNING] No valid nodes found in netlist for technology mapping")
+                return
             
             # Thực hiện mapping
             if strategy == "area":

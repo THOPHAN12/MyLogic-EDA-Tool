@@ -99,6 +99,8 @@ class DCEOptimizer:
             optimized_netlist = self._remove_redundant_nodes(optimized_netlist)
         
         logger.info(f"DCE completed: removed {self.removed_nodes} nodes, {self.removed_wires} wires")
+        logger.info(f"Reachable nodes: {len(reachable_nodes)}")
+        logger.debug(f"Reachable node keys/ids: {list(reachable_nodes)[:10]}")  # First 10
         
         # Convert nodes back to original format
         optimized_netlist['nodes'] = _nodes_from_dict(optimized_netlist.get('nodes', {}), original_fmt)
@@ -120,51 +122,165 @@ class DCEOptimizer:
         # Start from all output ports using output_mapping
         output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
         outputs = netlist.get('outputs', [])
+        nodes_dict = netlist.get('nodes', {})
+        
+        # Normalize nodes to dict if needed
+        if isinstance(nodes_dict, list):
+            nodes_dict_normalized = {}
+            for i, n in enumerate(nodes_dict):
+                if isinstance(n, dict):
+                    # Prefer node id, then output, then index
+                    node_id = n.get('id')
+                    node_output = n.get('output')
+                    
+                    if node_id is not None:
+                        key = str(node_id)
+                    elif node_output is not None:
+                        key = str(node_output)  # Use output as key
+                    else:
+                        key = str(i)
+                    
+                    if 'id' not in n and node_id is None:
+                        n = {**n, 'id': key}
+                    nodes_dict_normalized[key] = n
+            nodes_dict = nodes_dict_normalized
+            logger.debug(f"Normalized {len(nodes_dict)} nodes from list to dict")
+        
+        # Find nodes that drive primary outputs
+        logger.debug(f"Total nodes before DCE: {len(nodes_dict)}")
+        logger.debug(f"Output mapping: {output_mapping}")
+        logger.debug(f"Outputs: {outputs}")
+        
+        # Debug: print all nodes
+        for key, node_data in list(nodes_dict.items())[:5]:  # First 5 nodes
+            if isinstance(node_data, dict):
+                logger.debug(f"Sample node {key}: type={node_data.get('type')}, output={node_data.get('output')}, id={node_data.get('id')}, inputs={node_data.get('inputs', [])}")
         
         for output in outputs:
             if isinstance(output, str):
                 output_name = output
                 # Find the node that drives this output
                 if output_name in output_mapping:
-                    node_id = output_mapping[output_name]
-                    queue.append(node_id)
-                    reachable.add(node_id)
-                    logger.debug(f"Starting from output {output_name} -> node {node_id}")
+                    output_signal = output_mapping[output_name]  # e.g., "xor_0", "or_7"
+                    logger.debug(f"Looking for node driving output '{output_name}' via signal '{output_signal}'")
+                    
+                    # Find node by output field (not by id)
+                    node_key = None
+                    for key, node_data in nodes_dict.items():
+                        if isinstance(node_data, dict):
+                            node_output = node_data.get('output')
+                            node_id = str(node_data.get('id', ''))
+                            
+                            # Match by output signal or id
+                            if node_output == output_signal or node_id == output_signal or key == output_signal:
+                                node_key = key
+                                reachable.add(node_key)
+                                queue.append(node_key)
+                                logger.info(f"✓ Found node for output {output_name}: signal {output_signal} -> node key {node_key} (type: {node_data.get('type')}, output: {node_output}, id: {node_id})")
+                                break
+                    
+                    if node_key is None:
+                        logger.warning(f"✗ Could not find node for output {output_name} with signal {output_signal}")
+                        # Try to find any node that might match
+                        for key, node_data in nodes_dict.items():
+                            if isinstance(node_data, dict):
+                                if output_signal in str(node_data.get('output', '')) or output_signal in str(node_data.get('id', '')):
+                                    logger.debug(f"  Partial match found: node {key} with output={node_data.get('output')}, id={node_data.get('id')}")
+                else:
+                    logger.warning(f"Output '{output_name}' not in output_mapping")
         
         # BFS to find all reachable nodes
         while queue:
-            current_node = queue.pop(0)
-            # Find node by ID
-            node = None
-            nodes_any = netlist.get('nodes', {})
-            if isinstance(nodes_any, dict):
-                for n in nodes_any.values():
-                    if isinstance(n, dict) and n.get('id') == current_node:
-                        node = n
-                        break
-            else:
-                for n in nodes_any:
-                    if isinstance(n, dict) and n.get('id') == current_node:
-                        node = n
-                        break
+            current_node_key = queue.pop(0)
+            # Find node by key (already normalized to dict)
+            node = nodes_dict.get(current_node_key) if isinstance(nodes_dict, dict) else None
+            
+            # Fallback: try to find by iterating if current_node_key is not a direct key
+            if not isinstance(node, dict) and isinstance(nodes_dict, dict):
+                for key, node_data in nodes_dict.items():
+                    if isinstance(node_data, dict):
+                        node_id = node_data.get('id')
+                        if node_id == current_node_key or key == current_node_key:
+                            node = node_data
+                            current_node_key = key  # Update to actual key
+                            break
             
             # Check if node is a dictionary
             if not isinstance(node, dict):
+                logger.debug(f"Skipping node {current_node_key} - not found or invalid")
                 continue
                 
             # Add all input nodes of current node
+            # Try both 'inputs' and 'fanins' fields (different parsers use different formats)
             inputs = node.get('inputs', [])
-            for input_name in inputs:
-                # Skip if input is a primary input
-                if input_name in netlist.get('inputs', []):
-                    continue
+            fanins = node.get('fanins', [])
+            
+            # Process fanins (list of tuples: [(signal_name, node_id), ...])
+            if fanins:
+                for fanin in fanins:
+                    if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
+                        fanin_signal = fanin[0]  # Signal name
+                        fanin_node_id = fanin[1] if len(fanin) > 1 else None
+                    elif isinstance(fanin, str):
+                        fanin_signal = fanin
+                        fanin_node_id = None
+                    else:
+                        continue
                     
-                # Find which node produces this input
-                for other_node_name, other_node in netlist.get('nodes', {}).items():
-                    if isinstance(other_node, dict) and other_node.get('output') == input_name and other_node_name not in reachable:
-                        reachable.add(other_node_name)
-                        queue.append(other_node_name)
-                        break
+                    # Skip if input is a primary input
+                    if fanin_signal in netlist.get('inputs', []):
+                        continue
+                    
+                    # Find which node produces this fanin signal
+                    found_fanin = False
+                    if isinstance(nodes_dict, dict):
+                        for other_node_key, other_node in nodes_dict.items():
+                            if isinstance(other_node, dict):
+                                other_node_output = other_node.get('output')
+                                other_node_id = str(other_node.get('id', ''))
+                                
+                                # Match by output signal, id, or key
+                                if (other_node_output == fanin_signal or 
+                                    other_node_id == fanin_signal or 
+                                    other_node_key == fanin_signal or
+                                    (fanin_node_id and (other_node_id == fanin_node_id or other_node_key == fanin_node_id))):
+                                    if other_node_key not in reachable:
+                                        reachable.add(other_node_key)
+                                        queue.append(other_node_key)
+                                        found_fanin = True
+                                        logger.debug(f"Found fanin: {fanin_signal} -> node {other_node_key} (type: {other_node.get('type')})")
+                                        break
+                    
+                    if not found_fanin:
+                        logger.debug(f"Could not find fanin node for signal {fanin_signal} (may be primary input or intermediate signal)")
+            
+            # Also process inputs field (for compatibility)
+            elif inputs:
+                for input_name in inputs:
+                    # Skip if input is a primary input
+                    if input_name in netlist.get('inputs', []):
+                        continue
+                    
+                    # Find which node produces this input (by output field)
+                    found_fanin = False
+                    if isinstance(nodes_dict, dict):
+                        for other_node_key, other_node in nodes_dict.items():
+                            if isinstance(other_node, dict):
+                                other_node_output = other_node.get('output')
+                                other_node_id = str(other_node.get('id', ''))
+                                # Match by output signal or id
+                                if (other_node_output == input_name or 
+                                    other_node_id == input_name or 
+                                    other_node_key == input_name):
+                                    if other_node_key not in reachable:
+                                        reachable.add(other_node_key)
+                                        queue.append(other_node_key)
+                                        found_fanin = True
+                                        logger.debug(f"Found fanin (via inputs): {input_name} -> node {other_node_key}")
+                                        break
+                    
+                    if not found_fanin:
+                        logger.debug(f"Could not find fanin node for input {input_name} (may be primary input or intermediate signal)")
         
         return reachable
     
@@ -174,31 +290,47 @@ class DCEOptimizer:
         
         Args:
             netlist: Circuit netlist
-            reachable_nodes: Set of reachable node names
+            reachable_nodes: Set of reachable node keys/ids
             
         Returns:
             Netlist with dead nodes removed
         """
-        nodes = list(netlist.get('nodes', {}).values()) if isinstance(netlist.get('nodes'), dict) else netlist.get('nodes', [])
-        dead_nodes = []
+        nodes_dict = netlist.get('nodes', {})
         
-        # Find dead nodes
-        for i, node in enumerate(nodes):
-            if isinstance(node, dict) and 'id' in node:
-                node_id = node['id']
-                if node_id not in reachable_nodes:
-                    dead_nodes.append(i)
+        # Normalize to dict if needed
+        if isinstance(nodes_dict, list):
+            nodes_dict, _ = _nodes_to_dict(nodes_dict)
+        
+        # Find dead nodes (nodes not in reachable set)
+        dead_node_keys = []
+        logger.info(f"Checking {len(nodes_dict)} nodes against {len(reachable_nodes)} reachable nodes")
+        
+        for node_key, node_data in nodes_dict.items():
+            if isinstance(node_data, dict):
+                node_id = str(node_data.get('id', node_key))
+                node_key_str = str(node_key)
+                # Check if node is reachable (by key or id)
+                is_reachable = (node_key_str in reachable_nodes or 
+                               node_id in reachable_nodes or
+                               node_key in reachable_nodes)
+                
+                if not is_reachable:
+                    dead_node_keys.append(node_key)
+                    logger.debug(f"Dead node: key={node_key}, id={node_id}, type={node_data.get('type')}")
+                else:
+                    logger.debug(f"Keep node: key={node_key}, id={node_id}, type={node_data.get('type')}")
         
         # Count dead nodes before removing
-        self.removed_nodes = len(dead_nodes)
+        self.removed_nodes = len(dead_node_keys)
         
-        # Remove dead nodes (in reverse order to maintain indices)
-        for i in reversed(dead_nodes):
-            logger.debug(f"Removed dead node: {nodes[i].get('id', 'unknown')}")
-            del nodes[i]
+        # Remove dead nodes
+        for node_key in dead_node_keys:
+            if node_key in nodes_dict:
+                node_data = nodes_dict[node_key]
+                logger.debug(f"Removed dead node: {node_key} (type: {node_data.get('type', 'unknown')})")
+                del nodes_dict[node_key]
         
-        # Update netlist (nodes stored as dict internally)
-        nodes_dict, _ = _nodes_to_dict(nodes)
+        # Update netlist
         netlist['nodes'] = nodes_dict
         
         return netlist

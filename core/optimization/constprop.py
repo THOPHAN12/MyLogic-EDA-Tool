@@ -133,15 +133,30 @@ class ConstPropOptimizer:
             constants_found = False
             for node_id, node_data in optimized_netlist['nodes'].items():
                 if self._is_gate_node(node_data):
-                    # Kiểm tra xem tất cả inputs có phải constants không
+                    # Get inputs/fanins (try both formats)
                     inputs = node_data.get('inputs', [])
-                    if all(inp in self.constant_values for inp in inputs):
+                    fanins = node_data.get('fanins', [])
+                    
+                    # Extract input signals from fanins
+                    input_signals = []
+                    if fanins:
+                        # fanins format: [['signal', False], ...]
+                        for fanin in fanins:
+                            if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
+                                input_signals.append(str(fanin[0]))
+                            elif isinstance(fanin, str):
+                                input_signals.append(fanin)
+                    elif inputs:
+                        input_signals = [str(inp) for inp in inputs]
+                    
+                    # Only propagate if we have inputs and all are constants
+                    if input_signals and all(inp in self.constant_values for inp in input_signals):
                         # Tất cả inputs là constants, tính output
-                        output_value = self._evaluate_gate(node_data, inputs)
+                        output_value = self._evaluate_gate(node_data, input_signals)
                         self.constant_values[node_id] = output_value
                         self.propagated_constants += 1
                         constants_found = True
-                        logger.debug(f"Propagated constant {output_value} cho node {node_id}")
+                        logger.debug(f"Propagated constant {output_value} cho node {node_id} from inputs {input_signals}")
             if not constants_found:
                 break
         
@@ -200,14 +215,50 @@ class ConstPropOptimizer:
         optimized_netlist['nodes'] = {}
         
         for node_id, node_data in netlist['nodes'].items():
-            if node_id in self.constant_values:
-                # Node có constant value, thay thế bằng constant
+            # Only replace with constant if:
+            # 1. Node has constant value in our dict
+            # 2. AND it's not a primary input/output
+            # 3. AND it's not a gate that needs to be preserved
+            
+            # Check if this is a primary input or output node
+            is_primary_input = node_id in netlist.get('inputs', [])
+            node_output = node_data.get('output', '')
+            is_primary_output = node_output in netlist.get('outputs', []) or node_output in netlist.get('attrs', {}).get('output_mapping', {})
+            
+            # For primary inputs/outputs or nodes with fanins connecting to outputs, don't simplify
+            if is_primary_input or is_primary_output:
+                optimized_netlist['nodes'][node_id] = node_data
+                continue
+            
+            # Check if node has fanins that connect to non-constant nodes
+            fanins = node_data.get('fanins', [])
+            inputs = node_data.get('inputs', [])
+            
+            # Extract input signals
+            input_signals = []
+            if fanins:
+                for fanin in fanins:
+                    if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
+                        input_signals.append(str(fanin[0]))
+            elif inputs:
+                input_signals = [str(inp) for inp in inputs]
+            
+            # If any input is not a constant (and not a primary input), keep the gate
+            has_non_constant_inputs = False
+            for inp_sig in input_signals:
+                if inp_sig not in self.constant_values and inp_sig not in netlist.get('inputs', []):
+                    has_non_constant_inputs = True
+                    break
+            
+            if node_id in self.constant_values and not has_non_constant_inputs:
+                # Node có constant value và tất cả inputs đều là constants, thay thế bằng constant
                 constant_value = self.constant_values[node_id]
                 
                 if constant_value:
                     optimized_netlist['nodes'][node_id] = {
                         'type': 'CONST1',
                         'inputs': [],
+                        'fanins': [],
                         'output': node_data.get('output', node_id),
                         'value': 1
                     }
@@ -215,6 +266,7 @@ class ConstPropOptimizer:
                     optimized_netlist['nodes'][node_id] = {
                         'type': 'CONST0',
                         'inputs': [],
+                        'fanins': [],
                         'output': node_data.get('output', node_id),
                         'value': 0
                     }
@@ -222,7 +274,7 @@ class ConstPropOptimizer:
                 self.simplified_gates += 1
                 logger.debug(f"Simplified node {node_id} thành constant {constant_value}")
             else:
-                # Node không có constant value, giữ nguyên
+                # Node không có constant value hoặc có non-constant inputs, giữ nguyên
                 optimized_netlist['nodes'][node_id] = node_data
         
         return optimized_netlist

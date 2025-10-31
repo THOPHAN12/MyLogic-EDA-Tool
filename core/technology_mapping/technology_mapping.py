@@ -14,8 +14,51 @@ ABC Reference: src/map/mapper.c
 
 from typing import Dict, List, Set, Any, Tuple, Optional
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+def normalize_function(function: str) -> str:
+    """
+    Normalize function string by replacing variable names with canonical names.
+    
+    Examples:
+        normalize_function("OR(C,D)") -> "OR(A,B)"
+        normalize_function("XOR(temp1,temp2)") -> "XOR(A,B)"
+        normalize_function("AND(A,B)") -> "AND(A,B)"
+        normalize_function("NOT(X)") -> "NOT(A)"
+    
+    Args:
+        function: Function string like "OR(C,D)", "AND(A,B)", etc.
+        
+    Returns:
+        Normalized function string with canonical variable names (A, B, C, ...)
+    """
+    if not function or '(' not in function:
+        return function
+    
+    # Extract function name and arguments
+    match = re.match(r'^(\w+)\((.*)\)$', function)
+    if not match:
+        return function
+    
+    func_name = match.group(1)
+    args_str = match.group(2).strip()
+    
+    if not args_str:
+        # No arguments (like CONST0, CONST1)
+        return function
+    
+    # Split arguments by comma
+    args = [arg.strip() for arg in args_str.split(',')]
+    
+    # Generate canonical variable names (A, B, C, D, ...)
+    canonical_args = [chr(65 + i) for i in range(len(args))]  # A=65, B=66, C=67, ...
+    
+    # Reconstruct normalized function
+    normalized = f"{func_name}({','.join(canonical_args)})"
+    
+    return normalized
 
 class LibraryCell:
     """Đại diện cho một cell trong thư viện công nghệ."""
@@ -47,15 +90,21 @@ class TechnologyLibrary:
         """Add a cell to the library."""
         self.cells[cell.name] = cell
         
-        # Update function mapping
-        if cell.function not in self.function_map:
-            self.function_map[cell.function] = []
-        self.function_map[cell.function].append(cell.name)
+        # Normalize function for mapping
+        normalized_func = normalize_function(cell.function)
+        
+        # Update function mapping with normalized function
+        if normalized_func not in self.function_map:
+            self.function_map[normalized_func] = []
+        self.function_map[normalized_func].append(cell.name)
     
     def get_cells_for_function(self, function: str) -> List[LibraryCell]:
         """Get all cells that implement a given function."""
-        if function in self.function_map:
-            return [self.cells[name] for name in self.function_map[function]]
+        # Normalize the function to match library entries
+        normalized_func = normalize_function(function)
+        
+        if normalized_func in self.function_map:
+            return [self.cells[name] for name in self.function_map[normalized_func]]
         return []
     
     def get_best_cell_for_function(self, function: str, optimization_target: str = "area") -> Optional[LibraryCell]:
@@ -248,18 +297,32 @@ class TechnologyMapper:
             print(f"Total Delay: {results['total_delay']:.2f}")
         
         stats = self.get_mapping_statistics()
-        print(f"\nCell Usage:")
-        for cell_name, count in stats['cell_usage'].items():
-            print(f"  {cell_name}: {count} instances")
+        
+        # Library information
+        total_library_cells = len(self.library.cells)
+        unique_functions = len(self.library.function_map)
+        print(f"\nLibrary Information:")
+        print(f"  Total cells in library: {total_library_cells}")
+        print(f"  Unique functions: {unique_functions}")
+        print(f"  Cells used: {stats['unique_cells_used']} out of {total_library_cells} available")
+        
+        print(f"\nCell Usage ({stats['unique_cells_used']} types, {stats['mapped_nodes']} instances):")
+        if stats['cell_usage']:
+            for cell_name, count in sorted(stats['cell_usage'].items()):
+                percentage = (count / stats['mapped_nodes'] * 100) if stats['mapped_nodes'] > 0 else 0
+                print(f"  {cell_name}: {count} instances ({percentage:.1f}%)")
+        else:
+            print("  No cells mapped")
         
         print(f"\nNode Mapping Details:")
-        print(f"{'Node':<15} {'Function':<10} {'Mapped Cell':<15} {'Cost':<8}")
-        print("-" * 50)
+        print(f"{'Node':<15} {'Function':<25} {'Mapped Cell':<15} {'Cost':<8}")
+        print("-" * 65)
         
         for node_name, node in self.logic_network.items():
             mapped_cell = node.mapped_cell.name if node.mapped_cell else "None"
             cost = f"{node.mapping_cost:.2f}" if node.mapping_cost != float('inf') else "N/A"
-            print(f"{node_name:<15} {node.function:<10} {mapped_cell:<15} {cost:<8}")
+            function_str = node.function[:24] if len(node.function) > 24 else node.function
+            print(f"{node_name:<15} {function_str:<25} {mapped_cell:<15} {cost:<8}")
 
 def create_standard_library() -> TechnologyLibrary:
     """Create a standard technology library with common gates."""
@@ -268,6 +331,9 @@ def create_standard_library() -> TechnologyLibrary:
     # Basic gates
     gates = [
         ("INV", "NOT", 1.0, 0.1, ["A"], ["Y"]),
+        ("BUF", "BUF", 1.0, 0.05, ["A"], ["Y"]),
+        
+        # 2-input gates
         ("NAND2", "NAND(A,B)", 1.2, 0.15, ["A", "B"], ["Y"]),
         ("NOR2", "NOR(A,B)", 1.2, 0.15, ["A", "B"], ["Y"]),
         ("AND2", "AND(A,B)", 1.5, 0.2, ["A", "B"], ["Y"]),
@@ -280,12 +346,21 @@ def create_standard_library() -> TechnologyLibrary:
         ("NOR3", "NOR(A,B,C)", 1.8, 0.2, ["A", "B", "C"], ["Y"]),
         ("AND3", "AND(A,B,C)", 2.2, 0.25, ["A", "B", "C"], ["Y"]),
         ("OR3", "OR(A,B,C)", 2.2, 0.25, ["A", "B", "C"], ["Y"]),
+        ("XOR3", "XOR(A,B,C)", 2.5, 0.3, ["A", "B", "C"], ["Y"]),
         
-        # Complex gates
+        # 4-input gates
+        ("AND4", "AND(A,B,C,D)", 2.8, 0.3, ["A", "B", "C", "D"], ["Y"]),
+        ("OR4", "OR(A,B,C,D)", 2.8, 0.3, ["A", "B", "C", "D"], ["Y"]),
+        ("NAND4", "NAND(A,B,C,D)", 2.5, 0.28, ["A", "B", "C", "D"], ["Y"]),
+        ("NOR4", "NOR(A,B,C,D)", 2.5, 0.28, ["A", "B", "C", "D"], ["Y"]),
+        
+        # Complex gates (AOI - And-Or-Invert, OAI - Or-And-Invert)
         ("AOI21", "NOT(OR(AND(A,B),C))", 2.5, 0.3, ["A", "B", "C"], ["Y"]),
         ("OAI21", "NOT(AND(OR(A,B),C))", 2.5, 0.3, ["A", "B", "C"], ["Y"]),
         ("AOI22", "NOT(OR(AND(A,B),AND(C,D)))", 3.0, 0.35, ["A", "B", "C", "D"], ["Y"]),
         ("OAI22", "NOT(AND(OR(A,B),OR(C,D)))", 3.0, 0.35, ["A", "B", "C", "D"], ["Y"]),
+        ("AOI211", "NOT(OR(AND(A,B),C,D))", 3.2, 0.38, ["A", "B", "C", "D"], ["Y"]),
+        ("OAI211", "NOT(AND(OR(A,B),C,D))", 3.2, 0.38, ["A", "B", "C", "D"], ["Y"]),
     ]
     
     for name, function, area, delay, inputs, outputs in gates:

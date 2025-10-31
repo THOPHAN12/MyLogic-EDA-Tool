@@ -176,11 +176,11 @@ class DCEOptimizer:
                                 node_key = key
                                 reachable.add(node_key)
                                 queue.append(node_key)
-                                logger.info(f"✓ Found node for output {output_name}: signal {output_signal} -> node key {node_key} (type: {node_data.get('type')}, output: {node_output}, id: {node_id})")
+                                logger.info(f"[OK] Found node for output {output_name}: signal {output_signal} -> node key {node_key} (type: {node_data.get('type')}, output: {node_output}, id: {node_id})")
                                 break
                     
                     if node_key is None:
-                        logger.warning(f"✗ Could not find node for output {output_name} with signal {output_signal}")
+                        logger.warning(f"[FAIL] Could not find node for output {output_name} with signal {output_signal}")
                         # Try to find any node that might match
                         for key, node_data in nodes_dict.items():
                             if isinstance(node_data, dict):
@@ -217,6 +217,9 @@ class DCEOptimizer:
             
             # Process fanins (list of tuples: [(signal_name, node_id), ...])
             if fanins:
+                # Get output_mapping to resolve signal names to node IDs
+                output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                
                 for fanin in fanins:
                     if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
                         fanin_signal = fanin[0]  # Signal name
@@ -231,25 +234,44 @@ class DCEOptimizer:
                     if fanin_signal in netlist.get('inputs', []):
                         continue
                     
+                    # Try to resolve signal name to node ID via output_mapping
+                    resolved_node_id = None
+                    if fanin_signal in output_mapping:
+                        resolved_node_id = output_mapping[fanin_signal]
+                        logger.debug(f"Resolved signal {fanin_signal} -> node ID {resolved_node_id} via output_mapping")
+                    
                     # Find which node produces this fanin signal
                     found_fanin = False
                     if isinstance(nodes_dict, dict):
-                        for other_node_key, other_node in nodes_dict.items():
-                            if isinstance(other_node, dict):
-                                other_node_output = other_node.get('output')
-                                other_node_id = str(other_node.get('id', ''))
-                                
-                                # Match by output signal, id, or key
-                                if (other_node_output == fanin_signal or 
-                                    other_node_id == fanin_signal or 
-                                    other_node_key == fanin_signal or
-                                    (fanin_node_id and (other_node_id == fanin_node_id or other_node_key == fanin_node_id))):
-                                    if other_node_key not in reachable:
-                                        reachable.add(other_node_key)
-                                        queue.append(other_node_key)
-                                        found_fanin = True
-                                        logger.debug(f"Found fanin: {fanin_signal} -> node {other_node_key} (type: {other_node.get('type')})")
-                                        break
+                        # First try resolved node ID
+                        if resolved_node_id:
+                            if resolved_node_id in nodes_dict:
+                                if resolved_node_id not in reachable:
+                                    reachable.add(resolved_node_id)
+                                    queue.append(resolved_node_id)
+                                    found_fanin = True
+                                    logger.debug(f"Found fanin via output_mapping: {fanin_signal} -> {resolved_node_id}")
+                        
+                        # Also search by matching signal name, output, id, or key
+                        if not found_fanin:
+                            for other_node_key, other_node in nodes_dict.items():
+                                if isinstance(other_node, dict):
+                                    other_node_output = other_node.get('output')
+                                    other_node_id = str(other_node.get('id', ''))
+                                    
+                                    # Match by output signal, id, key, or resolved node ID
+                                    if (other_node_output == fanin_signal or 
+                                        other_node_id == fanin_signal or 
+                                        other_node_key == fanin_signal or
+                                        other_node_id == resolved_node_id or
+                                        other_node_key == resolved_node_id or
+                                        (fanin_node_id and (other_node_id == fanin_node_id or other_node_key == fanin_node_id))):
+                                        if other_node_key not in reachable:
+                                            reachable.add(other_node_key)
+                                            queue.append(other_node_key)
+                                            found_fanin = True
+                                            logger.debug(f"Found fanin: {fanin_signal} -> node {other_node_key} (type: {other_node.get('type')})")
+                                            break
                     
                     if not found_fanin:
                         logger.debug(f"Could not find fanin node for signal {fanin_signal} (may be primary input or intermediate signal)")

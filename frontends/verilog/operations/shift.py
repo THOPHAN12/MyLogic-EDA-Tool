@@ -53,7 +53,7 @@ def parse_shift_operation(
         raise ValueError(f"Shift operation requires 2 operands (value và shift amount)")
     
     # Tạo shift node + buffer
-    node_builder.create_operation_with_buffer(
+    node_builder.create_operation_direct(
         node_type=node_type,
         operands=operands,
         output_signal=lhs

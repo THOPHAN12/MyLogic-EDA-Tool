@@ -51,8 +51,8 @@ def parse_arithmetic_operation(
     if len(operands) != 2:
         raise ValueError(f"Arithmetic operation requires 2 operands, got {len(operands)}")
     
-    # Tạo operation node + buffer node
-    node_builder.create_operation_with_buffer(
+    # Tạo operation node trực tiếp (không qua BUF)
+    node_builder.create_operation_direct(
         node_type=node_type,
         operands=operands,
         output_signal=lhs

@@ -99,9 +99,11 @@ class ExpressionParser:
         )
         
         # Tạo buffer node cho output
-        buf_id = self.node_builder.create_buffer_node(op_node_id, output_signal)
+        # Không tạo BUF node - update output mapping trực tiếp
+        if output_signal:
+            self.node_builder.output_mapping[output_signal] = op_node_id
         
-        return buf_id
+        return op_node_id
     
     def _parse_sub_expression(self, expr: str) -> str:
         """

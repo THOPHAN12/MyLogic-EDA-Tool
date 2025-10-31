@@ -56,12 +56,20 @@ def parse_bitwise_operation(
     if len(operands) < 2:
         raise ValueError(f"Bitwise operation requires at least 2 operands")
     
-    # Xử lý XOR chain (a ^ b ^ c)
-    if operator == '^' and len(operands) > 2:
-        _parse_xor_chain(node_builder, lhs, operands)
+    # Xử lý chain operations (a & b & c, a | b | c, a ^ b ^ c)
+    if len(operands) > 2:
+        if operator == '^':
+            _parse_xor_chain(node_builder, lhs, operands)
+        elif operator == '&':
+            _parse_and_chain(node_builder, lhs, operands)
+        elif operator == '|':
+            _parse_or_chain(node_builder, lhs, operands)
+        else:
+            # Other operators - parse as binary, create chain manually
+            _parse_binary_chain(node_builder, node_type, lhs, operands)
     else:
-        # Normal binary operation
-        node_builder.create_operation_with_buffer(
+        # Normal binary operation - tạo trực tiếp không qua BUF
+        node_builder.create_operation_direct(
             node_type=node_type,
             operands=operands[:2],  # Lấy 2 operands đầu
             output_signal=lhs
@@ -116,8 +124,8 @@ def parse_not_operation(node_builder: NodeBuilder, lhs: str, rhs: str) -> None:
     # Loại bỏ ~ và lấy operand
     operand = rhs.replace('~', '').strip()
     
-    # Tạo NOT node + buffer
-    node_builder.create_operation_with_buffer(
+    # Tạo NOT node trực tiếp (không qua BUF)
+    node_builder.create_operation_direct(
         node_type='NOT',
         operands=[operand],
         output_signal=lhs
@@ -169,12 +177,80 @@ def _parse_xor_chain(
         output: Output signal
         operands: List tất cả operands trong chain
     """
-    # Tạo XOR chain node với tất cả operands
-    node_builder.create_operation_with_buffer(
+    # Tạo XOR chain node với tất cả operands (không qua BUF)
+    node_builder.create_operation_direct(
         node_type='XOR',
         operands=operands,
         output_signal=output,
         extra_attrs={'chain': True}  # Đánh dấu là chain operation
+    )
+
+
+def _parse_and_chain(
+    node_builder: NodeBuilder,
+    output: str,
+    operands: List[str]
+) -> None:
+    """
+    Parse AND chain (a & b & c & ...).
+    
+    Args:
+        node_builder: NodeBuilder instance
+        output: Output signal
+        operands: List tất cả operands trong chain
+    """
+    # Tạo AND chain node với tất cả operands (không qua BUF)
+    node_builder.create_operation_direct(
+        node_type='AND',
+        operands=operands,
+        output_signal=output,
+        extra_attrs={'chain': True}  # Đánh dấu là chain operation
+    )
+
+
+def _parse_or_chain(
+    node_builder: NodeBuilder,
+    output: str,
+    operands: List[str]
+) -> None:
+    """
+    Parse OR chain (a | b | c | ...).
+    
+    Args:
+        node_builder: NodeBuilder instance
+        output: Output signal
+        operands: List tất cả operands trong chain
+    """
+    # Tạo OR chain node với tất cả operands (không qua BUF)
+    node_builder.create_operation_direct(
+        node_type='OR',
+        operands=operands,
+        output_signal=output,
+        extra_attrs={'chain': True}  # Đánh dấu là chain operation
+    )
+
+
+def _parse_binary_chain(
+    node_builder: NodeBuilder,
+    node_type: str,
+    output: str,
+    operands: List[str]
+) -> None:
+    """
+    Parse binary chain cho các operators khác (NAND, NOR, etc.).
+    
+    Args:
+        node_builder: NodeBuilder instance
+        node_type: Type of node to create
+        output: Output signal
+        operands: List tất cả operands trong chain
+    """
+    # Tạo chain node với tất cả operands
+    node_builder.create_operation_direct(
+        node_type=node_type,
+        operands=operands,
+        output_signal=output,
+        extra_attrs={'chain': True}
     )
 
 

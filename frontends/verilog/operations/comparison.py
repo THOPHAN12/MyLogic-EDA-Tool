@@ -51,7 +51,7 @@ def parse_comparison_operation(
         raise ValueError(f"Comparison operation requires 2 operands")
     
     # Tạo comparison node + buffer
-    node_builder.create_operation_with_buffer(
+    node_builder.create_operation_direct(
         node_type=node_type,
         operands=operands,
         output_signal=lhs

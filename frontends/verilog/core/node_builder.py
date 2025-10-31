@@ -123,10 +123,8 @@ class NodeBuilder:
         """
         Tạo operation node + buffer node (pattern phổ biến).
         
-        Hầu hết operations đều follow pattern này:
-        1. Tạo operation node (ADD, AND, etc.)
-        2. Tạo buffer node để connect với output
-        3. Update output mapping
+        DEPRECATED: Sử dụng create_operation_direct() thay vì function này.
+        Giữ lại để backward compatibility.
         
         Args:
             node_type: Loại operation (ADD, AND, OR, etc.)
@@ -137,15 +135,47 @@ class NodeBuilder:
         Returns:
             Tuple (operation_node_id, buffer_node_id)
         """
+        # Tạo operation node trực tiếp (không qua BUF)
+        op_node_id = self.create_operation_direct(
+            node_type, operands, output_signal, extra_attrs
+        )
+        
+        # Không tạo BUF node nữa - trả về operation node ID cho cả hai
+        # (để backward compatible với code cũ đang expect 2 return values)
+        return (op_node_id, op_node_id)
+    
+    def create_operation_direct(
+        self,
+        node_type: str,
+        operands: List[str],
+        output_signal: str,
+        extra_attrs: Optional[Dict] = None
+    ) -> str:
+        """
+        Tạo operation node trực tiếp, KHÔNG tạo BUF node.
+        
+        Đây là cách đúng đắn hơn - không tạo BUF nodes không cần thiết.
+        Strash sẽ tự động optimize nếu cần.
+        
+        Args:
+            node_type: Loại operation (ADD, AND, OR, etc.)
+            operands: List operands
+            output_signal: Tên output signal
+            extra_attrs: Extra attributes cho operation node
+            
+        Returns:
+            Operation node ID
+        """
         # Tạo operation node
         op_node_id = self.create_operation_node(
             node_type, operands, output_signal, extra_attrs
         )
         
-        # Tạo buffer node
-        buf_node_id = self.create_buffer_node(op_node_id, output_signal)
+        # Update output mapping trực tiếp đến operation node (không qua BUF)
+        if output_signal:
+            self.output_mapping[output_signal] = op_node_id
         
-        return (op_node_id, buf_node_id)
+        return op_node_id
     
     def create_simple_assignment(self, lhs: str, rhs: str) -> str:
         """

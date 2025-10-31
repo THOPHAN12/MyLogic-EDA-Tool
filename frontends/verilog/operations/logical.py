@@ -56,7 +56,7 @@ def parse_logical_operation(
             raise ValueError(f"Logical {operator} requires 2 operands")
     
     # Tạo operation node + buffer
-    node_builder.create_operation_with_buffer(
+    node_builder.create_operation_direct(
         node_type=node_type,
         operands=operands,
         output_signal=lhs

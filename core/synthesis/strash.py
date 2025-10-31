@@ -84,9 +84,12 @@ class StrashOptimizer:
                 hash_key = self._create_hash_key(node_data, optimized_nodes)
                 
                 if hash_key in self.hash_table:
-                    # Node exists, skip it
+                    # Node exists, skip it (duplicate detected)
                     existing_node = self.hash_table[hash_key]
                     self.removed_nodes += 1
+                    
+                    # Record replacement for output_mapping update
+                    replacement_map[str(node_id)] = str(existing_node)
                     
                     # Store removal details
                     node_type = node_data.get('type', 'UNKNOWN')
@@ -143,11 +146,52 @@ class StrashOptimizer:
         try:
             attrs = optimized_netlist.setdefault('attrs', {})
             out_map = attrs.setdefault('output_mapping', {})
+            
+            # First, update mappings where the value itself was a replaced node
             for out_name, node_ref in list(out_map.items()):
                 node_ref_str = str(node_ref)
+                
+                # Check if this reference points to a replaced node
                 if node_ref_str in replacement_map:
-                    out_map[out_name] = replacement_map[node_ref_str]
-        except Exception:
+                    old_ref = node_ref_str
+                    new_ref = replacement_map[node_ref_str]
+                    out_map[out_name] = new_ref
+                    logger.debug(f"Updated output_mapping[{out_name}]: {old_ref} -> {new_ref}")
+            
+            # Second pass: Update mappings where signal name points to a replaced node
+            # (e.g., out_map['chain1'] = 'and_6', but and_6 was replaced by and_0)
+            for signal_name, node_id in list(out_map.items()):
+                node_id_str = str(node_id)
+                if node_id_str in replacement_map:
+                    # This signal points to a replaced node, update it
+                    old_id = node_id_str
+                    new_id = replacement_map[node_id_str]
+                    out_map[signal_name] = new_id
+                    logger.debug(f"Updated output_mapping[{signal_name}]: {old_id} -> {new_id} (signal mapping)")
+            
+            # Third pass: Update output mappings that reference signal names which themselves were replaced
+            # (e.g., 'out3' -> 'chain1', but 'chain1' was mapped to 'and_6' which was replaced by 'and_0')
+            # First, create reverse mapping: signal_name -> final_node_id
+            signal_to_final_node = {}
+            for signal_name, node_id in out_map.items():
+                node_id_str = str(node_id)
+                # Follow replacement chain to get final node
+                final_node_id = node_id_str
+                while final_node_id in replacement_map:
+                    final_node_id = replacement_map[final_node_id]
+                signal_to_final_node[signal_name] = final_node_id
+            
+            # Now update any mappings that reference these signals
+            for out_name, node_ref in list(out_map.items()):
+                node_ref_str = str(node_ref)
+                # If this reference is a signal name (not a direct node ID), resolve it
+                if node_ref_str in signal_to_final_node:
+                    final_ref = signal_to_final_node[node_ref_str]
+                    if final_ref != node_ref_str:
+                        out_map[out_name] = final_ref
+                        logger.debug(f"Updated output_mapping[{out_name}]: {node_ref_str} -> {final_ref} (signal resolution)")
+        except Exception as e:
+            logger.warning(f"Failed to update output_mapping: {e}")
             pass
         
         final_nodes = len(optimized_netlist['nodes'])

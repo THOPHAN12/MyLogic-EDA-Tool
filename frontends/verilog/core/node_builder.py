@@ -233,6 +233,81 @@ class NodeBuilder:
         
         return gate_id
     
+    def create_sequential_node(
+        self,
+        node_type: str,
+        data_input: str,
+        clock_signal: str,
+        edge_type: str,
+        output_signal: str,
+        reset_signal: str = None,
+        reset_value: bool = False
+    ) -> str:
+        """
+        Tạo sequential node (DFF, REG, LATCH).
+        
+        Args:
+            node_type: Loại sequential node ('DFF', 'REG', 'LATCH')
+            data_input: Data input signal hoặc expression
+            clock_signal: Clock signal name
+            edge_type: 'posedge' hoặc 'negedge'
+            output_signal: Output signal name
+            reset_signal: Reset signal name (optional)
+            reset_value: Reset value (True=1, False=0, optional)
+            
+        Returns:
+            Sequential node ID
+        """
+        # Generate sequential node ID
+        seq_id = f"{node_type.lower()}_{self.node_counter}"
+        self.node_counter += 1
+        
+        # Parse data input expression nếu là complex expression
+        # Tạm thời giả sử data_input là signal name đơn giản
+        # Có thể cần parse expression phức tạp hơn sau
+        fanins = []
+        
+        # Data input có thể là expression hoặc signal
+        if any(op in data_input for op in ['+', '-', '&', '|', '^', '*', '/']):
+            # Complex expression - cần parse
+            # Tạm thời add như là string, sẽ được resolve sau
+            fanins.append([data_input, False])
+        else:
+            # Simple signal
+            fanins.append([data_input.strip(), False])
+        
+        # Clock signal
+        fanins.append([clock_signal.strip(), False])
+        
+        # Reset signal nếu có
+        if reset_signal:
+            fanins.append([reset_signal.strip(), False])
+        
+        # Tạo sequential node
+        seq_node = {
+            "id": seq_id,
+            "type": node_type,
+            "fanins": fanins,
+            "output": output_signal,
+            "attrs": {
+                "edge_type": edge_type,
+                "clock": clock_signal,
+                "data_input": data_input,
+            }
+        }
+        
+        if reset_signal:
+            seq_node["attrs"]["reset_signal"] = reset_signal
+            seq_node["attrs"]["reset_value"] = reset_value
+        
+        # Thêm vào nodes
+        self.nodes.append(seq_node)
+        
+        # Update output mapping
+        self.output_mapping[output_signal] = seq_id
+        
+        return seq_id
+    
     def create_module_instance_node(
         self,
         module_type: str,

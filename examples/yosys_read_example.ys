@@ -1,0 +1,74 @@
+# Yosys Script Example - How Yosys Reads Verilog Files
+# Based on YosysHQ Documentation
+
+# ============================================================
+# READ COMMANDS - Frontend Parsers
+# ============================================================
+
+# 1. Read Verilog file (combinational)
+read_verilog examples/full_adder.v
+
+# 2. Read Verilog file (sequential)
+read_verilog examples/flipflop.v
+
+# 3. Read multiple files
+# read_verilog file1.v file2.v file3.v
+
+# 4. Read with options
+# read_verilog -sv examples/systemverilog.sv    # SystemVerilog mode
+# read_verilog -lib library.v                   # Library mode
+
+# ============================================================
+# POST-READ PROCESSING
+# ============================================================
+
+# Hierarchy processing
+hierarchy -check -top full_adder
+
+# Show statistics
+stat
+
+# Show design structure
+show full_adder
+
+# ============================================================
+# YOSYS INTERNAL REPRESENTATION (RTLIL)
+# ============================================================
+# Sau khi read_verilog, Yosys chuyển đổi thành RTLIL:
+#
+# module \full_adder
+#   wire width 1 \a
+#   wire width 1 \b
+#   wire width 1 \cin
+#   wire width 1 \sum
+#   wire width 1 \cout
+#   cell $xor
+#     parameter \A_SIGNED 0
+#     parameter \A_WIDTH 1
+#     ...
+#     connect \A \a
+#     connect \B \b
+#     connect \Y \sum
+#   end
+# end
+#
+# ============================================================
+# KEY DIFFERENCES FROM MYLOGIC PARSER
+# ============================================================
+#
+# Yosys:
+# - Uses RTLIL (RTL Intermediate Language)
+# - Full SystemVerilog support
+# - Complex hierarchy handling
+# - Parameters và generate blocks
+# - Multiple file formats (VHDL, BLIF, JSON, EDIF)
+#
+# MyLogic:
+# - Uses JSON-based netlist
+# - Basic Verilog support
+# - Sequential circuits (always blocks) - NEW
+# - Combinational optimization focus
+# - Direct Python integration
+#
+# ============================================================
+

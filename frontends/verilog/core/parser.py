@@ -72,12 +72,21 @@ def parse_verilog(path: str) -> Dict[str, Any]:
     if not path or not isinstance(path, str):
         raise ValueError("Path phải là string không rỗng")
     
-    # Đọc file
+    # Đọc file - nâng cấp error handling giống YosysHQ
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
             source_code = f.read()
     except FileNotFoundError:
         raise FileNotFoundError(f"Không tìm thấy file: {path}")
+    except UnicodeDecodeError as e:
+        # Thử với encoding khác nếu UTF-8 fail
+        try:
+            with open(path, 'r', encoding='latin-1') as f:
+                source_code = f.read()
+        except Exception:
+            raise ValueError(f"Không thể đọc file {path}: encoding error - {e}")
+    except Exception as e:
+        raise ValueError(f"Lỗi khi đọc file {path}: {e}")
     
     # Khởi tạo netlist structure
     netlist = _initialize_netlist(path)
@@ -93,8 +102,12 @@ def parse_verilog(path: str) -> Dict[str, Any]:
     _parse_port_declarations(netlist, tokens)
     _parse_wire_declarations(netlist, tokens['module_body'])
     
-    # Bước 4: Parse assign statements và gates
+    # Bước 3.5: Parse parameters và localparams
+    _parse_parameters(netlist, tokens['module_body'])
+    
+    # Bước 4: Parse assign statements, always blocks, và gates
     node_builder = NodeBuilder()
+    _parse_always_blocks(netlist, tokens['module_body'], node_builder)
     _parse_assign_statements(netlist, tokens['module_body'], node_builder)
     _parse_gate_instantiations(netlist, tokens['module_body'], node_builder)
     _parse_module_instantiations(netlist, tokens['module_body'], node_builder)
@@ -257,19 +270,61 @@ def _parse_output_ports(netlist: Dict, port_list: str, module_body: str):
 
 
 # ============================================================================
+# PARAMETER & LOCALPARAM PARSING
+# ============================================================================
+
+def _parse_parameters(netlist: Dict, module_body: str):
+    """
+    Parse parameter và localparam declarations.
+    
+    Hỗ trợ:
+    - parameter WIDTH = 8;
+    - parameter DEPTH = 16, ADDR_WIDTH = 4;
+    - localparam MAX = 255;
+    - parameter [7:0] DATA = 8'hFF;
+    
+    Args:
+        netlist: Netlist dictionary để update
+        module_body: Module body content
+    """
+    from .constants import PARAMETER_PATTERN, LOCALPARAM_PATTERN
+    
+    parameters = netlist['attrs'].setdefault('parameters', {})
+    
+    # Parse parameters
+    for match in PARAMETER_PATTERN.finditer(module_body):
+        param_name = match.group(1).strip()
+        param_value = match.group(2).strip()
+        parameters[param_name] = param_value
+    
+    # Parse localparams
+    for match in LOCALPARAM_PATTERN.finditer(module_body):
+        param_name = match.group(1).strip()
+        param_value = match.group(2).strip()
+        parameters[param_name] = param_value
+        parameters[f'localparam_{param_name}'] = param_value  # Mark as localparam
+
+
+# ============================================================================
 # WIRE DECLARATIONS PARSING
 # ============================================================================
 
 def _parse_wire_declarations(netlist: Dict, module_body: str):
     """
-    Parse wire declarations.
+    Parse wire declarations - nâng cấp giống YosysHQ.
     
     Hỗ trợ:
     - wire [3:0] temp;
     - wire [3:0] temp = a + b;
     - wire clk;
     - wire ready = enable & valid;
+    - Multiple declarations: wire a, b, c;
+    - Mixed vector và scalar: wire [7:0] data; wire clk;
     """
+    from .constants import (
+        WIRE_VECTOR_ASSIGN_PATTERN, WIRE_SCALAR_ASSIGN_PATTERN,
+        WIRE_VECTOR_PATTERN, WIRE_SCALAR_PATTERN
+    )
     
     # Pattern 1: wire [3:0] temp = assignment;
     for match in WIRE_VECTOR_ASSIGN_PATTERN.finditer(module_body):
@@ -277,19 +332,25 @@ def _parse_wire_declarations(netlist: Dict, module_body: str):
         width = calculate_vector_width(msb, lsb)
         
         for signal in split_signal_list(signals_str):
-            wire_entry = f"{signal} = {assignment.strip()}"
-            if wire_entry not in netlist['wires']:
-                netlist['wires'].append(wire_entry)
-                netlist['attrs']['vector_widths'][wire_entry] = width
+            signal = signal.strip()
+            if signal:
+                wire_entry = f"{signal} = {assignment.strip()}"
+                if wire_entry not in netlist['wires']:
+                    netlist['wires'].append(wire_entry)
+                    netlist['attrs']['vector_widths'][wire_entry] = width
+                    netlist['attrs']['vector_widths'][signal] = width  # Also store signal width
     
     # Pattern 2: wire temp = assignment; (scalar)
     for match in WIRE_SCALAR_ASSIGN_PATTERN.finditer(module_body):
         signals_str, assignment = match.groups()
         for signal in split_signal_list(signals_str):
-            wire_entry = f"{signal} = {assignment.strip()}"
-            if wire_entry not in netlist['wires']:
-                netlist['wires'].append(wire_entry)
-                netlist['attrs']['vector_widths'][wire_entry] = 1
+            signal = signal.strip()
+            if signal:
+                wire_entry = f"{signal} = {assignment.strip()}"
+                if wire_entry not in netlist['wires']:
+                    netlist['wires'].append(wire_entry)
+                    netlist['attrs']['vector_widths'][wire_entry] = 1
+                    netlist['attrs']['vector_widths'][signal] = 1
     
     # Pattern 3: wire [3:0] temp; (declaration only)
     for match in WIRE_VECTOR_PATTERN.finditer(module_body):
@@ -297,7 +358,8 @@ def _parse_wire_declarations(netlist: Dict, module_body: str):
         width = calculate_vector_width(msb, lsb)
         
         for signal in split_signal_list(signals_str):
-            if signal not in netlist['wires']:
+            signal = signal.strip()
+            if signal and signal not in netlist['wires']:
                 netlist['wires'].append(signal)
                 netlist['attrs']['vector_widths'][signal] = width
     
@@ -305,9 +367,145 @@ def _parse_wire_declarations(netlist: Dict, module_body: str):
     for match in WIRE_SCALAR_PATTERN.finditer(module_body):
         signals_str = match.group(1)
         for signal in split_signal_list(signals_str):
+            signal = signal.strip()
             if signal and signal not in netlist['wires']:
                 netlist['wires'].append(signal)
                 netlist['attrs']['vector_widths'][signal] = 1
+    
+    # Pattern 5: reg declarations (giống wire)
+    for match in REG_PATTERN.finditer(module_body):
+        msb, lsb, signals_str = match.groups() if len(match.groups()) >= 3 else (None, None, match.group(1) if match.group(1) else "")
+        if msb and lsb:
+            width = calculate_vector_width(msb, lsb)
+        else:
+            width = 1
+        
+        for signal in split_signal_list(signals_str):
+            signal = signal.strip()
+            if signal:
+                # Regs có thể không là wires, nhưng vẫn cần track
+                if signal not in netlist['wires']:
+                    netlist['wires'].append(signal)
+                netlist['attrs']['vector_widths'][signal] = width
+                netlist['attrs'].setdefault('reg_signals', []).append(signal)
+
+
+# ============================================================================
+# ALWAYS BLOCKS PARSING (SEQUENTIAL CIRCUITS)
+# ============================================================================
+
+def _parse_always_blocks(netlist: Dict, module_body: str, node_builder: NodeBuilder):
+    """
+    Parse always blocks cho sequential circuits.
+    
+    Hỗ trợ:
+    - always @(posedge clk) { ... }
+    - always @(negedge clk) { ... }
+    - Non-blocking assignments (<=)
+    - Blocking assignments (=) trong always blocks
+    
+    Args:
+        netlist: Netlist dictionary
+        module_body: Module body content
+        node_builder: NodeBuilder instance
+    """
+    from .constants import (
+        ALWAYS_PATTERN, EDGE_PATTERN, POSEDGE_PATTERN, NEGEDGE_PATTERN,
+        NON_BLOCKING_ASSIGN_PATTERN, BLOCKING_ASSIGN_PATTERN, BEGIN_END_PATTERN
+    )
+    
+    # Tìm tất cả always blocks
+    for match in ALWAYS_PATTERN.finditer(module_body):
+        sensitivity_list = match.group(1).strip()
+        # Group 2 là begin...end content, group 3 là {...} content
+        block_content = (match.group(2) or match.group(3) or '').strip()
+        
+        # Parse edge sensitivity (posedge/negedge)
+        clock_signal = None
+        edge_type = None
+        
+        posedge_match = POSEDGE_PATTERN.search(sensitivity_list)
+        negedge_match = NEGEDGE_PATTERN.search(sensitivity_list)
+        
+        if posedge_match:
+            clock_signal = posedge_match.group(1)
+            edge_type = 'posedge'
+        elif negedge_match:
+            clock_signal = negedge_match.group(1)
+            edge_type = 'negedge'
+        else:
+            # Combinational always block (@(*) hoặc không có edge)
+            # Parse như combinational logic (blocking assignments)
+            _parse_always_combinational(block_content, node_builder)
+            continue
+        
+        # Sequential always block với clock edge
+        # Extract begin-end content nếu có
+        begin_match = BEGIN_END_PATTERN.search(block_content)
+        if begin_match:
+            block_content = begin_match.group(1).strip()
+        
+        # Parse non-blocking assignments (<=) - Sequential logic
+        _parse_always_sequential(block_content, clock_signal, edge_type, node_builder)
+
+
+def _parse_always_sequential(
+    block_content: str,
+    clock_signal: str,
+    edge_type: str,
+    node_builder: NodeBuilder
+):
+    """
+    Parse sequential always block với clock edge.
+    
+    Args:
+        block_content: Nội dung của always block
+        clock_signal: Clock signal name
+        edge_type: 'posedge' hoặc 'negedge'
+        node_builder: NodeBuilder instance
+    """
+    from .constants import NON_BLOCKING_ASSIGN_PATTERN
+    from .expression_parser import parse_complex_expression
+    
+    # Tìm tất cả non-blocking assignments (<=)
+    for match in NON_BLOCKING_ASSIGN_PATTERN.finditer(block_content):
+        output_signal = match.group(1).strip()
+        input_expression = match.group(2).strip()
+        
+        # Tạo DFF node cho sequential assignment
+        dff_node_id = node_builder.create_sequential_node(
+            node_type='DFF',
+            data_input=input_expression,
+            clock_signal=clock_signal,
+            edge_type=edge_type,
+            output_signal=output_signal
+        )
+
+
+def _parse_always_combinational(block_content: str, node_builder: NodeBuilder):
+    """
+    Parse combinational always block (@(*) hoặc không có edge).
+    
+    Args:
+        block_content: Nội dung của always block
+        node_builder: NodeBuilder instance
+    """
+    from .constants import BLOCKING_ASSIGN_PATTERN
+    from .expression_parser import parse_complex_expression
+    
+    # Extract begin-end content nếu có
+    from .constants import BEGIN_END_PATTERN
+    begin_match = BEGIN_END_PATTERN.search(block_content)
+    if begin_match:
+        block_content = begin_match.group(1).strip()
+    
+    # Tìm tất cả blocking assignments (=)
+    for match in BLOCKING_ASSIGN_PATTERN.finditer(block_content):
+        output_signal = match.group(1).strip()
+        input_expression = match.group(2).strip()
+        
+        # Parse expression như combinational logic
+        parse_complex_expression(node_builder, output_signal, input_expression)
 
 
 # ============================================================================
@@ -440,31 +638,81 @@ def _parse_gate_instantiations(netlist: Dict, module_body: str, node_builder: No
 
 
 def _parse_module_instantiations(netlist: Dict, module_body: str, node_builder: NodeBuilder):
-    """Parse module instantiations."""
+    """
+    Parse module instantiations với hỗ trợ đầy đủ như YosysHQ.
+    
+    Hỗ trợ:
+    - Ordered ports: module_inst inst1 (a, b, c);
+    - Named ports: module_inst inst1 (.port1(a), .port2(b));
+    - Mixed: module_inst inst1 (a, .port2(b), c);
+    
+    Args:
+        netlist: Netlist dictionary
+        module_body: Module body content
+        node_builder: NodeBuilder instance
+    """
+    from .constants import (
+        MODULE_INST_PATTERN, NAMED_PORT_PATTERN, STANDARD_GATES
+    )
     
     for match in MODULE_INST_PATTERN.finditer(module_body):
-        module_type, inst_name = match.groups()
+        module_type = match.group(1).strip()
+        inst_name = match.group(2).strip() if match.group(2) else None
+        port_list = match.group(3).strip() if match.group(3) else ""
         
-        # Skip nếu là gate
+        # Skip nếu là gate (đã được parse bởi _parse_gate_instantiations)
         if module_type.lower() in STANDARD_GATES:
             continue
         
-        # Extract connections (simplified)
-        # TODO: Implement full connection parsing
-        connections = []
+        # Parse port connections
+        connections = {}
+        ordered_ports = []
         
-        # Tạo module instance node
+        # Check if có named ports (.port(signal))
+        has_named_ports = NAMED_PORT_PATTERN.search(port_list)
+        
+        if has_named_ports:
+            # Parse named ports
+            for port_match in NAMED_PORT_PATTERN.finditer(port_list):
+                port_name = port_match.group(1).strip()
+                port_signal = port_match.group(2).strip()
+                connections[port_name] = port_signal
+            
+            # Parse ordered ports (nếu có - mixed mode)
+            # Remove named ports từ port_list để tìm ordered ports
+            remaining = NAMED_PORT_PATTERN.sub('', port_list)
+            # Split by comma và filter
+            ordered_candidates = [p.strip() for p in remaining.split(',') if p.strip() and not p.strip().startswith('.')]
+            ordered_ports = [p for p in ordered_candidates if p]
+        else:
+            # Chỉ có ordered ports
+            ordered_ports = [p.strip() for p in port_list.split(',') if p.strip()]
+            # Create connections với index-based keys
+            for i, signal in enumerate(ordered_ports):
+                connections[f'port_{i}'] = signal
+        
+        # Generate instance name nếu không có
+        if not inst_name:
+            instance_counter = len([k for k in netlist.get('attrs', {}).get('module_instantiations', {})])
+            inst_name = f"{module_type}_inst_{instance_counter}"
+        
+        # Create module instance node
         module_id = node_builder.create_module_instance_node(
-            module_type, inst_name, connections
+            module_type=module_type,
+            inst_name=inst_name,
+            connections=connections
         )
         
-        # Store module info
+        # Store trong netlist attributes
         if 'module_instantiations' not in netlist['attrs']:
             netlist['attrs']['module_instantiations'] = {}
         
         netlist['attrs']['module_instantiations'][module_id] = {
             "module_type": module_type,
-            "connections": connections
+            "instance_name": inst_name,
+            "connections": connections,
+            "ordered_ports": ordered_ports if not has_named_ports else None,
+            "has_named_ports": has_named_ports is not None
         }
 
 

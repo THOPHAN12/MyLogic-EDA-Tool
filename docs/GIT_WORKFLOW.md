@@ -5,6 +5,8 @@
 - **Thọ**: Main developer
 - **Minh**: Collaborator
 
+> **Lưu ý về Quyền Hạn**: Cả Thọ và Minh đều có quyền như nhau trên repository. Mỗi người chủ yếu đảm nhiệm branches của mình, nhưng có thể review và merge code của nhau. Xem chi tiết tại `docs/TEAM_ROLES_AND_PERMISSIONS.md`.
+
 ---
 
 ## 🌳 **CẤU TRÚC BRANCHES**

@@ -321,6 +321,9 @@ class PlacementEngine:
         for name, cell in self.cells.items():
             print(f"  {name}: ({cell.x:.2f}, {cell.y:.2f}) - {cell.width}x{cell.height}")
 
+# Alias for backward compatibility
+Placement = PlacementEngine
+
 # Example usage and testing
 if __name__ == "__main__":
     # Create placement engine

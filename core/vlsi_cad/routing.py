@@ -425,3 +425,6 @@ if __name__ == "__main__":
     print(f"   Wirelength: {stats2['total_wirelength']:.2f}")
     
     router.visualize_routing()
+
+# Alias for backward compatibility
+Routing = MazeRouter

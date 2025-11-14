@@ -325,7 +325,12 @@ class TechnologyMapper:
             print(f"{node_name:<15} {function_str:<25} {mapped_cell:<15} {cost:<8}")
 
 def create_standard_library() -> TechnologyLibrary:
-    """Create a standard technology library with common gates."""
+    """
+    Create a standard technology library with common gates.
+    
+    This is a fallback function. For better results, use load_library()
+    to load from techlibs/ folder.
+    """
     library = TechnologyLibrary("standard_cells")
     
     # Basic gates
@@ -368,6 +373,31 @@ def create_standard_library() -> TechnologyLibrary:
         library.add_cell(cell)
     
     return library
+
+
+def load_library_from_file(file_path: str, library_type: Optional[str] = None) -> TechnologyLibrary:
+    """
+    Load technology library from file.
+    
+    Wrapper function to load from techlibs/ folder.
+    
+    Args:
+        file_path: Path to library file (.lib, .json, or .v)
+        library_type: Optional type hint ("liberty", "json", "verilog")
+        
+    Returns:
+        TechnologyLibrary object
+        
+    Examples:
+        >>> library = load_library_from_file("techlibs/asic/standard_cells.lib")
+        >>> library = load_library_from_file("techlibs/custom_library.json")
+    """
+    try:
+        from .library_loader import load_library
+        return load_library(file_path, library_type)
+    except ImportError:
+        logger.warning("library_loader not available, using standard library")
+        return create_standard_library()
 
 # Example usage and testing
 if __name__ == "__main__":

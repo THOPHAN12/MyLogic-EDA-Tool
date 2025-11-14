@@ -942,8 +942,13 @@ class VectorShell:
     def _run_technology_mapping(self, parts):
         """Chạy technology mapping."""
         if not parts or len(parts) < 2:
-            print("Usage: techmap <strategy>")
+            print("Usage: techmap <strategy> [library_file]")
             print("Strategies: area, delay, balanced")
+            print("Library: path to .lib, .json, or .v file (optional)")
+            print("  Examples:")
+            print("    techmap area")
+            print("    techmap balanced techlibs/asic/standard_cells.lib")
+            print("    techmap delay techlibs/custom_library.json")
             return
         
         if not self.current_netlist:
@@ -951,14 +956,34 @@ class VectorShell:
             return
         
         strategy = parts[1].lower()
+        library_path = parts[2] if len(parts) > 2 else None
         
         try:
-            from core.technology_mapping.technology_mapping import TechnologyMapper, LogicNode, create_standard_library
+            from core.technology_mapping.technology_mapping import (
+                TechnologyMapper, LogicNode, create_standard_library, load_library_from_file
+            )
+            import os
             
             print(f"[INFO] Running technology mapping with {strategy} strategy...")
             
-            # Tạo library và mapper
-            library = create_standard_library()
+            # Load library từ file hoặc dùng default
+            if library_path and os.path.exists(library_path):
+                print(f"[INFO] Loading library from: {library_path}")
+                try:
+                    library = load_library_from_file(library_path)
+                    print(f"[OK] Loaded library '{library.name}' with {len(library.cells)} cells")
+                except Exception as e:
+                    print(f"[WARNING] Failed to load library from file: {e}")
+                    print("[INFO] Falling back to standard library")
+                    library = create_standard_library()
+            else:
+                if library_path:
+                    print(f"[WARNING] Library file not found: {library_path}")
+                    print("[INFO] Using default standard library")
+                else:
+                    print("[INFO] Using default standard library")
+                library = create_standard_library()
+            
             mapper = TechnologyMapper(library)
             
             # Convert netlist nodes to LogicNodes

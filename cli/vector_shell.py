@@ -5,7 +5,6 @@ Hỗ trợ:
  - Vector inputs/outputs
  - Multi-bit simulation
  - Vector operations
- - Yosys integration
 """
 
 import os
@@ -20,12 +19,7 @@ from parsers import parse_verilog
 from core.simulation.arithmetic_simulation import simulate_arithmetic_netlist
 from core.simulation.arithmetic_simulation import VectorValue
 
-# Yosys integration
-try:
-    from integrations.yosys.mylogic_synthesis import MyLogicSynthesis, integrate_yosys_commands
-    YOSYS_AVAILABLE = True
-except ImportError:
-    YOSYS_AVAILABLE = False
+# Yosys integration removed
 
 
 class VectorShell:
@@ -61,13 +55,12 @@ class VectorShell:
             'clear': self._clear_screen,
             'help': self._show_help,
             'exit': self._exit_shell,
-        # Logic Synthesis algorithms (ABC-inspired)
+        # Logic Synthesis algorithms
         'strash': self._run_strash,
         'cse': self._run_cse,
         'constprop': self._run_constprop,
         'balance': self._run_balance,
         'synthesis': self._run_complete_synthesis,
-        'abc_info': self._run_abc_info,
             # VLSI CAD Part 1 features
             'dce': self._run_dce,
             'bdd': self._run_bdd,
@@ -80,15 +73,7 @@ class VectorShell:
             'techmap': self._run_technology_mapping
         }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
         
-        # Tích hợp Yosys commands nếu có sẵn
-        if YOSYS_AVAILABLE:
-            try:
-                integrate_yosys_commands(self)
-                print("[INFO] Yosys integration enabled")
-            except Exception as e:
-                print(f"[WARNING] Yosys integration failed: {e}")
-        else:
-            print("[INFO] Yosys not available - synthesis features disabled")
+        # Yosys integration removed
 
     def run(self):
         """Chạy interactive shell."""
@@ -369,7 +354,7 @@ class VectorShell:
         print("  simulate              - Run simulation (auto-detect vector/scalar)")
         print("  vsimulate             - Run vector simulation (n-bit, legacy)")
         print()
-        print("Logic Synthesis (ABC-inspired):")
+        print("Logic Synthesis:")
         print("  strash                - Structural hashing optimization")
         print("  dce                   - Dead code elimination")
         print("  cse                   - Common subexpression elimination")
@@ -390,32 +375,13 @@ class VectorShell:
         print("  clear                 - Clear screen")
         print("  help                  - Show this help")
         print("  exit                  - Quit the shell")
-        
-        # Hiển thị Yosys commands nếu có sẵn
-        if YOSYS_AVAILABLE:
-            print("\nYosys Integration:")
-            print("  yosys_synth          - Run Yosys synthesis")
-            print("  yosys_opt            - Run optimization pass")
-            print("  yosys_stat           - Get design statistics")
-            print("  yosys_flow           - Complete synthesis flow")
-            print("  yosys_help           - Show Yosys help")
-            print("\nYosys Output Formats:")
-            print("  write_verilog        - Write Verilog RTL output")
-            print("  write_json           - Write JSON netlist")
-            print("  write_blif           - Write BLIF format")
-            print("  write_edif           - Write EDIF format")
-        print("  write_spice          - Write SPICE netlist")
-        print("  write_dot            - Write DOT graph format")
-        print("  write_liberty        - Write Liberty library")
-        print("  write_systemverilog  - Write SystemVerilog output")
         print("")
-        print("Logic Synthesis Algorithms (ABC-inspired):")
+        print("Logic Synthesis Algorithms:")
         print("  strash               - Structural Hashing (remove duplicates)")
         print("  cse                  - Common Subexpression Elimination")
         print("  constprop            - Constant Propagation")
         print("  balance              - Logic Balancing")
         print("  synthesis <level>    - Complete synthesis flow (basic/standard/aggressive)")
-        print("  abc_info             - ABC integration information")
         print("")
         print("VLSI CAD Part 1 Features:")
         print("  dce <level>          - Dead Code Elimination (basic/advanced/aggressive)")
@@ -598,58 +564,6 @@ class VectorShell:
             print("[ERROR] Synthesis Flow module not available")
         except Exception as e:
             print(f"[ERROR] Complete Synthesis Flow failed: {e}")
-    
-    def _run_abc_info(self, parts):
-        """Hiển thị thông tin ABC integration."""
-        try:
-            from core.abc_integration import ABCIntegration
-            
-            abc = ABCIntegration()
-            
-            print("ABC Integration Information:")
-            print("=" * 50)
-            print(f"ABC Repository: https://github.com/YosysHQ/abc")
-            print(f"ABC Description: System for Sequential Logic Synthesis and Formal Verification")
-            print("")
-            
-            print("ABC-Inspired Algorithms in MyLogic:")
-            print("-" * 40)
-            
-            algorithms = ['strash', 'dce', 'cse', 'constprop', 'balance', 'bdd', 'techmap', 'sat']
-            for algo in algorithms:
-                ref = abc.get_abc_reference(algo)
-                if ref:
-                    print(f"  {algo.upper():12} - {ref['abc_function']}")
-                    print(f"  {'':12}   ABC: {ref['abc_file']}")
-                    print(f"  {'':12}   MyLogic: {ref['mylogic_file']}")
-                    print("")
-            
-            print("ABC Synthesis Flow:")
-            print("-" * 25)
-            flow = abc.get_abc_synthesis_flow()
-            for step in flow:
-                print(f"  {step['step']}. {step['name']:25} - {step['abc_function']}")
-            
-            print("")
-            print("ABC Benefits:")
-            print("-" * 15)
-            print("  - Industry-proven algorithms")
-            print("  - High-performance implementation")
-            print("  - Comprehensive optimization techniques")
-            print("  - Research-based improvements")
-            
-            print("")
-            print("MyLogic Advantages:")
-            print("-" * 20)
-            print("  - Vietnamese documentation")
-            print("  - Educational focus")
-            print("  - Modular architecture")
-            print("  - Easy to understand and modify")
-            
-        except ImportError:
-            print("[ERROR] ABC Integration module not available")
-        except Exception as e:
-            print(f"[ERROR] ABC info failed: {e}")
     
     def _run_dce(self, parts):
         """Chạy Dead Code Elimination optimization."""

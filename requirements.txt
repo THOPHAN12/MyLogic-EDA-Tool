@@ -1,17 +1,19 @@
 # MyLogic EDA Tool Dependencies
-# Core dependencies
-numpy>=1.21.0
-matplotlib>=3.5.0
+# Core dependencies (required)
+numpy>=1.21.0,<2.0.0
+matplotlib>=3.5.0,<4.0.0
 
 # Optional dependencies for enhanced features
-graphviz>=0.20.0
+# graphviz>=0.20.0  # Uncomment if needed for visualization
 
-# Development dependencies (optional)
-pytest>=7.0.0
-pytest-cov>=4.0.0
-black>=22.0.0
-flake8>=5.0.0
+# Development dependencies (install with: pip install -e ".[dev]")
+# pytest>=7.0.0
+# pytest-cov>=4.0.0
+# black>=22.0.0
+# flake8>=5.0.0
+# isort>=5.10.0
+# mypy>=1.0.0
 
-# Documentation dependencies (optional)
-sphinx>=5.0.0
-sphinx-rtd-theme>=1.0.0
+# Documentation dependencies (install with: pip install -e ".[docs]")
+# sphinx>=5.0.0
+# sphinx-rtd-theme>=1.0.0

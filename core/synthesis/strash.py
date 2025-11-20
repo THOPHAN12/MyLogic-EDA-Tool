@@ -202,7 +202,10 @@ class StrashOptimizer:
         print(f"  Original nodes: {original_nodes}")
         print(f"  Optimized nodes: {final_nodes}")
         print(f"  Removed nodes: {reduction}")
-        print(f"  Reduction: {(reduction/original_nodes)*100:.1f}%")
+        if original_nodes > 0:
+            print(f"  Reduction: {(reduction/original_nodes)*100:.1f}%")
+        else:
+            print(f"  Reduction: 0.0% (empty netlist)")
         
         if removed_details:
             print()

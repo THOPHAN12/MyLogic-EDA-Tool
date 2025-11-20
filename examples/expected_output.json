@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "tool": "MyLogic EDA Tool v2.0.0",
+    "export_time": "2025-01-01T00:00:00",
+    "source_file": "example_adder.v",
+    "version": "2.0.0"
+  },
+  "netlist": {
+    "name": "example_adder",
+    "inputs": ["a", "b", "cin"],
+    "outputs": ["sum", "cout"],
+    "nodes": [
+      {
+        "id": "add_0",
+        "type": "ADD",
+        "inputs": ["a", "b", "cin"],
+        "output": "sum_cout"
+      }
+    ],
+    "wires": [],
+    "attrs": {
+      "vector_widths": {
+        "a": 4,
+        "b": 4,
+        "cin": 1,
+        "sum": 4,
+        "cout": 1
+      }
+    }
+  },
+  "simulation": {
+    "test_inputs": {
+      "a": 5,
+      "b": 3,
+      "cin": 1
+    },
+    "expected_results": {
+      "sum": 9,
+      "cout": 0
+    },
+    "note": "5 + 3 + 1 = 9 (with carry)"
+  }
+}
+

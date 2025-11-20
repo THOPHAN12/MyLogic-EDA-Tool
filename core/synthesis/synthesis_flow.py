@@ -14,6 +14,13 @@ import logging
 # Thêm thư mục gốc project vào đường dẫn
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core.utils.error_handling import (
+    validate_netlist,
+    safe_optimize,
+    OptimizationError,
+    ValidationError
+)
+
 logger = logging.getLogger(__name__)
 
 class SynthesisFlow:
@@ -48,7 +55,21 @@ class SynthesisFlow:
             
         Returns:
             Synthesized netlist
+            
+        Raises:
+            ValidationError: If netlist is invalid
+            OptimizationError: If synthesis fails
         """
+        # Validate input netlist
+        try:
+            validate_netlist(netlist, strict=True)
+        except ValidationError as e:
+            logger.error(f"Synthesis failed: Invalid input netlist: {e}")
+            raise
+        
+        # Validate optimization level
+        if optimization_level not in ["basic", "standard", "aggressive"]:
+            raise ValueError(f"Invalid optimization level: {optimization_level}. Must be 'basic', 'standard', or 'aggressive'")
         logger.info(f"Starting Complete Logic Synthesis Flow - Level: {optimization_level}")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
@@ -226,7 +247,10 @@ class SynthesisFlow:
         logger.info("=" * 60)
         logger.info(f"Original nodes: {original_nodes}")
         logger.info(f"Final nodes: {final_nodes}")
-        logger.info(f"Total reduction: {total_reduction} nodes ({(total_reduction/original_nodes)*100:.1f}%)")
+        if original_nodes > 0:
+            logger.info(f"Total reduction: {total_reduction} nodes ({(total_reduction/original_nodes)*100:.1f}%)")
+        else:
+            logger.info(f"Total reduction: {total_reduction} nodes (0.0% - empty netlist)")
         logger.info("")
         logger.info("Optimization breakdown:")
         

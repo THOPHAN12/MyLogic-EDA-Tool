@@ -77,16 +77,19 @@ class ConstPropOptimizer:
             netlist: Circuit netlist
         """
         # Tìm constant inputs (0, 1, VCC, GND)
-        for node_id, node_data in netlist['nodes'].items():
-            node_type = node_data.get('type', '')
-            
-            if node_type in ['CONST0', 'GND', '0']:
-                self.constant_values[node_id] = False
-            elif node_type in ['CONST1', 'VCC', '1']:
-                self.constant_values[node_id] = True
-            elif node_type == 'INPUT' and 'value' in node_data:
-                # Input với known value
-                self.constant_values[node_id] = bool(node_data['value'])
+        # nodes is a list, iterate directly
+        for node in netlist.get('nodes', []):
+            if isinstance(node, dict):
+                node_id = node.get('id', '')
+                node_type = node.get('type', '')
+                
+                if node_type in ['CONST0', 'GND', '0']:
+                    self.constant_values[node_id] = False
+                elif node_type in ['CONST1', 'VCC', '1']:
+                    self.constant_values[node_id] = True
+                elif node_type == 'INPUT' and 'value' in node:
+                    # Input với known value
+                    self.constant_values[node_id] = bool(node['value'])
         
         logger.debug(f"Khởi tạo {len(self.constant_values)} constant values")
     
@@ -101,19 +104,34 @@ class ConstPropOptimizer:
             Netlist với propagated constants
         """
         optimized_netlist = netlist.copy()
-        optimized_netlist['nodes'] = netlist['nodes'].copy()
+        # nodes is a list, create a copy
+        optimized_netlist['nodes'] = [node.copy() if isinstance(node, dict) else node for node in netlist.get('nodes', [])]
         
         # Multiple passes để propagate constants
         max_passes = 10
         for pass_num in range(max_passes):
             constants_found = False
             
-            for node_id, node_data in optimized_netlist['nodes'].items():
+            # nodes is a list, iterate directly
+            for node in optimized_netlist.get('nodes', []):
+                if not isinstance(node, dict):
+                    continue
+                node_id = node.get('id', '')
+                node_data = node
                 if self._is_gate_node(node_data):
                     # Kiểm tra xem tất cả inputs có phải constants không
+                    # Handle both 'inputs' and 'fanins' formats
                     inputs = node_data.get('inputs', [])
+                    fanins = node_data.get('fanins', [])
                     
-                    if all(inp in self.constant_values for inp in inputs):
+                    # If fanins exist, extract input names from [name, is_negated] pairs
+                    if fanins and not inputs:
+                        inputs = [fanin[0] if isinstance(fanin, list) and len(fanin) > 0 else fanin for fanin in fanins]
+                    
+                    # Filter out non-string inputs (like lists)
+                    inputs = [inp for inp in inputs if isinstance(inp, str)]
+                    
+                    if inputs and all(inp in self.constant_values for inp in inputs):
                         # Tất cả inputs là constants, tính output
                         output_value = self._evaluate_gate(node_data, inputs)
                         self.constant_values[node_id] = output_value
@@ -144,8 +162,17 @@ class ConstPropOptimizer:
         Returns:
             Boolean output value
         """
-        gate_type = node_data.get('type', '')
-        input_values = [self.constant_values[inp] for inp in inputs]
+        gate_type = node_data.get('type', '').upper()
+        
+        # Get input values safely
+        input_values = []
+        for inp in inputs:
+            if inp in self.constant_values:
+                input_values.append(self.constant_values[inp])
+        
+        # Check if we have any input values
+        if not input_values:
+            return False
         
         if gate_type == 'AND':
             return all(input_values)
@@ -160,9 +187,13 @@ class ConstPropOptimizer:
         elif gate_type == 'XNOR':
             return sum(input_values) % 2 == 0
         elif gate_type == 'NOT':
-            return not input_values[0]
+            if len(input_values) > 0:
+                return not input_values[0]
+            return False
         elif gate_type == 'BUF':
-            return input_values[0]
+            if len(input_values) > 0:
+                return input_values[0]
+            return False
         else:
             return False
     
@@ -177,33 +208,41 @@ class ConstPropOptimizer:
             Simplified netlist
         """
         optimized_netlist = netlist.copy()
-        optimized_netlist['nodes'] = {}
+        optimized_netlist['nodes'] = []
         
-        for node_id, node_data in netlist['nodes'].items():
+        # nodes is a list, iterate directly
+        for node in netlist.get('nodes', []):
+            if not isinstance(node, dict):
+                optimized_netlist['nodes'].append(node)
+                continue
+            node_id = node.get('id', '')
+            node_data = node
             if node_id in self.constant_values:
                 # Node có constant value, thay thế bằng constant
                 constant_value = self.constant_values[node_id]
                 
                 if constant_value:
-                    optimized_netlist['nodes'][node_id] = {
+                    optimized_netlist['nodes'].append({
+                        'id': node_id,
                         'type': 'CONST1',
                         'inputs': [],
                         'output': node_data.get('output', node_id),
                         'value': 1
-                    }
+                    })
                 else:
-                    optimized_netlist['nodes'][node_id] = {
+                    optimized_netlist['nodes'].append({
+                        'id': node_id,
                         'type': 'CONST0',
                         'inputs': [],
                         'output': node_data.get('output', node_id),
                         'value': 0
-                    }
+                    })
                 
                 self.simplified_gates += 1
                 logger.debug(f"Simplified node {node_id} thành constant {constant_value}")
             else:
                 # Node không có constant value, giữ nguyên
-                optimized_netlist['nodes'][node_id] = node_data
+                optimized_netlist['nodes'].append(node_data)
         
         return optimized_netlist
     

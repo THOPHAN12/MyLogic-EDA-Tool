@@ -147,8 +147,9 @@ tmp/
 *.bak
 *.old
 
-# JSON outputs (exclude examples)
+# JSON outputs (exclude examples and configs)
 *.json
+!config/*.json
 !mylogic_config.json
 !test_config.json
 !examples/*.json
@@ -210,3 +211,23 @@ site/
 # Tools Directory (has its own .gitignore)
 # ============================================
 # tools/ directory has its own .gitignore
+
+# ============================================
+# Reorganized Structure (2024)
+# ============================================
+# Logs
+logs/*.log
+logs/*.log.*
+
+# Data files
+data/temp/*
+data/outputs/*
+!data/outputs/.gitkeep
+
+# Build artifacts
+build/*
+dist/*
+
+# Python cache (already covered above, but explicit)
+*.pyc
+__pycache__/

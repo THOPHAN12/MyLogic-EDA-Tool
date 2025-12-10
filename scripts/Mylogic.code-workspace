@@ -2,6 +2,9 @@
     "folders": [
         {
             "path": ".."
+        },
+        {
+            "path": "../../../AXI/axi4-system-suite"
         }
     ]
 }

@@ -126,11 +126,14 @@ class DCEOptimizer:
                     continue
                     
                 # Find which node produces this input
-                for other_node_name, other_node in netlist.get('nodes', {}).items():
-                    if isinstance(other_node, dict) and other_node.get('output') == input_name and other_node_name not in reachable:
-                        reachable.add(other_node_name)
-                        queue.append(other_node_name)
-                        break
+                # nodes is a list, iterate directly
+                for other_node in netlist.get('nodes', []):
+                    if isinstance(other_node, dict):
+                        other_node_name = other_node.get('id', '')
+                        if other_node.get('output') == input_name and other_node_name not in reachable:
+                            reachable.add(other_node_name)
+                            queue.append(other_node_name)
+                            break
         
         return reachable
     
@@ -178,7 +181,7 @@ class DCEOptimizer:
         Returns:
             Netlist with updated wire connections
         """
-        nodes = netlist.get('nodes', {})
+        nodes = netlist.get('nodes', [])
         wires = netlist.get('wires', [])
         
         # Count dead wires before removing
@@ -199,14 +202,15 @@ class DCEOptimizer:
                 if source in netlist.get('inputs', []):
                     source_exists = True
                 else:
-                    for node in nodes.values():
-                        if node.get('output') == source:
+                    # nodes is a list, iterate directly
+                    for node in nodes:
+                        if isinstance(node, dict) and node.get('output') == source:
                             source_exists = True
                             break
                 
                 # Check if sink is an input of existing node
-                for node in nodes.values():
-                    if sink in node.get('inputs', []):
+                for node in nodes:
+                    if isinstance(node, dict) and sink in node.get('inputs', []):
                         sink_exists = True
                         break
                 
@@ -270,8 +274,9 @@ class DCEOptimizer:
             return False
         
         # Check if output is used as input by other nodes
-        for other_node in netlist.get('nodes', {}).values():
-            if output in other_node.get('inputs', []):
+        # nodes is a list, iterate directly
+        for other_node in netlist.get('nodes', []):
+            if isinstance(other_node, dict) and output in other_node.get('inputs', []):
                 return False
         
         return True
@@ -293,8 +298,9 @@ class DCEOptimizer:
         
         # Find fanout nodes
         fanout_nodes = []
-        for other_node in netlist.get('nodes', {}).values():
-            if output in other_node.get('inputs', []):
+        # nodes is a list, iterate directly
+        for other_node in netlist.get('nodes', []):
+            if isinstance(other_node, dict) and output in other_node.get('inputs', []):
                 fanout_nodes.append(other_node)
         
         # If multiple fanouts, analyze for potential don't cares
@@ -427,8 +433,10 @@ def dce_analysis(netlist: Dict[str, Any]) -> Dict[str, Any]:
     reachable_nodes = optimizer._find_reachable_nodes(netlist)
     
     # Find dead nodes
-    nodes = netlist.get('nodes', {})
-    dead_nodes = [name for name in nodes if name not in reachable_nodes]
+    # nodes is a list, extract node IDs
+    nodes = netlist.get('nodes', [])
+    node_ids = [node.get('id') for node in nodes if isinstance(node, dict) and 'id' in node]
+    dead_nodes = [node_id for node_id in node_ids if node_id not in reachable_nodes]
     
     # Find dead wires
     dead_wires = []
@@ -446,16 +454,21 @@ def dce_analysis(netlist: Dict[str, Any]) -> Dict[str, Any]:
             if source in netlist.get('inputs', []):
                 source_dead = False
             else:
-                for node in nodes.values():
-                    if node.get('output') == source and node.get('name') in reachable_nodes:
-                        source_dead = False
-                        break
+                # nodes is a list, iterate directly
+                for node in nodes:
+                    if isinstance(node, dict):
+                        node_id = node.get('id')
+                        if node.get('output') == source and node_id in reachable_nodes:
+                            source_dead = False
+                            break
             
             # Check sink
-            for node in nodes.values():
-                if sink in node.get('inputs', []) and node.get('name') in reachable_nodes:
-                    sink_dead = False
-                    break
+            for node in nodes:
+                if isinstance(node, dict):
+                    node_id = node.get('id')
+                    if sink in node.get('inputs', []) and node_id in reachable_nodes:
+                        sink_dead = False
+                        break
             
             if source_dead or sink_dead:
                 dead_wires.append(wire)

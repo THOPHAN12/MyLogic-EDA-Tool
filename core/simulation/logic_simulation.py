@@ -169,6 +169,24 @@ class LogicSimulator:
                 return val
         return VectorValue(0, 1)
 
+# Wrapper function for backward compatibility
+def simulate_logic_netlist(netlist: Dict[str, Any], 
+                          inputs: Dict[str, Union[int, VectorValue]],
+                          clock: Optional[bool] = None) -> Dict[str, VectorValue]:
+    """
+    Wrapper function to simulate logic netlist.
+    
+    Args:
+        netlist: Logic netlist
+        inputs: Input values
+        clock: Clock signal (for sequential elements)
+        
+    Returns:
+        Output values
+    """
+    simulator = LogicSimulator()
+    return simulator.simulate_logic_netlist(netlist, inputs, clock)
+
 if __name__ == "__main__":
     simulator = LogicSimulator()
     print("Logic Simulator initialized.")

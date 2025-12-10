@@ -36,7 +36,7 @@ from typing import Optional, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cli.vector_shell import VectorShell
-from frontends.unified_verilog import parse_verilog
+from parsers import parse_verilog
 
 # Import constants
 from constants import (
@@ -53,7 +53,23 @@ def setup_logging(debug: bool = False, log_file: Optional[str] = None) -> None:
     level = logging.DEBUG if debug else logging.INFO
     format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     
-    handlers = [logging.StreamHandler(sys.stdout)]
+    # Ensure console uses UTF-8 to avoid UnicodeEncodeError on Windows
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')
+        if hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+    # Stream handler with UTF-8 encoding for Windows consoles
+    stream_handler = logging.StreamHandler(sys.stdout)
+    try:
+        stream_handler.setStream(open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1))
+    except Exception:
+        # Fallback quietly if not supported
+        pass
+    handlers = [stream_handler]
     
     if log_file:
         handlers.append(logging.FileHandler(log_file))
@@ -96,6 +112,58 @@ def detect_file_type(file_path: str) -> str:
             return "scalar"
     except:
         return "unknown"
+
+def run_synthesis_mode(file_path: str, level: str, debug: bool = False):
+    """Chạy synthesis mode và thoát."""
+    print("=" * 70)
+    print(" MyLogic - Automatic Synthesis Mode")
+    print("=" * 70)
+    print(f"Input file: {file_path}")
+    print(f"Optimization level: {level}")
+    print("")
+    
+    try:
+        # Parse Verilog
+        print("[1/3] Parsing Verilog...")
+        netlist = parse_verilog(file_path)
+        original_nodes = len(netlist.get('nodes', {}))
+        print(f"  Loaded {original_nodes} nodes")
+        
+        # Run synthesis
+        print(f"\n[2/3] Running complete synthesis flow ({level})...")
+        from core.synthesis.synthesis_flow import run_complete_synthesis
+        synthesized = run_complete_synthesis(netlist, level)
+        final_nodes = len(synthesized.get('nodes', {}))
+        
+        # Export results
+        print("\n[3/3] Exporting results...")
+        output_dir = "outputs"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        base_name = os.path.splitext(os.path.basename(file_path))[0]
+        output_file = os.path.join(output_dir, f"{base_name}_synthesized_{level}.json")
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(synthesized, f, indent=2)
+        
+        print(f"  Exported to: {output_file}")
+        
+        # Summary
+        print("\n" + "=" * 70)
+        print("SUMMARY")
+        print("=" * 70)
+        print(f"Original nodes: {original_nodes}")
+        print(f"Optimized nodes: {final_nodes}")
+        print(f"Reduction: {original_nodes - final_nodes} nodes ({((original_nodes-final_nodes)/original_nodes)*100:.1f}%)")
+        print("=" * 70)
+        print("[SUCCESS] Synthesis completed!")
+        
+    except Exception as e:
+        print(f"\n[ERROR] Synthesis failed: {e}")
+        if debug:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
 
 def check_dependencies():
     """Kiểm tra các dependencies cần thiết."""
@@ -193,12 +261,22 @@ Examples:
                        help="Force vector shell")
     parser.add_argument("--check-deps", action="store_true",
                        help="Check dependencies and exit")
+    parser.add_argument("--synthesize", "-s", type=str, choices=["basic", "standard", "aggressive"],
+                       help="Run complete synthesis flow and exit (requires --file)")
     
     args = parser.parse_args()
     
     # Handle special commands
     if args.check_deps:
         check_dependencies()
+        return
+    
+    # Handle synthesis mode
+    if args.synthesize:
+        if not args.file:
+            print("[ERROR] --synthesize requires --file option")
+            sys.exit(1)
+        run_synthesis_mode(args.file, args.synthesize, args.debug)
         return
     
     # Setup logging

@@ -326,6 +326,9 @@ class StaticTimingAnalyzer:
             if node.slack != float('inf'):
                 print(f"{node_name:<15} {node.arrival_time:<8.2f} {node.required_time:<8.2f} {node.slack:<8.2f}")
 
+# Alias for backward compatibility
+TimingAnalysis = StaticTimingAnalyzer
+
 # Example usage and testing
 if __name__ == "__main__":
     # Create timing analyzer

@@ -177,6 +177,22 @@ class TimingSimulator:
                 slack[node_id] = self.required_times[node_id] - self.arrival_times[node_id]
         return slack
 
+# Wrapper function for backward compatibility
+def simulate_timing_netlist(netlist: Dict[str, Any], 
+                           clock_period: float = 10.0) -> Dict[str, Any]:
+    """
+    Wrapper function to analyze timing of netlist.
+    
+    Args:
+        netlist: Logic netlist
+        clock_period: Clock period in time units
+        
+    Returns:
+        Timing analysis results
+    """
+    simulator = TimingSimulator()
+    return simulator.analyze_timing(netlist, clock_period)
+
 if __name__ == "__main__":
     simulator = TimingSimulator()
     print("Timing Simulator initialized.")

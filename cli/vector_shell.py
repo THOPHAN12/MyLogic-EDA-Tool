@@ -5,26 +5,21 @@ Hỗ trợ:
  - Vector inputs/outputs
  - Multi-bit simulation
  - Vector operations
- - Yosys integration
 """
 
 import os
 import sys
+import logging
 from typing import Any, Dict, Optional, Union
 
 # Thêm thư mục gốc project vào đường dẫn
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from frontends.unified_verilog import parse_verilog
+from parsers import parse_verilog
 from core.simulation.arithmetic_simulation import simulate_arithmetic_netlist
 from core.simulation.arithmetic_simulation import VectorValue
 
-# Yosys integration
-try:
-    from integrations.yosys.mylogic_synthesis import MyLogicSynthesis, integrate_yosys_commands
-    YOSYS_AVAILABLE = True
-except ImportError:
-    YOSYS_AVAILABLE = False
+# Yosys integration removed
 
 
 class VectorShell:
@@ -60,13 +55,12 @@ class VectorShell:
             'clear': self._clear_screen,
             'help': self._show_help,
             'exit': self._exit_shell,
-        # Logic Synthesis algorithms (ABC-inspired)
+        # Logic Synthesis algorithms
         'strash': self._run_strash,
         'cse': self._run_cse,
         'constprop': self._run_constprop,
         'balance': self._run_balance,
         'synthesis': self._run_complete_synthesis,
-        'abc_info': self._run_abc_info,
             # VLSI CAD Part 1 features
             'dce': self._run_dce,
             'bdd': self._run_bdd,
@@ -79,15 +73,7 @@ class VectorShell:
             'techmap': self._run_technology_mapping
         }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
         
-        # Tích hợp Yosys commands nếu có sẵn
-        if YOSYS_AVAILABLE:
-            try:
-                integrate_yosys_commands(self)
-                print("[INFO] Yosys integration enabled")
-            except Exception as e:
-                print(f"[WARNING] Yosys integration failed: {e}")
-        else:
-            print("[INFO] Yosys not available - synthesis features disabled")
+        # Yosys integration removed
 
     def run(self):
         """Chạy interactive shell."""
@@ -368,7 +354,7 @@ class VectorShell:
         print("  simulate              - Run simulation (auto-detect vector/scalar)")
         print("  vsimulate             - Run vector simulation (n-bit, legacy)")
         print()
-        print("Logic Synthesis (ABC-inspired):")
+        print("Logic Synthesis:")
         print("  strash                - Structural hashing optimization")
         print("  dce                   - Dead code elimination")
         print("  cse                   - Common subexpression elimination")
@@ -389,32 +375,13 @@ class VectorShell:
         print("  clear                 - Clear screen")
         print("  help                  - Show this help")
         print("  exit                  - Quit the shell")
-        
-        # Hiển thị Yosys commands nếu có sẵn
-        if YOSYS_AVAILABLE:
-            print("\nYosys Integration:")
-            print("  yosys_synth          - Run Yosys synthesis")
-            print("  yosys_opt            - Run optimization pass")
-            print("  yosys_stat           - Get design statistics")
-            print("  yosys_flow           - Complete synthesis flow")
-            print("  yosys_help           - Show Yosys help")
-            print("\nYosys Output Formats:")
-            print("  write_verilog        - Write Verilog RTL output")
-            print("  write_json           - Write JSON netlist")
-            print("  write_blif           - Write BLIF format")
-            print("  write_edif           - Write EDIF format")
-        print("  write_spice          - Write SPICE netlist")
-        print("  write_dot            - Write DOT graph format")
-        print("  write_liberty        - Write Liberty library")
-        print("  write_systemverilog  - Write SystemVerilog output")
         print("")
-        print("Logic Synthesis Algorithms (ABC-inspired):")
+        print("Logic Synthesis Algorithms:")
         print("  strash               - Structural Hashing (remove duplicates)")
         print("  cse                  - Common Subexpression Elimination")
         print("  constprop            - Constant Propagation")
         print("  balance              - Logic Balancing")
         print("  synthesis <level>    - Complete synthesis flow (basic/standard/aggressive)")
-        print("  abc_info             - ABC integration information")
         print("")
         print("VLSI CAD Part 1 Features:")
         print("  dce <level>          - Dead Code Elimination (basic/advanced/aggressive)")
@@ -470,6 +437,11 @@ class VectorShell:
         try:
             from core.optimization.cse import CSEOptimizer
             
+            # Suppress verbose logging and Unicode issues for CSE module
+            cse_logger = logging.getLogger('core.optimization.cse')
+            cse_logger.setLevel(logging.ERROR)
+            cse_logger.propagate = False
+
             print("[INFO] Running Common Subexpression Elimination...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
@@ -498,6 +470,11 @@ class VectorShell:
         try:
             from core.optimization.constprop import ConstPropOptimizer
             
+            # Suppress verbose logging and Unicode issues for ConstProp module
+            cp_logger = logging.getLogger('core.optimization.constprop')
+            cp_logger.setLevel(logging.ERROR)
+            cp_logger.propagate = False
+
             print("[INFO] Running Constant Propagation...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
@@ -524,12 +501,17 @@ class VectorShell:
             return
         
         try:
-            from core.optimization.balance import LogicBalancer
+            from core.optimization.balance import BalanceOptimizer
             
+            # Suppress verbose logging and Unicode issues for Balance module
+            bal_logger = logging.getLogger('core.optimization.balance')
+            bal_logger.setLevel(logging.ERROR)
+            bal_logger.propagate = False
+
             print("[INFO] Running Logic Balancing...")
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
-            optimizer = LogicBalancer()
+            optimizer = BalanceOptimizer()
             optimized_netlist = optimizer.optimize(self.current_netlist)
             self.current_netlist = optimized_netlist
             
@@ -582,58 +564,6 @@ class VectorShell:
             print("[ERROR] Synthesis Flow module not available")
         except Exception as e:
             print(f"[ERROR] Complete Synthesis Flow failed: {e}")
-    
-    def _run_abc_info(self, parts):
-        """Hiển thị thông tin ABC integration."""
-        try:
-            from core.abc_integration import ABCIntegration
-            
-            abc = ABCIntegration()
-            
-            print("ABC Integration Information:")
-            print("=" * 50)
-            print(f"ABC Repository: https://github.com/YosysHQ/abc")
-            print(f"ABC Description: System for Sequential Logic Synthesis and Formal Verification")
-            print("")
-            
-            print("ABC-Inspired Algorithms in MyLogic:")
-            print("-" * 40)
-            
-            algorithms = ['strash', 'dce', 'cse', 'constprop', 'balance', 'bdd', 'techmap', 'sat']
-            for algo in algorithms:
-                ref = abc.get_abc_reference(algo)
-                if ref:
-                    print(f"  {algo.upper():12} - {ref['abc_function']}")
-                    print(f"  {'':12}   ABC: {ref['abc_file']}")
-                    print(f"  {'':12}   MyLogic: {ref['mylogic_file']}")
-                    print("")
-            
-            print("ABC Synthesis Flow:")
-            print("-" * 25)
-            flow = abc.get_abc_synthesis_flow()
-            for step in flow:
-                print(f"  {step['step']}. {step['name']:25} - {step['abc_function']}")
-            
-            print("")
-            print("ABC Benefits:")
-            print("-" * 15)
-            print("  - Industry-proven algorithms")
-            print("  - High-performance implementation")
-            print("  - Comprehensive optimization techniques")
-            print("  - Research-based improvements")
-            
-            print("")
-            print("MyLogic Advantages:")
-            print("-" * 20)
-            print("  - Vietnamese documentation")
-            print("  - Educational focus")
-            print("  - Modular architecture")
-            print("  - Easy to understand and modify")
-            
-        except ImportError:
-            print("[ERROR] ABC Integration module not available")
-        except Exception as e:
-            print(f"[ERROR] ABC info failed: {e}")
     
     def _run_dce(self, parts):
         """Chạy Dead Code Elimination optimization."""
@@ -926,30 +856,103 @@ class VectorShell:
     def _run_technology_mapping(self, parts):
         """Chạy technology mapping."""
         if not parts or len(parts) < 2:
-            print("Usage: techmap <strategy>")
+            print("Usage: techmap <strategy> [library_file]")
             print("Strategies: area, delay, balanced")
+            print("Library: path to .lib, .json, or .v file (optional)")
+            print("  Examples:")
+            print("    techmap area")
+            print("    techmap balanced techlibs/asic/standard_cells.lib")
+            print("    techmap delay techlibs/custom_library.json")
+            return
+        
+        if not self.current_netlist:
+            print("[ERROR] No netlist loaded. Use 'read <file>' and 'synthesis <level>' first.")
             return
         
         strategy = parts[1].lower()
+        library_path = parts[2] if len(parts) > 2 else None
         
         try:
-            from core.technology_mapping.technology_mapping import TechnologyMapper, LogicNode, create_standard_library
+            from core.technology_mapping.technology_mapping import (
+                TechnologyMapper, LogicNode, create_standard_library, load_library_from_file
+            )
+            import os
             
             print(f"[INFO] Running technology mapping with {strategy} strategy...")
             
-            # Tạo library và mapper
-            library = create_standard_library()
+            # Load library từ file hoặc dùng default
+            if library_path and os.path.exists(library_path):
+                print(f"[INFO] Loading library from: {library_path}")
+                try:
+                    library = load_library_from_file(library_path)
+                    print(f"[OK] Loaded library '{library.name}' with {len(library.cells)} cells")
+                except Exception as e:
+                    print(f"[WARNING] Failed to load library from file: {e}")
+                    print("[INFO] Falling back to standard library")
+                    library = create_standard_library()
+            else:
+                if library_path:
+                    print(f"[WARNING] Library file not found: {library_path}")
+                    print("[INFO] Using default standard library")
+                else:
+                    print("[INFO] Using default standard library")
+                library = create_standard_library()
+            
             mapper = TechnologyMapper(library)
             
-            # Thêm demo logic nodes
-            logic_nodes = [
-                LogicNode("n1", "AND(A,B)", ["a", "b"], "temp1"),
-                LogicNode("n2", "OR(C,D)", ["c", "d"], "temp2"),
-                LogicNode("n3", "XOR(temp1,temp2)", ["temp1", "temp2"], "out"),
-            ]
+            # Convert netlist nodes to LogicNodes
+            nodes = self.current_netlist.get('nodes', {})
             
-            for node in logic_nodes:
-                mapper.add_logic_node(node)
+            # Normalize nodes to list if dict
+            if isinstance(nodes, dict):
+                nodes_list = list(nodes.values())
+            else:
+                nodes_list = nodes if isinstance(nodes, list) else []
+            
+            # Create LogicNodes from netlist
+            for i, node_data in enumerate(nodes_list):
+                if not isinstance(node_data, dict):
+                    continue
+                
+                node_id = node_data.get('id', f'node_{i}')
+                node_type = node_data.get('type', 'UNKNOWN')
+                
+                # Get inputs/fanins
+                inputs = node_data.get('inputs', [])
+                fanins = node_data.get('fanins', [])
+                
+                # Extract input signals from fanins (fanins format: [['signal', False], ...])
+                input_signals = []
+                if fanins:
+                    for fanin in fanins:
+                        if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
+                            input_signals.append(str(fanin[0]))
+                        elif isinstance(fanin, str):
+                            input_signals.append(fanin)
+                elif inputs:
+                    input_signals = [str(inp) for inp in inputs]
+                
+                # Create function string based on node type and inputs
+                if len(input_signals) >= 2:
+                    # 2+ input gates: AND(A,B), OR(A,B), XOR(A,B), etc.
+                    function = f"{node_type}({','.join(input_signals[:2])})"  # Use first 2 inputs for now
+                elif len(input_signals) == 1:
+                    # Single input: NOT(A), BUF(A)
+                    function = f"{node_type}({input_signals[0]})"
+                else:
+                    # No inputs (constants, inputs, etc.)
+                    function = node_type
+                
+                # Get output
+                output = node_data.get('output', node_id)
+                
+                # Create LogicNode
+                logic_node = LogicNode(str(node_id), function, input_signals, str(output))
+                mapper.add_logic_node(logic_node)
+            
+            if len(mapper.logic_network) == 0:
+                print("[WARNING] No valid nodes found in netlist for technology mapping")
+                return
             
             # Thực hiện mapping
             if strategy == "area":

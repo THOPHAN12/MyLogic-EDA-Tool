@@ -49,7 +49,7 @@ class SynthesisFlow:
         Returns:
             Synthesized netlist
         """
-        logger.info(f"Bắt đầu Complete Logic Synthesis Flow - Level: {optimization_level}")
+        logger.info(f"Starting Complete Logic Synthesis Flow - Level: {optimization_level}")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
             logger.warning("Invalid netlist format")
@@ -78,7 +78,9 @@ class SynthesisFlow:
         logger.info("Step 5: Logic Balancing...")
         current_netlist = self._run_balance(current_netlist)
         
-        final_nodes = len(current_netlist['nodes'])
+        # Count final nodes correctly (handle both dict and list formats)
+        final_nodes_data = current_netlist.get('nodes', {})
+        final_nodes = len(final_nodes_data) if isinstance(final_nodes_data, (dict, list)) else 0
         total_reduction = original_nodes - final_nodes
         
         # Print summary
@@ -116,9 +118,15 @@ class SynthesisFlow:
         try:
             from core.optimization.dce import apply_dce
             
-            nodes_before = len(netlist['nodes'])
+            # Count nodes correctly (handle both dict and list formats)
+            nodes_before_data = netlist.get('nodes', {})
+            nodes_before = len(nodes_before_data) if isinstance(nodes_before_data, (dict, list)) else 0
+            
             optimized = apply_dce(netlist, level)
-            nodes_after = len(optimized['nodes'])
+            
+            # Count nodes correctly after DCE
+            nodes_after_data = optimized.get('nodes', {})
+            nodes_after = len(nodes_after_data) if isinstance(nodes_after_data, (dict, list)) else 0
             
             self.optimization_stats['dce'] = {
                 'nodes_before': nodes_before,

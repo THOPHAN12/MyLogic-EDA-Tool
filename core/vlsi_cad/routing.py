@@ -379,7 +379,7 @@ class MazeRouter:
         
         print(f"\nNet routing results:")
         for net_name, net in self.nets.items():
-            status = "✓" if net.routed else "✗"
+            status = "[OK]" if net.routed else "[FAIL]"
             print(f"  {status} {net_name}: {net.wirelength:.2f} wirelength")
 
 # Example usage and testing
@@ -425,3 +425,6 @@ if __name__ == "__main__":
     print(f"   Wirelength: {stats2['total_wirelength']:.2f}")
     
     router.visualize_routing()
+
+# Alias for backward compatibility
+Routing = MazeRouter

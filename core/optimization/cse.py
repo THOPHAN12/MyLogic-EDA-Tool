@@ -111,10 +111,12 @@ class CSEOptimizer:
         """
         expression_count: Dict[str, List[str]] = {}
         
-        for node_id, node_data in netlist['nodes'].items():
-            if self._is_computational_node(node_data):
+        # nodes is a list, iterate with enumerate or by index
+        for node in netlist.get('nodes', []):
+            if isinstance(node, dict) and self._is_computational_node(node):
+                node_id = node.get('id', '')
                 # Tạo expression signature
-                expression = self._create_expression_signature(node_data)
+                expression = self._create_expression_signature(node)
                 
                 if expression in expression_count:
                     expression_count[expression].append(node_id)
@@ -238,15 +240,16 @@ class CSEOptimizer:
             netlist['wires'] = updated_wires
         
         # Cập nhật node input connections
-        for node_id, node_data in netlist['nodes'].items():
-            if 'inputs' in node_data:
+        # nodes is a list, iterate directly
+        for node in netlist.get('nodes', []):
+            if isinstance(node, dict) and 'inputs' in node:
                 updated_inputs = []
-                for input_node in node_data['inputs']:
+                for input_node in node['inputs']:
                     if input_node in self.shared_nodes:
                         updated_inputs.append(self.shared_nodes[input_node])
                     else:
                         updated_inputs.append(input_node)
-                node_data['inputs'] = updated_inputs
+                node['inputs'] = updated_inputs
         
         return netlist
     

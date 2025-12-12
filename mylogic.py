@@ -83,7 +83,7 @@ def setup_logging(debug: bool = False, log_file: Optional[str] = None) -> None:
     # Giảm độ chi tiết của một số modules
     logging.getLogger('urllib3').setLevel(logging.WARNING)
 
-def load_config(config_path: str = "mylogic_config.json") -> Dict[str, Any]:
+def load_config(config_path: str = "config/mylogic_config.json") -> Dict[str, Any]:
     """Load cấu hình từ file JSON."""
     try:
         if os.path.exists(config_path):
@@ -280,13 +280,15 @@ Examples:
         return
     
     # Setup logging
-    log_file = "mylogic.log"
+    log_file = "logs/mylogic.log"
+    # Ensure logs directory exists
+    os.makedirs("logs", exist_ok=True)
     setup_logging(args.debug, log_file)
     logger = logging.getLogger(__name__)
     
     try:
         # Load configuration
-        config = load_config(args.config or "mylogic_config.json")
+        config = load_config(args.config or "config/mylogic_config.json")
         
         # Determine shell mode
         mode = "auto"

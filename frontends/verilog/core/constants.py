@@ -17,32 +17,45 @@ from typing import Dict, Set, List
 # REGEX PATTERNS - Compiled để tăng performance
 # ============================================================================
 
-# Module patterns
-MODULE_PATTERN = re.compile(r'module\s+(\w+)\s*\(([^)]*)\)\s*;', re.DOTALL)
+# Module patterns (hỗ trợ optional parameter list #(...) và ports)
+MODULE_PATTERN = re.compile(
+    r'module\s+(\w+)\s*(?:#\s*\(([^)]*)\))?\s*\(([^)]*)\)\s*;',
+    re.DOTALL
+)
 ENDMODULE_PATTERN = re.compile(r'endmodule')
 
-# Port declarations - Vector
-INPUT_VECTOR_PATTERN = re.compile(r'input\s+\[(\d+):(\d+)\]\s+([^;]+)', re.MULTILINE)
-OUTPUT_VECTOR_PATTERN = re.compile(r'output\s+\[(\d+):(\d+)\]\s+([^;]+)', re.MULTILINE)
-PORT_INPUT_VECTOR_PATTERN = re.compile(r'input\s+\[(\d+):(\d+)\]\s+([^\n]+?)(?:,\s*$|\n)', re.MULTILINE)
-PORT_OUTPUT_VECTOR_PATTERN = re.compile(r'output\s+\[(\d+):(\d+)\]\s+([^\n]+?)(?:,\s*$|\n)', re.MULTILINE)
+# Port declarations - Vector (hỗ trợ signed/unsigned và parameterized widths)
+INPUT_VECTOR_PATTERN = re.compile(r'input\s+(?:signed\s+|unsigned\s+)?\[([^\]]+):([^\]]+)\]\s+([^;]+)', re.MULTILINE)
+OUTPUT_VECTOR_PATTERN = re.compile(r'output\s+(?:signed\s+|unsigned\s+)?\[([^\]]+):([^\]]+)\]\s+([^;]+)', re.MULTILINE)
+PORT_INPUT_VECTOR_PATTERN = re.compile(r'input\s+(?:signed\s+|unsigned\s+)?\[([^\]]+):([^\]]+)\]\s+([^\n]+?)(?:,\s*$|\n)', re.MULTILINE)
+PORT_OUTPUT_VECTOR_PATTERN = re.compile(r'output\s+(?:signed\s+|unsigned\s+)?\[([^\]]+):([^\]]+)\]\s+([^\n]+?)(?:,\s*$|\n)', re.MULTILINE)
 
-# Port declarations - Scalar
-INPUT_SCALAR_PATTERN = re.compile(r'input\s+([^[;]+);')
-OUTPUT_SCALAR_PATTERN = re.compile(r'output\s+([^[;]+);')
-PORT_INPUT_SCALAR_PATTERN = re.compile(r'input\s+([^[,\n)]+)')
-PORT_OUTPUT_SCALAR_PATTERN = re.compile(r'output\s+([^[,\n)]+)')
+# Port declarations - Scalar (hỗ trợ signed/unsigned)
+INPUT_SCALAR_PATTERN = re.compile(r'input\s+(?:signed\s+|unsigned\s+)?([^[;]+);')
+OUTPUT_SCALAR_PATTERN = re.compile(r'output\s+(?:signed\s+|unsigned\s+)?([^[;]+);')
+PORT_INPUT_SCALAR_PATTERN = re.compile(r'input\s+(?:signed\s+|unsigned\s+)?([^[,\n)]+)')
+PORT_OUTPUT_SCALAR_PATTERN = re.compile(r'output\s+(?:signed\s+|unsigned\s+)?([^[,\n)]+)')
 
-# Wire declarations
-WIRE_VECTOR_ASSIGN_PATTERN = re.compile(r'wire\s+\[(\d+):(\d+)\]\s+([^=]+)\s*=\s*([^;]+);')
-WIRE_SCALAR_ASSIGN_PATTERN = re.compile(r'wire\s+([^[=]+)\s*=\s*([^;]+);')
-WIRE_VECTOR_PATTERN = re.compile(r'wire\s+\[(\d+):(\d+)\]\s+([^;=]+);')
-WIRE_SCALAR_PATTERN = re.compile(r'wire\s+([^[;=]+);')
+# Wire declarations (hỗ trợ signed/unsigned và parameterized widths)
+WIRE_VECTOR_ASSIGN_PATTERN = re.compile(r'wire\s+(?:signed\s+|unsigned\s+)?\[([^\]]+):([^\]]+)\]\s+([^=]+)\s*=\s*([^;]+);')
+WIRE_SCALAR_ASSIGN_PATTERN = re.compile(r'wire\s+(?:signed\s+|unsigned\s+)?([^[=]+)\s*=\s*([^;]+);')
+WIRE_VECTOR_PATTERN = re.compile(r'wire\s+(?:signed\s+|unsigned\s+)?\[([^\]]+):([^\]]+)\]\s+([^;=]+);')
+WIRE_SCALAR_PATTERN = re.compile(r'wire\s+(?:signed\s+|unsigned\s+)?([^[;=]+);')
 
-# Reg declarations (sequential elements) - YosysHQ style
-REG_VECTOR_PATTERN = re.compile(r'reg\s+\[(\d+):(\d+)\]\s+([^;=]+);')
-REG_SCALAR_PATTERN = re.compile(r'reg\s+([^[;=]+);')
-REG_PATTERN = re.compile(r'reg\s+(?:\[(\d+):(\d+)\]\s+)?([^;=]+);')
+# Reg declarations (sequential elements) - hỗ trợ signed/unsigned và parameterized widths
+REG_VECTOR_PATTERN = re.compile(r'reg\s+(?:signed\s+|unsigned\s+)?\[([^\]]+):([^\]]+)\]\s+([^;=]+);')
+REG_SCALAR_PATTERN = re.compile(r'reg\s+(?:signed\s+|unsigned\s+)?([^[;=]+);')
+REG_PATTERN = re.compile(r'reg\s+(?:signed\s+|unsigned\s+)?(?:\[([^\]]+):([^\]]+)\]\s+)?([^;=]+);')
+
+# Memory declarations: reg [width-1:0] mem [depth-1:0];
+# Hỗ trợ parameterized: reg [WIDTH-1:0] mem [DEPTH-1:0];
+MEMORY_PATTERN = re.compile(
+    r'reg\s+(?:signed\s+|unsigned\s+)?\[([^\]]+):([^\]]+)\]\s+(\w+)\s+\[([^\]]+):([^\]]+)\]\s*;',
+    re.IGNORECASE
+)
+
+# Array indexing: mem[addr] hoặc mem[addr][bit]
+ARRAY_INDEX_PATTERN = re.compile(r'(\w+)\s*\[([^\]]+)\](?:\s*\[([^\]]+)\])?')
 
 # Assign statements
 ASSIGN_PATTERN = re.compile(r'assign\s+([^=]+)\s*=\s*([^;]+);')
@@ -77,25 +90,34 @@ MODULE_INST_PATTERN = re.compile(
     r'(\w+)\s+(\w+)?\s*\(([^)]+)\)\s*;',
     re.DOTALL
 )
-# Named port connections: .port_name(signal_name)
-NAMED_PORT_PATTERN = re.compile(r'\.(\w+)\s*\(([^)]+)\)')
-# Ordered port (simple signal name)
-ORDERED_PORT_PATTERN = re.compile(r'(\w+)(?:\s*,\s*|$)')
+# Named port connections: .port_name(signal_name) hoặc .port_name({a, b}) hoặc .port_name(expr)
+# Cải thiện để hỗ trợ nested parentheses và expressions phức tạp
+NAMED_PORT_PATTERN = re.compile(r'\.(\w+)\s*\(([^)]+(?:\([^)]*\)[^)]*)*)\)')
+# Ordered port (simple signal name hoặc expression)
+ORDERED_PORT_PATTERN = re.compile(r'([^,]+?)(?:\s*,\s*|$)')
 
 # Comments
 SINGLE_LINE_COMMENT = re.compile(r'//.*$', re.MULTILINE)
 MULTI_LINE_COMMENT = re.compile(r'/\*.*?\*/', re.DOTALL)
 
-# Bit slice/index
+# Bit slice/index (hỗ trợ parameterized indices)
 BIT_INDEX_PATTERN = re.compile(r'(\w+)\[(\d+)\]')
-BIT_SLICE_PATTERN = re.compile(r'\w+\s*\[[^\]]+\]')
+BIT_SLICE_PATTERN = re.compile(r'(\w+)\s*\[([^\]]+)\]')
+# Bit slice với range: signal[msb:lsb]
+BIT_SLICE_RANGE_PATTERN = re.compile(r'(\w+)\s*\[([^\]]+):([^\]]+)\]')
+# Bit index đơn: signal[index]
+BIT_INDEX_SINGLE_PATTERN = re.compile(r'(\w+)\s*\[([^\]]+)\]')
 
 # Concatenation
 CONCAT_PATTERN = re.compile(r'^\{.*\}$')
 
-# Parameters & Localparams
+# Parameters & Localparams (hỗ trợ biểu thức số học)
 PARAMETER_PATTERN = re.compile(r'parameter\s+(?:\[[^\]]+\]\s+)?(\w+)\s*=\s*([^;]+);')
 LOCALPARAM_PATTERN = re.compile(r'localparam\s+(?:\[[^\]]+\]\s+)?(\w+)\s*=\s*([^;]+);')
+
+# Signed/Unsigned keywords
+SIGNED_KEYWORD = re.compile(r'\bsigned\b')
+UNSIGNED_KEYWORD = re.compile(r'\bunsigned\b')
 
 # Integer/Real/Time/Realtime
 INTEGER_PATTERN = re.compile(r'integer\s+([^;]+);')
@@ -113,12 +135,22 @@ IF_ELSE_PATTERN = re.compile(
     re.DOTALL
 )
 
-# Case statements
+# Case statements (hỗ trợ case, casex, casez)
 CASE_PATTERN = re.compile(
-    r'case\s*(?:x|z)?\s*\(([^)]+)\)\s*(.*?)\s*endcase',
-    re.DOTALL
+    r'case\s*(x|z)?\s*\(([^)]+)\)\s*(.*?)\s*endcase',
+    re.DOTALL | re.IGNORECASE
 )
-CASE_ITEM_PATTERN = re.compile(r'(\w+(?:\s*:\s*\w+)?)\s*:\s*([^;]+);')
+# Case item pattern: hỗ trợ single value, range, default
+# Examples: 4'b1010: ..., 4:7: ..., default: ...
+CASE_ITEM_PATTERN = re.compile(
+    r'(default|\d+\s*:\s*\d+|\d+\'[bdhx]\w+|\d+|\w+)\s*:\s*([^;]+);',
+    re.IGNORECASE
+)
+# Case item với begin-end block
+CASE_ITEM_BLOCK_PATTERN = re.compile(
+    r'(default|\d+\s*:\s*\d+|\d+\'[bdhx]\w+|\d+|\w+)\s*:\s*begin\s*(.*?)\s*end',
+    re.DOTALL | re.IGNORECASE
+)
 
 # For loops
 FOR_PATTERN = re.compile(
@@ -132,15 +164,19 @@ WHILE_PATTERN = re.compile(
     re.DOTALL
 )
 
-# Functions & Tasks
+# Functions & Tasks (hỗ trợ parameterized widths và signed)
 FUNCTION_PATTERN = re.compile(
-    r'function\s+(?:automatic\s+)?(?:\[(\d+):(\d+)\]\s+)?(\w+)\s*;.*?endfunction',
-    re.DOTALL
+    r'function\s+(?:automatic\s+)?(?:signed\s+|unsigned\s+)?(?:\[([^\]]+):([^\]]+)\]\s+)?(\w+)\s*;.*?endfunction',
+    re.DOTALL | re.IGNORECASE
 )
 TASK_PATTERN = re.compile(
     r'task\s+(?:automatic\s+)?(\w+)\s*;.*?endtask',
-    re.DOTALL
+    re.DOTALL | re.IGNORECASE
 )
+
+# Function/Task calls: func_name(args) hoặc task_name(args);
+FUNCTION_CALL_PATTERN = re.compile(r'(\w+)\s*\(([^)]*)\)')
+TASK_CALL_PATTERN = re.compile(r'(\w+)\s*\(([^)]*)\)\s*;')
 
 # Generate blocks
 GENERATE_PATTERN = re.compile(

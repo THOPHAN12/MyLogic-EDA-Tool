@@ -64,8 +64,12 @@ class VectorShell:
             # VLSI CAD Part 1 features
             'dce': self._run_dce,
             'bdd': self._run_bdd,
+            'bed': self._run_bed,
             'sat': self._run_sat,
             'verify': self._run_verification,
+            'quine': self._run_quine_mccluskey,
+            'minimize': self._run_quine_mccluskey,
+            'aig': self._run_aig,
             # VLSI CAD Part 2 features
             'place': self._run_placement,
             'route': self._run_routing,
@@ -129,7 +133,11 @@ class VectorShell:
                 n_nodes = len(self.netlist.get('nodes', []))
                 print(f"[OK] Loaded netlist with {n_nodes} nodes.")
         except Exception as e:
-            print(f"[ERROR] Failed to read file: {e}")
+            msg = str(e)
+            if "Syntax error" in msg:
+                print(f"ERROR SYNTAX: {msg}")
+            else:
+                print(f"[ERROR] Failed to read file: {msg}")
 
     def _show_stats(self, parts=None):
         """Enhanced circuit statistics with detailed analysis."""
@@ -386,8 +394,12 @@ class VectorShell:
         print("VLSI CAD Part 1 Features:")
         print("  dce <level>          - Dead Code Elimination (basic/advanced/aggressive)")
         print("  bdd <operation>      - Binary Decision Diagrams (create/analyze/convert)")
+        print("  bed <operation>      - Boolean Expression Diagrams (create/up_one/up_all/compare)")
         print("  sat <operation>      - SAT Solver (solve/verify/check)")
         print("  verify <type>        - Circuit verification (equivalence/property/functional)")
+        print("  quine <minterms>     - Quine-McCluskey Boolean minimization")
+        print("  minimize <minterms>  - Alias for quine")
+        print("  aig <operation>      - And-Inverter Graph (create/strash/convert)")
         print("")
         print("VLSI CAD Part 2 Features:")
         print("  place <algorithm>    - Placement algorithms (random/force/sa)")
@@ -1170,6 +1182,269 @@ class VectorShell:
         print("Rip-up and Reroute Demo:")
         print("  Implementation sẽ chạy rip-up and reroute")
         print("  Xử lý routing congestion")
+    
+    def _run_bed(self, parts):
+        """Chạy BED (Boolean Expression Diagrams) operations."""
+        if not parts or len(parts) < 2:
+            print("Usage: bed <operation>")
+            print("Operations: create, up_one, up_all, compare")
+            return
+        
+        operation = parts[1].lower()
+        
+        try:
+            from core.vlsi_cad.bed import BED
+            
+            if operation == "create":
+                self._bed_create_example()
+            elif operation == "up_one":
+                self._bed_up_one_example()
+            elif operation == "up_all":
+                self._bed_up_all_example()
+            elif operation == "compare":
+                self._bed_compare_with_bdd()
+            else:
+                print("Invalid BED operation. Use: create, up_one, up_all, or compare")
+                
+        except ImportError:
+            print("[ERROR] BED module not available")
+        except Exception as e:
+            print(f"[ERROR] BED operation failed: {e}")
+    
+    def _bed_create_example(self):
+        """Minh họa BED creation."""
+        from core.vlsi_cad.bed import BED
+        
+        bed = BED()
+        a = bed.create_variable("a")
+        b = bed.create_variable("b")
+        c = bed.create_variable("c")
+        
+        # Create expressions
+        f1 = bed.create_and(a, b)
+        f2 = bed.create_or(f1, bed.create_not(c))
+        
+        print("BED Creation Example:")
+        print(f"  f1 = a AND b: {bed.to_string(f1)}")
+        print(f"  f2 = (a AND b) OR (NOT c): {bed.to_string(f2)}")
+        print(f"  Variables in f2: {bed.get_variables(f2)}")
+        print(f"  Nodes in f2: {bed.count_nodes(f2)}")
+    
+    def _bed_up_one_example(self):
+        """Minh họa UP_ONE algorithm."""
+        from core.vlsi_cad.bed import BED
+        
+        bed = BED()
+        a = bed.create_variable("a")
+        b = bed.create_variable("b")
+        c = bed.create_variable("c")
+        
+        f = bed.create_or(bed.create_and(a, b), bed.create_not(c))
+        
+        print("BED UP_ONE Example:")
+        print(f"  Original: {bed.to_string(f)}")
+        
+        f_up = bed.UP_ONE(f, "a", True)
+        print(f"  UP_ONE(f, a=True): {bed.to_string(f_up)}")
+        
+        f_up2 = bed.UP_ONE(f_up, "b", False)
+        print(f"  UP_ONE(previous, b=False): {bed.to_string(f_up2)}")
+    
+    def _bed_up_all_example(self):
+        """Minh họa UP_ALL algorithm."""
+        from core.vlsi_cad.bed import BED
+        
+        bed = BED()
+        a = bed.create_variable("a")
+        b = bed.create_variable("b")
+        c = bed.create_variable("c")
+        
+        f = bed.create_or(bed.create_and(a, b), bed.create_not(c))
+        
+        print("BED UP_ALL Example:")
+        print(f"  Original: {bed.to_string(f)}")
+        
+        assignment = {"a": True, "b": True, "c": False}
+        f_simplified = bed.UP_ALL(f, assignment)
+        print(f"  UP_ALL(f, {assignment}): {bed.to_string(f_simplified)}")
+        print(f"  Result: {f_simplified.value}")
+    
+    def _bed_compare_with_bdd(self):
+        """So sánh BED với BDD."""
+        from core.vlsi_cad.bed import BED
+        from core.vlsi_cad.bdd import BDD
+        
+        print("BED vs BDD Comparison:")
+        
+        # Create BED
+        bed = BED()
+        a_bed = bed.create_variable("a")
+        b_bed = bed.create_variable("b")
+        f_bed = bed.create_and(a_bed, b_bed)
+        
+        # Create BDD
+        bdd = BDD()
+        a_bdd = bdd.create_variable("a")
+        b_bdd = bdd.create_variable("b")
+        f_bdd = bdd.apply_operation("AND", a_bdd, b_bdd)
+        
+        # Compare
+        comparison = bed.compare_with_bdd(f_bed, bdd, f_bdd)
+        print(f"  BED nodes: {comparison['bed_nodes']}")
+        print(f"  BDD nodes: {comparison['bdd_nodes']}")
+        print(f"  Node ratio: {comparison['node_ratio']:.2f}")
+        print(f"  Variables match: {comparison['variables_match']}")
+    
+    def _run_quine_mccluskey(self, parts):
+        """Chạy Quine-McCluskey Boolean minimization."""
+        if not parts or len(parts) < 2:
+            print("Usage: quine <minterms> [dont_cares]")
+            print("Example: quine 0,1,3,5")
+            print("Example: quine 0,1,2,5,6 3,7")
+            return
+        
+        try:
+            from core.optimization.quine_mccluskey import QuineMcCluskey
+            
+            # Parse minterms
+            minterms_str = parts[1]
+            minterms = [int(x.strip()) for x in minterms_str.split(',')]
+            
+            # Parse don't cares if provided
+            dont_cares = []
+            if len(parts) > 2:
+                dont_cares_str = parts[2]
+                dont_cares = [int(x.strip()) for x in dont_cares_str.split(',')]
+            
+            # Determine number of variables
+            max_val = max(max(minterms), max(dont_cares) if dont_cares else 0)
+            num_vars = (max_val).bit_length()
+            
+            # Run minimization
+            qm = QuineMcCluskey()
+            result = qm.minimize(minterms, num_vars, 
+                                variable_names=[f"x{i}" for i in range(num_vars)],
+                                dont_cares=dont_cares if dont_cares else None)
+            
+            print("Quine-McCluskey Minimization:")
+            print(f"  Input minterms: {minterms}")
+            if dont_cares:
+                print(f"  Don't cares: {dont_cares}")
+            print(f"  Number of variables: {num_vars}")
+            print(f"  Minimized expression: {result['expression']}")
+            print(f"  Prime implicants: {result['prime_implicants']}")
+            print(f"  Essential implicants: {result['essential_implicants']}")
+            print(f"  Minimal implicants: {result['minimal_implicants']}")
+            print(f"  Coverage: {result['coverage']:.1f}%")
+            
+        except ImportError:
+            print("[ERROR] Quine-McCluskey module not available")
+        except Exception as e:
+            print(f"[ERROR] Quine-McCluskey failed: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _run_aig(self, parts):
+        """Chạy AIG (And-Inverter Graph) operations."""
+        if not parts or len(parts) < 2:
+            print("Usage: aig <operation>")
+            print("Operations: create, strash, convert, stats")
+            return
+        
+        operation = parts[1].lower()
+        
+        try:
+            from core.synthesis.aig import AIG
+            
+            if operation == "create":
+                self._aig_create_example()
+            elif operation == "strash":
+                self._aig_strash_example()
+            elif operation == "convert":
+                self._aig_convert_to_verilog()
+            elif operation == "stats":
+                self._aig_statistics()
+            else:
+                print("Invalid AIG operation. Use: create, strash, convert, or stats")
+                
+        except ImportError:
+            print("[ERROR] AIG module not available")
+        except Exception as e:
+            print(f"[ERROR] AIG operation failed: {e}")
+    
+    def _aig_create_example(self):
+        """Minh họa AIG creation."""
+        from core.synthesis.aig import AIG
+        
+        aig = AIG()
+        a = aig.create_pi("a")
+        b = aig.create_pi("b")
+        c = aig.create_pi("c")
+        
+        # Create logic: f = (a AND b) OR c
+        ab = aig.create_and(a, b)
+        f = aig.create_or(ab, c)
+        aig.add_po(f)
+        
+        print("AIG Creation Example:")
+        print(f"  Expression: (a AND b) OR c")
+        stats = aig.get_statistics()
+        for key, value in stats.items():
+            print(f"  {key}: {value}")
+    
+    def _aig_strash_example(self):
+        """Minh họa AIG structural hashing."""
+        from core.synthesis.aig import AIG
+        
+        aig = AIG()
+        a = aig.create_pi("a")
+        b = aig.create_pi("b")
+        
+        # Create duplicate AND nodes
+        ab1 = aig.create_and(a, b)
+        ab2 = aig.create_and(a, b)  # Should reuse ab1
+        
+        print("AIG Structural Hashing Example:")
+        print(f"  ab1 node_id: {ab1.node_id}")
+        print(f"  ab2 node_id: {ab2.node_id}")
+        print(f"  Same node (structural hashing): {ab1 == ab2}")
+        print(f"  Total nodes: {aig.count_nodes()}")
+    
+    def _aig_convert_to_verilog(self):
+        """Convert AIG to Verilog."""
+        from core.synthesis.aig import AIG
+        
+        aig = AIG()
+        a = aig.create_pi("a")
+        b = aig.create_pi("b")
+        c = aig.create_pi("c")
+        
+        ab = aig.create_and(a, b)
+        f = aig.create_or(ab, c)
+        aig.add_po(f)
+        
+        print("AIG to Verilog Conversion:")
+        verilog = aig.to_verilog("example_aig")
+        print(verilog)
+    
+    def _aig_statistics(self):
+        """Show AIG statistics."""
+        from core.synthesis.aig import AIG
+        
+        aig = AIG()
+        a = aig.create_pi("a")
+        b = aig.create_pi("b")
+        c = aig.create_pi("c")
+        
+        ab = aig.create_and(a, b)
+        ac = aig.create_and(a, c)
+        f = aig.create_or(ab, ac)
+        aig.add_po(f)
+        
+        print("AIG Statistics:")
+        stats = aig.get_statistics()
+        for key, value in stats.items():
+            print(f"  {key}: {value}")
 
 
 def main():

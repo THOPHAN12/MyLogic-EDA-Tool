@@ -12,12 +12,14 @@ A comprehensive Electronic Design Automation platform for digital circuit design
 ## 📚 **Documentation**
 
 ### 📖 Main Documents
+
 - **[QUICKSTART](docs/QUICKSTART.md)** - Bắt đầu ngay trong 5 phút
 - **[Synthesis Guide](docs/SYNTHESIS_GUIDE.md)** - Hướng dẫn synthesis flow
 - **[Complete Documentation](docs/COMPLETE_DOCUMENTATION.md)** - Tài liệu đầy đủ
 - **[Documentation Index](docs/INDEX.md)** - Danh mục tất cả tài liệu
 
 ### 🎓 Quick Links
+
 - [Installation](#-installation) - Cài đặt
 - [Usage](#-quick-start) - Sử dụng cơ bản
 - [Examples](examples/) - Ví dụ thực tế
@@ -28,6 +30,7 @@ A comprehensive Electronic Design Automation platform for digital circuit design
 MyLogic EDA Tool is a unified Electronic Design Automation platform designed for educational and research purposes. It provides a complete pipeline from RTL description to optimized gate-level netlists, featuring advanced synthesis algorithms, VLSI CAD tools, and comprehensive simulation capabilities.
 
 ### 🎓 **Target Audience**
+
 - **Students**: Learning digital circuit design and VLSI CAD
 - **Researchers**: Algorithm development and optimization research
 - **Educators**: Teaching EDA concepts and methodologies
@@ -36,6 +39,7 @@ MyLogic EDA Tool is a unified Electronic Design Automation platform designed for
 ## ✨ Key Features
 
 ### 🔧 **Core Synthesis Algorithms**
+
 - **Structural Hashing (Strash)**: Remove duplicate logic structures
 - **Dead Code Elimination (DCE)**: Eliminate unused logic with multiple optimization levels
 - **Common Subexpression Elimination (CSE)**: Share redundant computations
@@ -43,12 +47,14 @@ MyLogic EDA Tool is a unified Electronic Design Automation platform designed for
 - **Logic Balancing**: Balance logic depth for timing optimization
 
 ### 🎮 **Advanced Simulation**
+
 - **Vector Simulation**: Multi-bit arithmetic and bitwise operations
 - **Auto-detection**: Automatic scalar vs vector mode detection
 - **Interactive CLI**: User-friendly command-line interface
 - **Real-time Feedback**: Immediate simulation results
 
 ### 🔬 **VLSI CAD Algorithms**
+
 - **Binary Decision Diagrams (BDD)**: Efficient Boolean function representation
 - **SAT Solver**: Boolean satisfiability checking and verification
 - **Placement Algorithms**: Random, Force-directed, Simulated Annealing
@@ -57,6 +63,7 @@ MyLogic EDA Tool is a unified Electronic Design Automation platform designed for
 - **Technology Mapping**: Area/delay/balanced optimization strategies
 
 ### 🔗 **Professional Integration**
+
 - **Yosys Integration**: Complete synthesis flow powered by Yosys
 - **ABC Optimization**: Advanced optimization algorithms
 - **Multiple Output Formats**: Verilog, JSON, BLIF, DOT, SPICE, Liberty
@@ -109,6 +116,7 @@ mylogic> write_json netlist.json
 ### Example Workflows
 
 #### 1. **Logic Synthesis Flow**
+
 ```bash
 python mylogic.py
 mylogic> read examples/full_adder.v
@@ -121,6 +129,7 @@ mylogic> stats                     # Show optimization results
 ```
 
 #### 2. **Yosys Professional Synthesis**
+
 ```bash
 mylogic> yosys_flow examples/arithmetic_operations.v balanced
 mylogic> yosys_stat examples/arithmetic_operations.v
@@ -129,6 +138,7 @@ mylogic> write_dot circuit.dot
 ```
 
 #### 3. **VLSI CAD Analysis**
+
 ```bash
 mylogic> place force_directed       # Force-directed placement
 mylogic> route maze                 # Maze routing
@@ -242,6 +252,7 @@ MyLogic-EDA-Tool/
 ## 🔧 Command Reference
 
 ### **Basic Commands**
+
 - `read <file>` - Load Verilog file
 - `stats` - Show circuit statistics
 - `simulate` - Run simulation (auto-detect mode)
@@ -249,6 +260,7 @@ MyLogic-EDA-Tool/
 - `exit` - Quit shell
 
 ### **Logic Synthesis Commands**
+
 - `strash` - Structural hashing (remove duplicates)
 - `dce <level>` - Dead code elimination (basic/advanced/aggressive)
 - `cse` - Common subexpression elimination
@@ -257,12 +269,14 @@ MyLogic-EDA-Tool/
 - `synthesis <level>` - Complete synthesis flow (basic/standard/aggressive)
 
 ### **VLSI CAD Commands**
+
 - `place <algorithm>` - Placement (random/force_directed/simulated_annealing)
 - `route <algorithm>` - Routing (maze/lee/ripup_reroute)
 - `timing` - Static timing analysis
 - `techmap <strategy>` - Technology mapping (area/delay/balanced)
 
 ### **Yosys Integration Commands**
+
 - `yosys_flow <file> [level]` - Complete Yosys synthesis
 - `yosys_stat <file>` - Get design statistics
 - `write_verilog <file>` - Output Verilog RTL
@@ -273,6 +287,7 @@ MyLogic-EDA-Tool/
 ## 📊 Supported Operations
 
 ### **Arithmetic Operations**
+
 ```verilog
 module arithmetic_demo(a, b, c, d, sum_out, diff_out, prod_out, quot_out);
   input [3:0] a, b, c, d;
@@ -288,6 +303,7 @@ endmodule
 ```
 
 ### **Bitwise Operations**
+
 ```verilog
 module bitwise_demo(a, b, and_out, or_out, xor_out, not_out);
   input [3:0] a, b;
@@ -305,6 +321,7 @@ endmodule
 Comprehensive documentation is available in the `docs/` directory:
 
 ### 📖 **System Overview**
+
 - **[Complete Introduction](docs/00_overview/01_introduction.md)** - Project overview and features
 - **[Theoretical Foundation](docs/00_overview/02_theoretical_foundation.md)** - Core EDA concepts
 - **[Installation Guide](docs/00_overview/installation_guide.md)** - Setup and configuration
@@ -313,6 +330,7 @@ Comprehensive documentation is available in the `docs/` directory:
 - **[Logical Hierarchy](docs/00_overview/logical_file_hierarchy.md)** - Visual structure diagram
 
 ### 🧮 **Algorithm Documentation**
+
 - **[Algorithm Overview](docs/algorithms/README.md)** - Complete algorithm guide
 - **[Structural Hashing](docs/algorithms/01_strash.md)** - Duplicate removal
 - **[Dead Code Elimination](docs/algorithms/02_dce.md)** - Unused logic removal
@@ -321,6 +339,7 @@ Comprehensive documentation is available in the `docs/` directory:
 - **[Logic Balancing](docs/algorithms/05_balance.md)** - Timing optimization
 
 ### 🔬 **VLSI CAD Documentation**
+
 - **[VLSI CAD Overview](docs/vlsi_cad/README.md)** - VLSI CAD algorithms
 - **[Binary Decision Diagrams](docs/vlsi_cad/bdd.md)** - BDD implementation
 - **[SAT Solver](docs/vlsi_cad/sat.md)** - Boolean satisfiability
@@ -329,12 +348,15 @@ Comprehensive documentation is available in the `docs/` directory:
 - **[Static Timing Analysis](docs/vlsi_cad/sta.md)** - Timing analysis
 
 ### 🎮 **Simulation Documentation**
+
 - **[Simulation Overview](docs/simulation/simulation_overview.md)** - Simulation guide
 
 ### 📝 **Project Reports**
+
 - **[Report Outline](docs/report/report_outline.md)** - Project report structure
 
 ### 🔧 **Technical References**
+
 - **[API Reference](docs/00_overview/api_reference.md)** - Complete API documentation
 - **[Combinational Workflow](docs/00_overview/combinational_workflow.md)** - Synthesis workflow
 - **[Yosys Integration](docs/00_overview/yosys_guide.md)** - Yosys integration guide
@@ -342,11 +364,13 @@ Comprehensive documentation is available in the `docs/` directory:
 ## 🎯 Key Algorithms
 
 ### **Logic Synthesis Pipeline**
+
 ```
 Input Netlist → Strash → DCE → CSE → ConstProp → Balance → Optimized Netlist
 ```
 
 ### **VLSI CAD Flow**
+
 ```
 Netlist → Placement → Routing → Timing Analysis → Technology Mapping → Final Design
 ```
@@ -355,41 +379,43 @@ Netlist → Placement → Routing → Timing Analysis → Technology Mapping →
 
 ### **Algorithm Performance Metrics**
 
-| Algorithm | Node Reduction | Timing Improvement | Memory Usage | Complexity |
-|-----------|----------------|-------------------|--------------|------------|
-| **Strash** | 15-30% | 10-20% | -5% | O(n) |
-| **DCE** | 20-40% | 15-25% | -10% | O(n²) |
-| **CSE** | 25-35% | 20-30% | -8% | O(n²) |
-| **ConstProp** | 30-50% | 25-40% | -15% | O(n) |
-| **Balance** | 10-20% | 30-50% | +5% | O(n log n) |
+| Algorithm           | Node Reduction | Timing Improvement | Memory Usage | Complexity |
+| ------------------- | -------------- | ------------------ | ------------ | ---------- |
+| **Strash**    | 15-30%         | 10-20%             | -5%          | O(n)       |
+| **DCE**       | 20-40%         | 15-25%             | -10%         | O(n²)     |
+| **CSE**       | 25-35%         | 20-30%             | -8%          | O(n²)     |
+| **ConstProp** | 30-50%         | 25-40%             | -15%         | O(n)       |
+| **Balance**   | 10-20%         | 30-50%             | +5%          | O(n log n) |
 
 ### **Synthesis Flow Performance**
 
-| Optimization Level | Total Reduction | Timing Gain | Quality Score |
-|-------------------|----------------|-------------|---------------|
-| **Basic** | 15-25% | 10-15% | 7.5/10 |
-| **Standard** | 25-40% | 20-35% | 8.5/10 |
-| **Aggressive** | 35-55% | 30-50% | 9.0/10 |
+| Optimization Level   | Total Reduction | Timing Gain | Quality Score |
+| -------------------- | --------------- | ----------- | ------------- |
+| **Basic**      | 15-25%          | 10-15%      | 7.5/10        |
+| **Standard**   | 25-40%          | 20-35%      | 8.5/10        |
+| **Aggressive** | 35-55%          | 30-50%      | 9.0/10        |
 
 ### **VLSI CAD Performance**
 
-| Algorithm | Success Rate | Runtime | Quality |
-|-----------|--------------|---------|---------|
-| **BDD** | 95% | O(2^n) | High |
-| **SAT Solver** | 90% | O(1.3^n) | High |
-| **Placement** | 85% | O(n²) | Medium |
-| **Routing** | 80% | O(n³) | Medium |
-| **STA** | 100% | O(n) | High |
+| Algorithm            | Success Rate | Runtime  | Quality |
+| -------------------- | ------------ | -------- | ------- |
+| **BDD**        | 95%          | O(2^n)   | High    |
+| **SAT Solver** | 90%          | O(1.3^n) | High    |
+| **Placement**  | 85%          | O(n²)   | Medium  |
+| **Routing**    | 80%          | O(n³)   | Medium  |
+| **STA**        | 100%         | O(n)     | High    |
 
 ## 🔍 Troubleshooting
 
 ### **Common Issues**
+
 1. **Import Errors**: Install dependencies with `pip install -r requirements.txt`
 2. **Yosys Not Found**: Install Yosys for synthesis features
 3. **Simulation Errors**: Check input values and circuit logic
 4. **Vector Width Mismatch**: Ensure consistent vector declarations
 
 ### **Debug Mode**
+
 ```bash
 python mylogic.py --debug
 python mylogic.py --check-deps
@@ -400,6 +426,7 @@ python mylogic.py --check-deps
 We welcome contributions from students, researchers, and developers! Please follow these guidelines:
 
 ### **How to Contribute**
+
 1. **Fork** the repository
 2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
 3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
@@ -407,6 +434,7 @@ We welcome contributions from students, researchers, and developers! Please foll
 5. **Open** a Pull Request
 
 ### **Contribution Areas**
+
 - 🧮 **Algorithm Improvements**: Enhance existing algorithms
 - 🔬 **New VLSI CAD Tools**: Add new placement/routing algorithms
 - 🎮 **Simulation Features**: Extend simulation capabilities
@@ -415,6 +443,7 @@ We welcome contributions from students, researchers, and developers! Please foll
 - 🔧 **Integration**: Improve Yosys integration
 
 ### **Development Guidelines**
+
 - Follow Python PEP 8 style guide
 - Add comprehensive docstrings
 - Include unit tests for new features
@@ -442,20 +471,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📊 **Project Statistics**
 
-| Metric | Value |
-|--------|-------|
-| **Version** | 2.0.0 |
-| **Python Version** | 3.8+ |
-| **Core Algorithms** | 5+ |
-| **VLSI CAD Tools** | 6+ |
-| **Test Coverage** | 85%+ |
-| **Documentation** | Complete |
-| **Examples** | 6+ |
-| **Integration** | Yosys, ABC |
+| Metric                    | Value      |
+| ------------------------- | ---------- |
+| **Version**         | 2.0.0      |
+| **Python Version**  | 3.8+       |
+| **Core Algorithms** | 5+         |
+| **VLSI CAD Tools**  | 6+         |
+| **Test Coverage**   | 85%+       |
+| **Documentation**   | Complete   |
+| **Examples**        | 6+         |
+| **Integration**     | Yosys, ABC |
 
 ## 🎓 **Educational Value**
 
 MyLogic EDA Tool serves as an excellent learning platform for:
+
 - **Digital Circuit Design**: Understanding logic synthesis
 - **VLSI CAD Algorithms**: Learning placement and routing
 - **EDA Tool Development**: Building custom tools
@@ -470,6 +500,7 @@ MyLogic EDA Tool serves as an excellent learning platform for:
 ---
 
 ### 🔗 **Quick Links**
+
 - **[🚀 Getting Started](docs/00_overview/installation_guide.md)** - Quick setup guide
 - **[📖 Documentation](docs/README.md)** - Complete documentation
 - **[🧪 Examples](examples/)** - Example designs and workflows

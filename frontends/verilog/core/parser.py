@@ -1366,6 +1366,19 @@ def _dispatch_assign_parser(lhs: str, rhs: str, node_builder: NodeBuilder, param
     # 6. Bitwise operations
     bitwise_op = detect_bitwise_operator(rhs)
     if bitwise_op:
+        # Check NOT operator riêng (unary) - phải check trước binary operators
+        # NOT là unary nên chỉ có 1 operand sau ~
+        rhs_stripped = rhs.strip()
+        if bitwise_op == '~' and rhs_stripped.startswith('~'):
+            # Check xem có phải là unary NOT không (không có &, |, ^ sau ~)
+            # Ví dụ: ~a là unary, nhưng ~(a & b) cũng là unary nhưng có nested expression
+            operand = rhs_stripped[1:].strip()
+            # Nếu operand không chứa bitwise operators khác, đây là unary NOT
+            if not any(op in operand for op in ['&', '|', '^']) or operand.startswith('('):
+                from ..operations.bitwise import parse_not_operation
+                parse_not_operation(node_builder, lhs, rhs)
+                return
+        # Binary bitwise operations
         from ..operations.bitwise import parse_bitwise_operation
         parse_bitwise_operation(node_builder, bitwise_op, lhs, rhs)
         return

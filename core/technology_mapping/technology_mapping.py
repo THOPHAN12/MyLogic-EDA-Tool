@@ -21,15 +21,18 @@ logger = logging.getLogger(__name__)
 def normalize_function(function: str) -> str:
     """
     Normalize function string by replacing variable names with canonical names.
+    Also handles nested expressions by extracting simple input signals.
     
     Examples:
         normalize_function("OR(C,D)") -> "OR(A,B)"
         normalize_function("XOR(temp1,temp2)") -> "XOR(A,B)"
         normalize_function("AND(A,B)") -> "AND(A,B)"
         normalize_function("NOT(X)") -> "NOT(A)"
+        normalize_function("NOT((a & b))") -> "NOT(A)"  # Extract first input from nested expr
+        normalize_function("NOT(a)") -> "NOT(A)"
     
     Args:
-        function: Function string like "OR(C,D)", "AND(A,B)", etc.
+        function: Function string like "OR(C,D)", "AND(A,B)", "NOT((a & b))", etc.
         
     Returns:
         Normalized function string with canonical variable names (A, B, C, ...)
@@ -49,8 +52,33 @@ def normalize_function(function: str) -> str:
         # No arguments (like CONST0, CONST1)
         return function
     
-    # Split arguments by comma
-    args = [arg.strip() for arg in args_str.split(',')]
+    # Handle nested expressions: extract simple input signals
+    # For functions like NOT((a & b)), we need to extract the input signal
+    # Strategy: If argument contains operators (&, |, ^, etc.), try to extract first signal
+    args = []
+    
+    # Check if args_str contains nested expressions (has operators)
+    if any(op in args_str for op in ['&', '|', '^', '+', '-', '*', '/', '(', ')']):
+        # Nested expression - try to extract input signals
+        # For NOT((a & b)), we can't easily extract, so use first argument as-is
+        # But we'll try to find simple signal names
+        import re as re_module
+        # Try to find simple signal names (alphanumeric + underscore)
+        signal_pattern = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+        signals = re_module.findall(signal_pattern, args_str)
+        if signals:
+            # Use first signal found (for NOT, only need one input)
+            if func_name == 'NOT':
+                args = [signals[0]]
+            else:
+                # For other functions, use first 2 signals
+                args = signals[:2] if len(signals) >= 2 else signals
+        else:
+            # No signals found, use original argument
+            args = [args_str]
+    else:
+        # Simple arguments - split by comma
+        args = [arg.strip() for arg in args_str.split(',')]
     
     # Generate canonical variable names (A, B, C, D, ...)
     canonical_args = [chr(65 + i) for i in range(len(args))]  # A=65, B=66, C=67, ...

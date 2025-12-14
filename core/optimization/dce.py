@@ -119,13 +119,31 @@ class DCEOptimizer:
                 continue
                 
             # Add all input nodes of current node
-            inputs = node.get('inputs', [])
+            # Handle both 'inputs' and 'fanins' formats
+            inputs = []
+            if 'inputs' in node:
+                inputs = node.get('inputs', [])
+            elif 'fanins' in node:
+                # Extract signal names from fanins format: [["signal", inverted], ...]
+                inputs = [fanin[0] if isinstance(fanin, (list, tuple)) and len(fanin) > 0 else fanin 
+                         for fanin in node.get('fanins', [])]
+            
             for input_name in inputs:
                 # Skip if input is a primary input
                 if input_name in netlist.get('inputs', []):
                     continue
                     
                 # Find which node produces this input
+                # Method 1: Check output_mapping first (for signals like temp1, temp2, etc.)
+                output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                if input_name in output_mapping:
+                    node_id = output_mapping[input_name]
+                    if node_id not in reachable:
+                        reachable.add(node_id)
+                        queue.append(node_id)
+                    continue
+                
+                # Method 2: Check node.output field (legacy format)
                 # nodes is a list, iterate directly
                 for other_node in netlist.get('nodes', []):
                     if isinstance(other_node, dict):
@@ -416,6 +434,20 @@ def dead_code_elimination(netlist: Dict[str, Any], level: str = "basic") -> Dict
     """
     optimizer = DCEOptimizer()
     return optimizer.optimize(netlist, level)
+
+# Alias for compatibility with synthesis_flow
+def apply_dce(netlist: Dict[str, Any], level: str = "basic") -> Dict[str, Any]:
+    """
+    Alias for dead_code_elimination() for compatibility.
+    
+    Args:
+        netlist: Circuit netlist
+        level: Optimization level ("basic", "advanced", "aggressive")
+        
+    Returns:
+        Optimized netlist with dead code removed
+    """
+    return dead_code_elimination(netlist, level)
 
 def dce_analysis(netlist: Dict[str, Any]) -> Dict[str, Any]:
     """

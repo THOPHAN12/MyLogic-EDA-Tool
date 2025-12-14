@@ -16,7 +16,7 @@ __all__ = [
     'CombinationalSynthesis'
 ]
 
-from constants import PROJECT_VERSION, PROJECT_AUTHOR
+from core.utils.constants import PROJECT_VERSION, PROJECT_AUTHOR
 
 __version__ = PROJECT_VERSION
 __author__ = PROJECT_AUTHOR

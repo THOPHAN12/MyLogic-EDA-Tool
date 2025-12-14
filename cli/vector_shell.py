@@ -38,6 +38,7 @@ class VectorShell:
         self.history_size = self.config.get("shell", {}).get("history_size", 1000)
         self.auto_complete = self.config.get("shell", {}).get("auto_complete", True)
         self.color_output = self.config.get("shell", {}).get("color_output", True)
+        self.auto_export_json = self.config.get("shell", {}).get("auto_export_json", True)  # Mặc định bật
         
         # Khởi tạo từ điển commands
         self.commands = {
@@ -112,7 +113,7 @@ class VectorShell:
                 print("Type 'help' for available commands.")
 
     def _read_file(self, parts):
-        """Đọc file Verilog."""
+        """Đọc file Verilog và tự động export JSON nếu được bật."""
         if len(parts) < 2:
             print("[ERROR] Usage: read <file>")
             return
@@ -132,6 +133,11 @@ class VectorShell:
                 self.filename = path
                 n_nodes = len(self.netlist.get('nodes', []))
                 print(f"[OK] Loaded netlist with {n_nodes} nodes.")
+            
+            # Tự động export JSON nếu được bật
+            if self.auto_export_json and self.current_netlist:
+                self._auto_export_json()
+                
         except Exception as e:
             msg = str(e)
             if "Syntax error" in msg:
@@ -350,13 +356,13 @@ class VectorShell:
         print("=== ENHANCED MYLOGIC EDA TOOL COMMANDS ===")
         print()
         print("File Operations:")
-        print("  read <file>           - Load a .logic or .v file")
+        print("  read <file>           - Load a .logic or .v file (auto-exports JSON to outputs/)")
         print("  stats                 - Enhanced circuit statistics")
         print("  vectors               - Detailed vector width analysis")
         print("  nodes                 - Detailed node information")
         print("  wires                 - Detailed wire analysis")
         print("  modules               - Module instantiation details")
-        print("  export [file]         - Export netlist to JSON file")
+        print("  export [file]         - Export netlist to JSON file (manual export)")
         print()
         print("Simulation:")
         print("  simulate              - Run simulation (auto-detect vector/scalar)")
@@ -562,15 +568,31 @@ class VectorShell:
             original_nodes = len(self.current_netlist.get('nodes', {}))
             
             optimized_netlist = run_complete_synthesis(self.current_netlist, level)
+            
+            # Cập nhật metadata stats sau synthesis
+            optimized_netlist = self._update_metadata_stats(optimized_netlist)
+            
             self.current_netlist = optimized_netlist
             
-            final_nodes = len(optimized_netlist.get('nodes', {}))
+            # Đếm nodes chính xác (hỗ trợ cả dict và list)
+            nodes = optimized_netlist.get('nodes', [])
+            if isinstance(nodes, dict):
+                final_nodes = len(nodes)
+            elif isinstance(nodes, list):
+                final_nodes = len(nodes)
+            else:
+                final_nodes = 0
+            
             reduction = original_nodes - final_nodes
             
             print(f"[OK] Complete Synthesis Flow completed!")
             print(f"  Original: {original_nodes} nodes")
             print(f"  Final: {final_nodes} nodes")
             print(f"  Total reduction: {reduction} nodes ({(reduction/original_nodes)*100:.1f}%)")
+            
+            # Tự động export JSON sau synthesis nếu được bật
+            if self.auto_export_json:
+                self._export_synthesized_json(level)
             
         except ImportError:
             print("[ERROR] Synthesis Flow module not available")
@@ -868,13 +890,28 @@ class VectorShell:
     def _run_technology_mapping(self, parts):
         """Chạy technology mapping."""
         if not parts or len(parts) < 2:
-            print("Usage: techmap <strategy> [library_file]")
+            print("Usage: techmap <strategy> [library_file|library_type]")
             print("Strategies: area, delay, balanced")
-            print("Library: path to .lib, .json, or .v file (optional)")
+            print("Library options:")
+            print("  - Path to .lib, .json, or .v file")
+            print("  - Library type (auto-detect from techlibs/):")
+            print("    * asic          - ASIC standard cells")
+            print("    * fpga          - Auto-scan all FPGA libraries")
+            print("    * fpga_common   - FPGA common cells")
+            print("    * anlogic       - Anlogic FPGA")
+            print("    * gowin         - Gowin FPGA")
+            print("    * ice40         - Lattice iCE40")
+            print("    * intel         - Intel/Altera FPGA")
+            print("    * lattice       - Lattice FPGA")
+            print("    * xilinx        - Xilinx FPGA")
             print("  Examples:")
-            print("    techmap area")
+            print("    techmap area                    # Auto-detect (ASIC first)")
+            print("    techmap area asic               # Use techlibs/asic/")
+            print("    techmap area fpga               # Auto-scan all FPGA")
+            print("    techmap area fpga_common        # Use techlibs/fpga/common/")
+            print("    techmap area ice40              # Use techlibs/fpga/ice40/")
+            print("    techmap area xilinx             # Use techlibs/fpga/xilinx/")
             print("    techmap balanced techlibs/asic/standard_cells.lib")
-            print("    techmap delay techlibs/custom_library.json")
             return
         
         if not self.current_netlist:
@@ -892,23 +929,34 @@ class VectorShell:
             
             print(f"[INFO] Running technology mapping with {strategy} strategy...")
             
-            # Load library từ file hoặc dùng default
-            if library_path and os.path.exists(library_path):
-                print(f"[INFO] Loading library from: {library_path}")
-                try:
-                    library = load_library_from_file(library_path)
-                    print(f"[OK] Loaded library '{library.name}' with {len(library.cells)} cells")
-                except Exception as e:
-                    print(f"[WARNING] Failed to load library from file: {e}")
-                    print("[INFO] Falling back to standard library")
-                    library = create_standard_library()
-            else:
-                if library_path:
-                    print(f"[WARNING] Library file not found: {library_path}")
-                    print("[INFO] Using default standard library")
+            # Load library từ file hoặc tự động tìm trong techlibs/
+            library_type = None
+            if library_path:
+                # Kiểm tra xem có phải là library type không
+                valid_types = ["asic", "fpga", "fpga_common", "anlogic", "gowin", 
+                              "ice40", "intel", "lattice", "xilinx"]
+                if library_path.lower() in valid_types:
+                    library_type = library_path.lower()
+                    library_path = None
+                elif os.path.exists(library_path):
+                    # Đường dẫn file hợp lệ
+                    print(f"[INFO] Loading library from: {library_path}")
+                    try:
+                        library = load_library_from_file(library_path)
+                        print(f"[OK] Loaded library '{library.name}' with {len(library.cells)} cells")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to load library from file: {e}")
+                        print("[INFO] Trying to find library in techlibs/...")
+                        library = self._try_load_default_library(library_type or "auto")
                 else:
-                    print("[INFO] Using default standard library")
-                library = create_standard_library()
+                    # File không tồn tại
+                    print(f"[WARNING] Library file not found: {library_path}")
+                    print("[INFO] Trying to find library in techlibs/...")
+                    library = self._try_load_default_library("auto")
+            else:
+                # Không có library_path, tự động tìm
+                print("[INFO] No library specified, trying to find library in techlibs/...")
+                library = self._try_load_default_library("auto")
             
             mapper = TechnologyMapper(library)
             
@@ -986,6 +1034,99 @@ class VectorShell:
             print("[ERROR] Technology mapping module not available")
         except Exception as e:
             print(f"[ERROR] Technology mapping failed: {e}")
+    
+    def _try_load_default_library(self, library_type: str = "auto"):
+        """
+        Tự động tìm và load library từ techlibs/ nếu có.
+        Fallback về standard library nếu không tìm thấy.
+        
+        Args:
+            library_type: "auto", "asic", "fpga", "fpga_common", "anlogic", 
+                         "gowin", "ice40", "intel", "lattice", "xilinx"
+        """
+        from core.technology_mapping.technology_mapping import (
+            create_standard_library, load_library_from_file
+        )
+        import os
+        from pathlib import Path
+        
+        # Tìm project root (thư mục chứa mylogic.py hoặc cli/)
+        current_file = Path(__file__).resolve()
+        project_root = current_file.parent.parent  # Từ cli/ lên Mylogic/
+        
+        # Định nghĩa các đường dẫn library theo loại
+        library_paths = {
+            "asic": [
+                project_root / "techlibs" / "asic" / "standard_cells.json",
+                project_root / "techlibs" / "asic" / "standard_cells.lib",
+            ],
+            "fpga_common": [
+                project_root / "techlibs" / "fpga" / "common" / "cells.lib",
+                project_root / "techlibs" / "fpga" / "common" / "cells.json",
+            ],
+            "anlogic": [
+                project_root / "techlibs" / "fpga" / "anlogic" / "cells.lib",
+                project_root / "techlibs" / "fpga" / "anlogic" / "cells.json",
+            ],
+            "gowin": [
+                project_root / "techlibs" / "fpga" / "gowin" / "cells.lib",
+                project_root / "techlibs" / "fpga" / "gowin" / "cells.json",
+            ],
+            "ice40": [
+                project_root / "techlibs" / "fpga" / "ice40" / "cells.lib",
+                project_root / "techlibs" / "fpga" / "ice40" / "cells.json",
+            ],
+            "intel": [
+                project_root / "techlibs" / "fpga" / "intel" / "cells.lib",
+                project_root / "techlibs" / "fpga" / "intel" / "cells.json",
+                project_root / "techlibs" / "fpga" / "intel" / "common" / "cells.lib",
+            ],
+            "lattice": [
+                project_root / "techlibs" / "fpga" / "lattice" / "cells.lib",
+                project_root / "techlibs" / "fpga" / "lattice" / "cells.json",
+            ],
+            "xilinx": [
+                project_root / "techlibs" / "fpga" / "xilinx" / "cells.lib",
+                project_root / "techlibs" / "fpga" / "xilinx" / "cells.json",
+            ],
+        }
+        
+        # Xác định các đường dẫn cần thử
+        default_paths = []
+        
+        if library_type == "auto" or library_type is None:
+            # Tự động thử tất cả các đường dẫn (ưu tiên ASIC trước, sau đó là FPGA)
+            default_paths = library_paths["asic"].copy()
+            # Thêm tất cả các FPGA libraries
+            for fpga_type in ["fpga_common", "anlogic", "gowin", "ice40", "intel", "lattice", "xilinx"]:
+                default_paths.extend(library_paths.get(fpga_type, []))
+        elif library_type == "fpga":
+            # Tự động scan tất cả các thư mục FPGA
+            for fpga_type in ["fpga_common", "anlogic", "gowin", "ice40", "intel", "lattice", "xilinx"]:
+                default_paths.extend(library_paths.get(fpga_type, []))
+        elif library_type in library_paths:
+            default_paths = library_paths[library_type]
+        else:
+            # Fallback về auto
+            default_paths = library_paths["asic"].copy()
+            for fpga_type in ["fpga_common", "anlogic", "gowin", "ice40", "intel", "lattice", "xilinx"]:
+                default_paths.extend(library_paths.get(fpga_type, []))
+        
+        # Thử load từ các đường dẫn
+        for lib_path in default_paths:
+            if lib_path.exists():
+                try:
+                    print(f"[INFO] Found library in techlibs/: {lib_path}")
+                    library = load_library_from_file(str(lib_path))
+                    print(f"[OK] Loaded library '{library.name}' with {len(library.cells)} cells")
+                    return library
+                except Exception as e:
+                    print(f"[WARNING] Failed to load {lib_path}: {e}")
+                    continue
+        
+        # Nếu không tìm thấy trong techlibs/, dùng standard library
+        print("[INFO] No library found in techlibs/, using standard library")
+        return create_standard_library()
     
     def _demo_random_placement(self):
         """Minh họa random placement."""
@@ -1117,6 +1258,184 @@ class VectorShell:
         
         print(f"\nTotal: {len(module_insts)} module instantiations")
     
+    def _export_synthesized_json(self, level="standard"):
+        """Tự động export JSON sau synthesis."""
+        if not self.current_netlist:
+            return
+        
+        try:
+            import os
+            if hasattr(self, 'filename') and self.filename:
+                base_name = os.path.splitext(os.path.basename(self.filename))[0]
+                output_dir = "outputs"
+                if os.path.exists(output_dir):
+                    filename = os.path.join(output_dir, f"{base_name}_synthesized_{level}.json")
+                else:
+                    filename = f"{base_name}_synthesized_{level}.json"
+            else:
+                filename = f"netlist_synthesized_{level}.json"
+            
+            import json
+            from datetime import datetime
+            
+            # Tạo bản copy và cập nhật metadata
+            export_netlist = json.loads(json.dumps(self.current_netlist))
+            export_netlist = self._update_metadata_stats(export_netlist)
+            
+            export_data = {
+                "metadata": {
+                    "tool": "MyLogic EDA Tool v2.0.0",
+                    "export_time": datetime.now().isoformat(),
+                    "source_file": getattr(self, 'filename', 'unknown'),
+                    "version": "2.0.0",
+                    "synthesis_level": level,
+                    "auto_exported": True
+                },
+                "netlist": export_netlist
+            }
+            
+            # Đảm bảo thư mục outputs tồn tại
+            output_dir = os.path.dirname(filename) if os.path.dirname(filename) else "."
+            if output_dir == "outputs" and not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
+            
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+            
+            # Đếm nodes chính xác để hiển thị
+            nodes = export_netlist.get('nodes', [])
+            node_count = len(nodes) if isinstance(nodes, (dict, list)) else 0
+            print(f"[INFO] Auto-exported synthesized netlist to: {filename} ({node_count} nodes)")
+            
+        except Exception as e:
+            # Không in lỗi để không làm gián đoạn flow
+            pass
+    
+    def _auto_export_json(self):
+        """Tự động export JSON sau khi đọc file (internal use)."""
+        if not self.current_netlist:
+            return
+        
+        # Tạo tên file JSON từ tên file Verilog
+        if hasattr(self, 'filename') and self.filename:
+            import os
+            base_name = os.path.splitext(os.path.basename(self.filename))[0]
+            # Export vào thư mục outputs nếu có, không thì cùng thư mục
+            output_dir = "outputs"
+            if os.path.exists(output_dir):
+                filename = os.path.join(output_dir, f"{base_name}_parsed.json")
+            else:
+                filename = f"{base_name}_parsed.json"
+        else:
+            filename = "netlist_parsed.json"
+        
+        try:
+            import json
+            from datetime import datetime
+            
+            # Tạo bản copy để không sửa netlist gốc
+            export_netlist = json.loads(json.dumps(self.current_netlist))
+            
+            # Cập nhật metadata stats
+            export_netlist = self._update_metadata_stats(export_netlist)
+            
+            # Prepare export data
+            export_data = {
+                "metadata": {
+                    "tool": "MyLogic EDA Tool v2.0.0",
+                    "export_time": datetime.now().isoformat(),
+                    "source_file": getattr(self, 'filename', 'unknown'),
+                    "version": "2.0.0",
+                    "auto_exported": True
+                },
+                "netlist": export_netlist
+            }
+            
+            # Đảm bảo thư mục outputs tồn tại
+            import os
+            output_dir = os.path.dirname(filename) if os.path.dirname(filename) else "."
+            if output_dir == "outputs" and not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
+            
+            # Write JSON file
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"[INFO] Auto-exported JSON to: {filename}")
+            
+        except Exception as e:
+            # Không in lỗi khi auto-export để không làm gián đoạn flow
+            pass
+    
+    def _update_metadata_stats(self, netlist):
+        """Cập nhật parsing_stats và operator_summary sau synthesis."""
+        if not netlist or 'nodes' not in netlist:
+            return netlist
+        
+        nodes = netlist.get('nodes', [])
+        if isinstance(nodes, dict):
+            nodes_list = list(nodes.values())
+        elif isinstance(nodes, list):
+            nodes_list = nodes
+        else:
+            return netlist
+        
+        # Đếm số nodes theo type
+        type_counts = {}
+        category_counts = {
+            'logic': 0,
+            'arith': 0,
+            'shift': 0,
+            'compare': 0,
+            'logical': 0,
+            'struct': 0,
+            'sequential': 0
+        }
+        
+        for node in nodes_list:
+            if isinstance(node, dict):
+                node_type = node.get('type', 'UNKNOWN')
+                type_counts[node_type] = type_counts.get(node_type, 0) + 1
+                
+                # Phân loại node
+                if node_type in ['AND', 'OR', 'XOR', 'NAND', 'NOR', 'XNOR', 'NOT', 'BUF']:
+                    category_counts['logic'] += 1
+                elif node_type in ['ADD', 'SUB', 'MUL', 'DIV', 'MOD']:
+                    category_counts['arith'] += 1
+                elif node_type in ['SHL', 'SHR', 'ASHL', 'ASHR']:
+                    category_counts['shift'] += 1
+                elif node_type in ['EQ', 'NE', 'LT', 'LE', 'GT', 'GE']:
+                    category_counts['compare'] += 1
+                elif node_type in ['ANDL', 'ORL', 'NOTL']:
+                    category_counts['logical'] += 1
+                elif node_type in ['DFF', 'LATCH']:
+                    category_counts['sequential'] += 1
+        
+        # Cập nhật attrs nếu chưa có
+        if 'attrs' not in netlist:
+            netlist['attrs'] = {}
+        
+        # Cập nhật operator_summary
+        netlist['attrs']['operator_summary'] = {
+            'type_counts': type_counts,
+            'category_counts': category_counts,
+            'total_nodes': len(nodes_list)
+        }
+        
+        # Cập nhật parsing_stats
+        stats = netlist['attrs'].setdefault('parsing_stats', {})
+        stats.update({
+            'total_nodes': len(nodes_list),
+            'logic_nodes': category_counts['logic'],
+            'arith_nodes': category_counts['arith'],
+            'shift_nodes': category_counts['shift'],
+            'compare_nodes': category_counts['compare'],
+            'logical_nodes': category_counts['logical'],
+            'struct_nodes': category_counts['struct']
+        })
+        
+        return netlist
+    
     def _export_json(self, parts=None):
         """Export netlist to JSON file."""
         if not self.current_netlist:
@@ -1140,15 +1459,31 @@ class VectorShell:
             import json
             from datetime import datetime
             
+            # Tạo bản copy để không sửa netlist gốc
+            export_netlist = json.loads(json.dumps(self.current_netlist))
+            
+            # Cập nhật metadata stats trước khi export
+            export_netlist = self._update_metadata_stats(export_netlist)
+            
+            # Đếm nodes chính xác
+            nodes = export_netlist.get('nodes', [])
+            if isinstance(nodes, dict):
+                node_count = len(nodes)
+            elif isinstance(nodes, list):
+                node_count = len(nodes)
+            else:
+                node_count = 0
+            
             # Prepare export data
             export_data = {
                 "metadata": {
                     "tool": "MyLogic EDA Tool v2.0.0",
                     "export_time": datetime.now().isoformat(),
                     "source_file": getattr(self, 'filename', 'unknown'),
-                    "version": "2.0.0"
+                    "version": "2.0.0",
+                    "auto_exported": False
                 },
-                "netlist": self.current_netlist
+                "netlist": export_netlist
             }
             
             # Write JSON file
@@ -1157,10 +1492,10 @@ class VectorShell:
             
             print(f"[OK] Successfully exported netlist to: {filename}")
             print(f"[INFO] File contains:")
-            print(f"   - {len(self.current_netlist.get('nodes', []))} nodes")
-            print(f"   - {len(self.current_netlist.get('wires', []))} wires")
-            print(f"   - {len(self.current_netlist.get('inputs', []))} inputs")
-            print(f"   - {len(self.current_netlist.get('outputs', []))} outputs")
+            print(f"   - {node_count} nodes")
+            print(f"   - {len(export_netlist.get('wires', []))} wires")
+            print(f"   - {len(export_netlist.get('inputs', []))} inputs")
+            print(f"   - {len(export_netlist.get('outputs', []))} outputs")
             
         except Exception as e:
             print(f"[ERROR] Error exporting JSON: {e}")

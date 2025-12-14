@@ -130,9 +130,16 @@ def load_liberty_library(file_path: str) -> TechnologyLibrary:
             if func_match:
                 output_pin = func_match.group(1)
                 function = func_match.group(2)
-                # Convert Liberty function to standard format
-                # "!A" -> "NOT(A)", "A&B" -> "AND(A,B)", etc.
-                function = _convert_liberty_function(function)
+                
+                # Special handling for DFF cells: function is "IQ" (internal state)
+                # Use cell name to create proper function signature
+                if cell_name.upper().startswith('DFF_'):
+                    # For DFF cells, infer function from cell name instead of "IQ"
+                    function = _infer_function_from_name(cell_name)
+                else:
+                    # Convert Liberty function to standard format
+                    # "!A" -> "NOT(A)", "A&B" -> "AND(A,B)", etc.
+                    function = _convert_liberty_function(function)
             else:
                 # Try to infer from cell name
                 function = _infer_function_from_name(cell_name)
@@ -230,6 +237,19 @@ def _convert_liberty_function(func_str: str) -> str:
 def _infer_function_from_name(cell_name: str) -> str:
     """Infer function from cell name if function not found."""
     name_upper = cell_name.upper()
+    
+    # DFF cells (flip-flops)
+    if name_upper.startswith('DFF_'):
+        # DFF_N, DFF_P (2 inputs: D, C)
+        if name_upper in ['DFF_N', 'DFF_P']:
+            return f"{cell_name}(D,C)"
+        # DFF with reset (3 inputs: D, C, R)
+        elif name_upper in ['DFF_NN0', 'DFF_NN1', 'DFF_NP0', 'DFF_NP1',
+                           'DFF_PN0', 'DFF_PN1', 'DFF_PP0', 'DFF_PP1']:
+            return f"{cell_name}(D,C,R)"
+        else:
+            # Generic DFF
+            return f"{cell_name}(D,C)"
     
     if name_upper.startswith('INV'):
         return "NOT(A)"

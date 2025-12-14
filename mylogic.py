@@ -39,7 +39,7 @@ from cli.vector_shell import VectorShell
 from parsers import parse_verilog
 
 # Import constants
-from constants import (
+from core.utils.constants import (
     PROJECT_VERSION as VERSION,
     PROJECT_AUTHOR as AUTHOR, 
     PROJECT_DESCRIPTION_LONG as DESCRIPTION,

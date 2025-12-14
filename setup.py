@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 import os
 
 # Import constants
-from constants import (
+from core.utils.constants import (
     PROJECT_NAME, PROJECT_VERSION, PROJECT_AUTHOR, PROJECT_EMAIL,
     PROJECT_DESCRIPTION_LONG, GITHUB_URL, DOCS_URL, ISSUES_URL,
     SUPPORTED_PYTHON_VERSIONS, MIN_PYTHON_VERSION, LICENSE, PYPI_KEYWORDS,

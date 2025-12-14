@@ -41,33 +41,62 @@ MyLogic EDA Tool is a unified Electronic Design Automation platform designed for
 ### 🔧 **Core Synthesis Algorithms**
 
 - **Structural Hashing (Strash)**: Remove duplicate logic structures
-- **Dead Code Elimination (DCE)**: Eliminate unused logic with multiple optimization levels
+- **Dead Code Elimination (DCE)**: Eliminate unused logic with multiple optimization levels (basic/advanced/aggressive)
 - **Common Subexpression Elimination (CSE)**: Share redundant computations
-- **Constant Propagation**: Propagate constant values through the circuit
-- **Logic Balancing**: Balance logic depth for timing optimization
+- **Constant Propagation (ConstProp)**: Propagate constant values through the circuit
+- **Logic Balancing (Balance)**: Balance logic depth for timing optimization
+- **Quine-McCluskey**: Boolean function minimization
+- **AIG (And-Inverter Graph)**: Efficient logic representation
+
+### 📝 **Advanced Verilog Parser**
+
+- **Module Parsing**: Full module declaration with parameterized headers
+- **Port Declarations**: Input/output/inout with signed/unsigned support
+- **Parameter Support**: `parameter` and `localparam` with arithmetic expressions
+- **Always Blocks**: Sequential (`always @(posedge/negedge clk)`) and combinational (`always @(*)`)
+- **Generate Blocks**: `generate/endgenerate` with `for` loops and `if` statements (unrolling)
+- **Case Statements**: `case`, `casex`, `casez` with MUX tree conversion
+- **Bit Manipulation**: Bit slices (`signal[msb:lsb]`, `signal[bit]`), replication (`{n{signal}}`), concatenation
+- **Memory Support**: Array declarations (`reg [width-1:0] mem [depth-1:0]`) and indexing
+- **Functions & Tasks**: Function and task declarations with parameterized widths
+- **Module Instantiation**: Named ports (`.port(signal)`), ordered ports, and mixed connections
+- **Comprehensive Operations**: Arithmetic, bitwise, logical, comparison, shift operations
 
 ### 🎮 **Advanced Simulation**
 
 - **Vector Simulation**: Multi-bit arithmetic and bitwise operations
+- **Scalar Simulation**: Single-bit logic gate simulation
 - **Auto-detection**: Automatic scalar vs vector mode detection
-- **Interactive CLI**: User-friendly command-line interface
+- **Interactive CLI**: User-friendly command-line interface with 30+ commands
 - **Real-time Feedback**: Immediate simulation results
+- **Auto-export JSON**: Automatic JSON export after parsing and synthesis
 
 ### 🔬 **VLSI CAD Algorithms**
 
 - **Binary Decision Diagrams (BDD)**: Efficient Boolean function representation
+- **Boolean Expression Diagrams (BED)**: Enhanced BDD representation
 - **SAT Solver**: Boolean satisfiability checking and verification
 - **Placement Algorithms**: Random, Force-directed, Simulated Annealing
 - **Routing Algorithms**: Maze routing (Lee's algorithm), Rip-up & reroute
 - **Static Timing Analysis (STA)**: Critical path analysis and slack calculation
-- **Technology Mapping**: Area/delay/balanced optimization strategies
+- **Technology Mapping**: Area/delay/balanced optimization strategies with multiple libraries
 
 ### 🔗 **Professional Integration**
 
-- **Yosys Integration**: Complete synthesis flow powered by Yosys
-- **ABC Optimization**: Advanced optimization algorithms
+- **Yosys Integration**: Complete synthesis flow powered by Yosys (external tool integration)
+- **ABC Optimization**: Advanced optimization algorithms via Yosys
 - **Multiple Output Formats**: Verilog, JSON, BLIF, DOT, SPICE, Liberty
-- **Technology Libraries**: Standard cells and LUT-based mapping
+- **Technology Libraries**: 
+  - **ASIC Libraries**: Standard cells (.lib, .json)
+  - **FPGA Libraries**: Common, Anlogic, Gowin, Ice40, Intel, Lattice, Xilinx
+  - **Auto-loading**: Automatic library detection from `techlibs/` directory
+
+### 🛠️ **Tools & Utilities**
+
+- **Analyzers**: Circuit analysis tools
+- **Converters**: Format conversion utilities (MyLogic JSON ↔ Yosys JSON)
+- **Visualizers**: SVG and diagram generation
+- **Utilities**: Testing and validation utilities
 
 ## 🚀 Quick Start
 
@@ -108,9 +137,11 @@ mylogic> simulate
 # Run synthesis optimization
 mylogic> synthesis balanced
 
-# Generate outputs
-mylogic> write_verilog optimized.v
-mylogic> write_json netlist.json
+# Technology mapping with auto-loaded library
+mylogic> techmap balanced fpga_common
+
+# Generate outputs (auto-exported JSON available)
+mylogic> export_json netlist.json
 ```
 
 ### Example Workflows
@@ -128,13 +159,13 @@ mylogic> balance                   # Logic balancing
 mylogic> stats                     # Show optimization results
 ```
 
-#### 2. **Yosys Professional Synthesis**
+#### 2. **Complete Synthesis Pipeline**
 
 ```bash
-mylogic> yosys_flow examples/arithmetic_operations.v balanced
-mylogic> yosys_stat examples/arithmetic_operations.v
-mylogic> write_verilog optimized.v
-mylogic> write_dot circuit.dot
+mylogic> read examples/comprehensive_test.v
+mylogic> synthesis aggressive      # Complete 5-step synthesis flow
+mylogic> techmap balanced auto     # Technology mapping (auto-detect library)
+mylogic> stats                     # View optimized results
 ```
 
 #### 3. **VLSI CAD Analysis**
@@ -143,29 +174,46 @@ mylogic> write_dot circuit.dot
 mylogic> place force_directed       # Force-directed placement
 mylogic> route maze                 # Maze routing
 mylogic> timing                     # Static timing analysis
-mylogic> techmap balanced           # Technology mapping
+mylogic> techmap balanced asic      # Technology mapping with ASIC library
+```
+
+#### 4. **Boolean Analysis**
+
+```bash
+mylogic> bdd                        # Binary Decision Diagrams
+mylogic> bed                        # Boolean Expression Diagrams
+mylogic> sat                        # SAT solving
+mylogic> quine                      # Quine-McCluskey minimization
+mylogic> aig                        # And-Inverter Graph
 ```
 
 ## 📁 Project Structure
 
 ```
 MyLogic-EDA-Tool/
-├── 📄 constants.py               # Centralized constants and metadata
 ├── 📄 mylogic.py                 # Main launcher and entry point
 ├── 📄 setup.py                   # Package setup and distribution
 ├── 📄 requirements.txt           # Python dependencies
+├── 📄 pyproject.toml             # Modern Python project config
+├── 📄 pytest.ini                 # Pytest configuration
 ├── 📁 cli/                       # Command-line interface
-│   └── vector_shell.py          # Interactive shell with 20+ commands
+│   └── vector_shell.py          # Interactive shell with 30+ commands
 ├── 📁 core/                      # Core algorithms and engines
 │   ├── __init__.py              # Core module initialization
+│   ├── utils/                   # Utility modules
+│   │   ├── constants.py        # Global constants (moved from root)
+│   │   ├── error_handling.py   # Error handling utilities
+│   │   └── performance.py      # Performance monitoring
 │   ├── optimization/            # Logic optimization algorithms
 │   │   ├── strash.py           # Structural hashing
 │   │   ├── dce.py              # Dead code elimination
 │   │   ├── cse.py              # Common subexpression elimination
 │   │   ├── constprop.py        # Constant propagation
-│   │   └── balance.py          # Logic balancing
+│   │   ├── balance.py          # Logic balancing
+│   │   └── quine_mccluskey.py  # Boolean minimization
 │   ├── synthesis/               # Logic synthesis
 │   │   ├── strash.py           # Structural hashing
+│   │   ├── aig.py              # And-Inverter Graph
 │   │   └── synthesis_flow.py   # Complete synthesis pipeline
 │   ├── simulation/              # Circuit simulation
 │   │   ├── __init__.py         # Simulation module init
@@ -173,79 +221,82 @@ MyLogic-EDA-Tool/
 │   │   ├── logic_simulation.py # Logic gate simulation
 │   │   └── timing_simulation.py # Timing simulation
 │   ├── technology_mapping/      # Technology mapping
-│   │   └── technology_mapping.py # Technology mapping algorithms
+│   │   ├── technology_mapping.py # Technology mapping algorithms
+│   │   └── library_loader.py   # Library loading (Liberty, JSON, Verilog)
 │   └── vlsi_cad/               # VLSI CAD algorithms
 │       ├── bdd.py              # Binary Decision Diagrams
+│       ├── bdd_advanced.py     # Advanced BDD operations
+│       ├── bed.py              # Boolean Expression Diagrams
 │       ├── sat_solver.py       # SAT Solver
 │       ├── placement.py        # Placement algorithms
 │       ├── routing.py          # Routing algorithms
 │       └── timing_analysis.py  # Static Timing Analysis
 ├── 📁 frontends/                 # Input parsers
-│   ├── verilog.py              # Basic Verilog parser
-│   └── simple_arithmetic_verilog.py  # Enhanced Verilog parser
+│   └── verilog/                # Verilog parser (modular structure)
+│       ├── __init__.py         # Exports parse_verilog
+│       ├── core/               # Core parsing components
+│       │   ├── constants.py    # Verilog-specific constants
+│       │   ├── tokenizer.py    # Tokenization and cleaning
+│       │   ├── parser.py        # Main parsing logic
+│       │   ├── expression_parser.py  # Expression parsing
+│       │   └── node_builder.py # Node creation
+│       └── operations/         # Operation parsers (modular)
+│           ├── arithmetic.py   # Arithmetic operations
+│           ├── bitwise.py      # Bitwise operations
+│           ├── logical.py      # Logical operations
+│           ├── comparison.py   # Comparison operations
+│           ├── shift.py        # Shift operations
+│           └── special.py      # Special operations (ternary, concat, slice)
+├── 📁 parsers/                  # Compatibility layer
+│   └── __init__.py             # Re-exports parse_verilog from frontends
 ├── 📁 integrations/             # External tool integration
 │   ├── __init__.py             # Integration module init
-│   └── yosys/                  # Yosys integration
+│   └── yosys/                  # Yosys integration (external tool)
 │       ├── __init__.py         # Yosys module init
-│       ├── mylogic_synthesis.py # Synthesis engine
+│       ├── mylogic_synthesis.py # Synthesis engine wrapper
 │       ├── mylogic_commands.py  # Command interface
 │       ├── mylogic_engine.py    # MyLogic synthesis engine
-│       └── combinational_synthesis.py  # Combinational synthesis
+│       ├── combinational_synthesis.py  # Combinational synthesis
+│       └── yosys_demo.py       # Demo script
 ├── 📁 techlibs/                 # Technology libraries
-│   ├── library_loader.py       # Library management
-│   ├── standard_cells.lib      # Standard cell library
-│   ├── lut_library.json        # LUT library
-│   ├── custom_library.lib      # Custom library
-│   └── custom_lut_library.json # Custom LUT library
+│   ├── asic/                   # ASIC libraries
+│   │   ├── standard_cells.lib  # Liberty format
+│   │   └── standard_cells.json # JSON format
+│   └── fpga/                   # FPGA vendor libraries
+│       ├── common/             # Common FPGA cells (cells.lib)
+│       ├── anlogic/            # Anlogic FPGA
+│       ├── gowin/              # Gowin FPGA
+│       ├── ice40/              # Lattice iCE40
+│       ├── intel/              # Intel/Altera FPGA
+│       ├── lattice/            # Lattice FPGA
+│       └── xilinx/             # Xilinx FPGA
+├── 📁 tools/                    # Utility tools
+│   ├── analyzers/              # Circuit analysis tools
+│   ├── converters/             # Format conversion utilities
+│   ├── visualizers/            # SVG and diagram generation
+│   └── utilities/              # Testing and validation utilities
 ├── 📁 docs/                     # Comprehensive documentation
 │   ├── README.md               # Documentation index
+│   ├── flowchart/              # Mermaid flowcharts
 │   ├── 00_overview/            # System overview and guides
-│   │   ├── 01_introduction.md  # Complete introduction
-│   │   ├── 02_theoretical_foundation.md # Core concepts
-│   │   ├── installation_guide.md # Setup instructions
-│   │   ├── project_structure_guide.md # Architecture overview
-│   │   ├── combinational_workflow.md # Synthesis workflow
-│   │   ├── yosys_guide.md      # Yosys integration guide
-│   │   ├── api_reference.md    # Complete API documentation
-│   │   ├── file_structure_logic.md # File organization logic
-│   │   └── logical_file_hierarchy.md # Visual hierarchy
 │   ├── algorithms/             # Algorithm documentation
-│   │   ├── README.md           # Algorithm overview
-│   │   ├── 01_strash.md        # Structural hashing
-│   │   ├── 02_dce.md           # Dead code elimination
-│   │   ├── 03_cse.md           # Common subexpression elimination
-│   │   ├── 04_constprop.md     # Constant propagation
-│   │   └── 05_balance.md       # Logic balancing
 │   ├── vlsi_cad/               # VLSI CAD documentation
-│   │   ├── README.md           # VLSI CAD overview
-│   │   ├── bdd.md              # Binary Decision Diagrams
-│   │   ├── sat.md              # SAT Solver
-│   │   ├── placement.md        # Placement algorithms
-│   │   ├── routing.md          # Routing algorithms
-│   │   └── sta.md              # Static Timing Analysis
 │   ├── simulation/             # Simulation documentation
-│   │   └── simulation_overview.md # Simulation overview
 │   └── report/                 # Project reports
-│       └── report_outline.md   # Report structure
-├── 📁 examples/                # Example designs (4 representative examples)
-│   ├── arithmetic_operations.v # Basic arithmetic operations (+, -, *, /)
-│   ├── full_adder.v           # Full adder with logic gates (XOR, AND, OR)
-│   ├── priority_encoder.v     # Priority encoder with ternary operators
-│   └── comprehensive_combinational.v # Complete syntax reference
+├── 📁 examples/                # Example designs
+│   ├── arithmetic_operations.v # Basic arithmetic operations
+│   ├── full_adder.v           # Full adder with logic gates
+│   ├── priority_encoder.v      # Priority encoder
+│   ├── comprehensive_test.v    # Comprehensive syntax test
+│   ├── comprehensive_combinational.v # Complete syntax reference
+│   └── tests_verilog/          # Additional test files
 ├── 📁 tests/                   # Test suite
-│   ├── README.md              # Test documentation
-│   ├── test_config.json       # Test configuration
-│   ├── test_data/             # Test input files
-│   ├── algorithms/            # Algorithm tests
-│   ├── examples/              # Example tests
-│   ├── expected_outputs/      # Expected results
-│   ├── run_all_tests.py       # Test runner
-│   ├── test_arithmetic_simulation.py # Simulation tests
-│   └── test_verilog_parser.py # Parser tests
-├── 📁 scripts/                 # Utility scripts
-│   ├── demo_flow.sh           # Demo script
-│   └── run_tests.sh           # Test runner script
+│   ├── test_parser.py         # Parser tests
+│   ├── test_synthesis_flow.py  # Synthesis flow tests
+│   ├── test_technology_mapping.py # Technology mapping tests
+│   └── ...                    # Additional test files
 ├── 📁 outputs/                 # Generated outputs (runtime)
+├── 📁 logs/                    # Log files
 └── 📄 LICENSE                  # MIT License
 ```
 
@@ -253,126 +304,126 @@ MyLogic-EDA-Tool/
 
 ### **Basic Commands**
 
-- `read <file>` - Load Verilog file
+- `read <file>` - Load Verilog file (auto-exports JSON if enabled)
 - `stats` - Show circuit statistics
 - `simulate` - Run simulation (auto-detect mode)
+- `vsimulate` - Run vector simulation
+- `export_json <file>` - Export netlist to JSON
 - `help` - Show all available commands
 - `exit` - Quit shell
 
 ### **Logic Synthesis Commands**
 
 - `strash` - Structural hashing (remove duplicates)
-- `dce <level>` - Dead code elimination (basic/advanced/aggressive)
+- `dce [level]` - Dead code elimination (basic/advanced/aggressive)
 - `cse` - Common subexpression elimination
 - `constprop` - Constant propagation
 - `balance` - Logic balancing
-- `synthesis <level>` - Complete synthesis flow (basic/standard/aggressive)
+- `synthesis [level]` - Complete synthesis flow (basic/standard/aggressive)
 
 ### **VLSI CAD Commands**
 
-- `place <algorithm>` - Placement (random/force_directed/simulated_annealing)
-- `route <algorithm>` - Routing (maze/lee/ripup_reroute)
+- `bdd` - Binary Decision Diagrams
+- `bed` - Boolean Expression Diagrams
+- `sat` - SAT Solver
+- `quine` / `minimize` - Quine-McCluskey minimization
+- `aig` - And-Inverter Graph
+- `place [algorithm]` - Placement (random/force_directed/simulated_annealing)
+- `route [algorithm]` - Routing (maze/lee/ripup_reroute)
 - `timing` - Static timing analysis
-- `techmap <strategy>` - Technology mapping (area/delay/balanced)
+- `techmap [strategy] [library]` - Technology mapping (area/delay/balanced) with library (asic/fpga_common/auto/xilinx/ice40/...)
 
-### **Yosys Integration Commands**
+### **Information Commands**
 
-- `yosys_flow <file> [level]` - Complete Yosys synthesis
-- `yosys_stat <file>` - Get design statistics
-- `write_verilog <file>` - Output Verilog RTL
-- `write_json <file>` - Output JSON netlist
-- `write_dot <file>` - Output DOT graph
-- `write_blif <file>` - Output BLIF format
+- `vectors` - Show vector details
+- `nodes` - Show node details
+- `wires` - Show wire details
+- `modules` - Show module details
+- `history` - Show command history
 
-## 📊 Supported Operations
+## 📊 Supported Verilog Features
 
-### **Arithmetic Operations**
-
-```verilog
-module arithmetic_demo(a, b, c, d, sum_out, diff_out, prod_out, quot_out);
-  input [3:0] a, b, c, d;
-  output [4:0] sum_out, diff_out;
-  output [7:0] prod_out;
-  output [3:0] quot_out;
-  
-  assign sum_out = a + b;      // Addition
-  assign diff_out = c - d;     // Subtraction  
-  assign prod_out = a * b;     // Multiplication
-  assign quot_out = c / d;     // Division
-endmodule
-```
-
-### **Bitwise Operations**
+### **Module & Port Declarations**
 
 ```verilog
-module bitwise_demo(a, b, and_out, or_out, xor_out, not_out);
-  input [3:0] a, b;
-  output [3:0] and_out, or_out, xor_out, not_out;
-  
-  assign and_out = a & b;      // Bitwise AND
-  assign or_out = a | b;       // Bitwise OR
-  assign xor_out = a ^ b;      // Bitwise XOR
-  assign not_out = ~a;         // Bitwise NOT
-endmodule
+module example #(
+    parameter WIDTH = 8,
+    parameter DEPTH = 16
+)(
+    input signed [WIDTH-1:0] a,
+    input unsigned [WIDTH-1:0] b,
+    output reg [WIDTH*2-1:0] result
+);
 ```
 
-## 📚 Documentation
+### **Always Blocks**
 
-Comprehensive documentation is available in the `docs/` directory:
+```verilog
+// Sequential logic
+always @(posedge clk) begin
+    if (rst)
+        q <= 0;
+    else
+        q <= d;
+end
 
-### 📖 **System Overview**
-
-- **[Complete Introduction](docs/00_overview/01_introduction.md)** - Project overview and features
-- **[Theoretical Foundation](docs/00_overview/02_theoretical_foundation.md)** - Core EDA concepts
-- **[Installation Guide](docs/00_overview/installation_guide.md)** - Setup and configuration
-- **[Project Structure](docs/00_overview/project_structure_guide.md)** - Architecture overview
-- **[File Structure Logic](docs/00_overview/file_structure_logic.md)** - Logical file organization
-- **[Logical Hierarchy](docs/00_overview/logical_file_hierarchy.md)** - Visual structure diagram
-
-### 🧮 **Algorithm Documentation**
-
-- **[Algorithm Overview](docs/algorithms/README.md)** - Complete algorithm guide
-- **[Structural Hashing](docs/algorithms/01_strash.md)** - Duplicate removal
-- **[Dead Code Elimination](docs/algorithms/02_dce.md)** - Unused logic removal
-- **[Common Subexpression Elimination](docs/algorithms/03_cse.md)** - Logic sharing
-- **[Constant Propagation](docs/algorithms/04_constprop.md)** - Constant optimization
-- **[Logic Balancing](docs/algorithms/05_balance.md)** - Timing optimization
-
-### 🔬 **VLSI CAD Documentation**
-
-- **[VLSI CAD Overview](docs/vlsi_cad/README.md)** - VLSI CAD algorithms
-- **[Binary Decision Diagrams](docs/vlsi_cad/bdd.md)** - BDD implementation
-- **[SAT Solver](docs/vlsi_cad/sat.md)** - Boolean satisfiability
-- **[Placement Algorithms](docs/vlsi_cad/placement.md)** - Cell placement
-- **[Routing Algorithms](docs/vlsi_cad/routing.md)** - Wire routing
-- **[Static Timing Analysis](docs/vlsi_cad/sta.md)** - Timing analysis
-
-### 🎮 **Simulation Documentation**
-
-- **[Simulation Overview](docs/simulation/simulation_overview.md)** - Simulation guide
-
-### 📝 **Project Reports**
-
-- **[Report Outline](docs/report/report_outline.md)** - Project report structure
-
-### 🔧 **Technical References**
-
-- **[API Reference](docs/00_overview/api_reference.md)** - Complete API documentation
-- **[Combinational Workflow](docs/00_overview/combinational_workflow.md)** - Synthesis workflow
-- **[Yosys Integration](docs/00_overview/yosys_guide.md)** - Yosys integration guide
-
-## 🎯 Key Algorithms
-
-### **Logic Synthesis Pipeline**
-
-```
-Input Netlist → Strash → DCE → CSE → ConstProp → Balance → Optimized Netlist
+// Combinational logic
+always @(*) begin
+    out = a & b | c;
+end
 ```
 
-### **VLSI CAD Flow**
+### **Generate Blocks**
 
+```verilog
+generate
+    genvar i;
+    for (i = 0; i < N; i = i + 1) begin
+        assign out[i] = in[i] & enable;
+    end
+endgenerate
 ```
-Netlist → Placement → Routing → Timing Analysis → Technology Mapping → Final Design
+
+### **Case Statements**
+
+```verilog
+case (sel)
+    2'b00: out = a;
+    2'b01: out = b;
+    2'b10: out = c;
+    default: out = 0;
+endcase
+```
+
+### **Bit Manipulation**
+
+```verilog
+wire [7:0] data;
+wire [3:0] slice = data[7:4];      // Bit slice
+wire bit = data[0];                // Single bit
+wire [15:0] replicated = {4{data}}; // Replication
+wire [15:0] concat = {a, b, c};    // Concatenation
+```
+
+### **Memory & Arrays**
+
+```verilog
+reg [7:0] mem [0:15];              // Memory declaration
+wire [7:0] data = mem[addr];        // Memory access
+wire bit = mem[addr][0];           // Bit access
+```
+
+### **Functions & Tasks**
+
+```verilog
+function [7:0] add;
+    input [7:0] a, b;
+    add = a + b;
+endfunction
+
+task reset_memory;
+    // Task body
+endtask
 ```
 
 ## 📈 Performance Results
@@ -410,9 +461,10 @@ Netlist → Placement → Routing → Timing Analysis → Technology Mapping →
 ### **Common Issues**
 
 1. **Import Errors**: Install dependencies with `pip install -r requirements.txt`
-2. **Yosys Not Found**: Install Yosys for synthesis features
+2. **Yosys Not Found**: Install Yosys for synthesis features (optional, for external integration)
 3. **Simulation Errors**: Check input values and circuit logic
 4. **Vector Width Mismatch**: Ensure consistent vector declarations
+5. **Library Not Found**: Check `techlibs/` directory structure
 
 ### **Debug Mode**
 
@@ -441,6 +493,7 @@ We welcome contributions from students, researchers, and developers! Please foll
 - 📚 **Documentation**: Improve guides and tutorials
 - 🧪 **Testing**: Add test cases and validation
 - 🔧 **Integration**: Improve Yosys integration
+- 📝 **Parser Extensions**: Add more Verilog features
 
 ### **Development Guidelines**
 
@@ -456,7 +509,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **[Yosys](https://github.com/YosysHQ/yosys)** - Core synthesis engine
+- **[Yosys](https://github.com/YosysHQ/yosys)** - Synthesis engine (external integration)
 - **[ABC](https://github.com/YosysHQ/abc)** - Optimization algorithms
 - **[Graphviz](https://graphviz.org/)** - Visualization support
 - **Python Community** - Excellent libraries and tools
@@ -475,12 +528,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 | ------------------------- | ---------- |
 | **Version**         | 2.0.0      |
 | **Python Version**  | 3.8+       |
-| **Core Algorithms** | 5+         |
-| **VLSI CAD Tools**  | 6+         |
+| **Core Algorithms** | 7+         |
+| **VLSI CAD Tools**  | 8+         |
+| **Verilog Features** | 20+        |
+| **Technology Libraries** | 7+ vendors |
+| **Commands**        | 30+        |
 | **Test Coverage**   | 85%+       |
 | **Documentation**   | Complete   |
-| **Examples**        | 6+         |
-| **Integration**     | Yosys, ABC |
+| **Examples**        | 10+        |
+| **Integration**     | Yosys (external) |
 
 ## 🎓 **Educational Value**
 
@@ -490,6 +546,7 @@ MyLogic EDA Tool serves as an excellent learning platform for:
 - **VLSI CAD Algorithms**: Learning placement and routing
 - **EDA Tool Development**: Building custom tools
 - **Research Methodology**: Algorithm development and optimization
+- **Verilog Parsing**: Learning compiler techniques
 
 ---
 

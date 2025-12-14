@@ -31,7 +31,7 @@ from .vlsi_cad.placement import *
 from .vlsi_cad.routing import *
 from .vlsi_cad.timing_analysis import *
 
-from constants import PROJECT_VERSION, PROJECT_AUTHOR
+from .utils.constants import PROJECT_VERSION, PROJECT_AUTHOR
 
 __version__ = PROJECT_VERSION
 __author__ = PROJECT_AUTHOR

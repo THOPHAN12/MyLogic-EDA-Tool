@@ -7,7 +7,7 @@ External tool integrations:
 - gtkwave: GTKWave waveform viewer integration
 """
 
-from constants import PROJECT_VERSION, PROJECT_AUTHOR
+from core.utils.constants import PROJECT_VERSION, PROJECT_AUTHOR
 
 __version__ = PROJECT_VERSION
 __author__ = PROJECT_AUTHOR

@@ -10,6 +10,14 @@ ABC Reference: src/map/mapper.c
 - Area-optimal mapping
 - Delay-optimal mapping
 - LUT-based mapping
+
+Lưu ý: Đây là bước TECHMAP riêng biệt, tách khỏi SYNTHESIS và OPTIMIZATION.
+3 hướng độc lập:
+1. SYNTHESIS: Netlist → AIG (trong core/synthesis/synthesis_flow.py)
+2. OPTIMIZE: AIG → Optimized AIG (trong core/optimization/optimization_flow.py)
+3. TECHMAP: AIG → Technology-mapped netlist (trong file này)
+
+Techmap nhận AIG làm input (từ synthesis hoặc optimize).
 """
 
 from typing import Dict, List, Set, Any, Tuple, Optional
@@ -401,6 +409,311 @@ def create_standard_library() -> TechnologyLibrary:
         library.add_cell(cell)
     
     return library
+
+
+def aig_to_logic_nodes(aig) -> List[LogicNode]:
+    """
+    Convert AIG to LogicNodes for technology mapping.
+    
+    Đây là hàm hỗ trợ để convert AIG → LogicNodes.
+    Convert từng AIG node thành LogicNode với function string tương ứng.
+    
+    Args:
+        aig: AIG object (từ synthesis hoặc optimize)
+        
+    Returns:
+        List of LogicNode objects
+    """
+    logic_nodes = []
+    node_name_map = {}  # Map AIG node_id -> LogicNode name
+    
+    # Helper function to get node name string
+    def get_node_name(node) -> str:
+        """Get string representation for AIG node."""
+        if node.is_constant():
+            return "CONST0" if not node.get_value() else "CONST1"
+        elif node.is_pi():
+            return node.var_name or f"pi_{node.node_id}"
+        else:
+            return f"node_{node.node_id}"
+    
+    # Helper function to get input name for LogicNode
+    def get_input_name(node) -> str:
+        """Get input signal name for LogicNode."""
+        if node.is_constant():
+            return "CONST0" if not node.get_value() else "CONST1"
+        elif node.is_pi():
+            return node.var_name or f"pi_{node.node_id}"
+        else:
+            return f"node_{node.node_id}"
+    
+    # Process nodes in topological order (visit children first)
+    visited = set()
+    
+    def process_node(node) -> str:
+        """Process AIG node and return its name."""
+        if node.node_id in visited:
+            return get_node_name(node)
+        
+        visited.add(node.node_id)
+        
+        # Handle constants
+        if node.is_constant():
+            const_value = node.get_value()
+            const_name = "CONST0" if not const_value else "CONST1"
+            node_name_map[node.node_id] = const_name
+            return const_name
+        
+        # Handle primary inputs
+        if node.is_pi():
+            pi_name = node.var_name or f"pi_{node.node_id}"
+            node_name_map[node.node_id] = pi_name
+            return pi_name
+        
+        # Handle AND nodes - process children first
+        left_name = process_node(node.left) if node.left else None
+        right_name = process_node(node.right) if node.right else None
+        
+        # Determine function based on inversions
+        # AIG represents: (left^left_inv) & (right^right_inv)
+        # Convert to standard gate functions
+        
+        node_name = f"node_{node.node_id}"
+        left_input = get_input_name(node.left) if node.left else None
+        right_input = get_input_name(node.right) if node.right else None
+        
+        # Build function string based on inversions
+        if node.left_inverted and node.right_inverted:
+            # !left & !right = NOR(left, right)
+            function = f"NOR({left_input},{right_input})" if left_input and right_input else "AND(NOT(A),NOT(B))"
+        elif node.left_inverted:
+            # !left & right = AND(NOT(left), right)
+            function = f"AND(NOT({left_input}),{right_input})" if left_input and right_input else "AND(NOT(A),B)"
+        elif node.right_inverted:
+            # left & !right = AND(left, NOT(right))
+            function = f"AND({left_input},NOT({right_input}))" if left_input and right_input else "AND(A,NOT(B))"
+        else:
+            # left & right = AND(left, right)
+            function = f"AND({left_input},{right_input})" if left_input and right_input else "AND(A,B)"
+        
+        # Create LogicNode
+        inputs_list = []
+        if left_input:
+            inputs_list.append(left_input)
+        if right_input:
+            inputs_list.append(right_input)
+        
+        logic_node = LogicNode(node_name, function, inputs_list, node_name)
+        logic_nodes.append(logic_node)
+        node_name_map[node.node_id] = node_name
+        
+        return node_name
+    
+    # Process all nodes reachable from outputs
+    for po_node, po_inverted in aig.pos:
+        output_name = process_node(po_node)
+        
+        # If output is inverted, create a NOT LogicNode for it
+        if po_inverted:
+            not_node_name = f"output_not_{po_node.node_id}"
+            function = f"NOT({output_name})"
+            logic_node = LogicNode(not_node_name, function, [output_name], not_node_name)
+            logic_nodes.append(logic_node)
+    
+    # If no logic nodes were created (e.g., outputs are just primary inputs),
+    # create BUF nodes to represent the direct connections
+    if len(logic_nodes) == 0 and len(aig.pos) > 0:
+        logger.info("No complex logic nodes found. Creating BUF nodes for direct connections.")
+        for po_node, po_inverted in aig.pos:
+            output_name = get_node_name(po_node)
+            buf_node_name = f"buf_{po_node.node_id}"
+            
+            if po_inverted:
+                function = f"NOT({output_name})"
+            else:
+                function = f"BUF({output_name})"
+            
+            logic_node = LogicNode(buf_node_name, function, [output_name], buf_node_name)
+            logic_nodes.append(logic_node)
+    
+    return logic_nodes
+
+
+def techmap(aig, library: TechnologyLibrary, strategy: str = "area_optimal") -> Dict[str, Any]:
+    """
+    Technology mapping: AIG → Technology-mapped netlist.
+    
+    Đây là bước TECHMAP riêng biệt.
+    Map AIG vào technology library để tạo technology-mapped netlist.
+    
+    Args:
+        aig: AIG object (từ synthesis hoặc optimize)
+        library: Technology library
+        strategy: Mapping strategy ("area_optimal", "delay_optimal", "balanced")
+        
+    Returns:
+        Dictionary chứa mapping results và statistics
+        
+    Examples:
+        >>> from core.synthesis.aig import AIG
+        >>> from core.technology_mapping.technology_mapping import techmap, create_standard_library
+        >>> aig = synthesize(netlist)  # Từ synthesis flow
+        >>> library = create_standard_library()
+        >>> results = techmap(aig, library, "area_optimal")
+    """
+    logger.info(f"Starting technology mapping: AIG -> Technology-mapped netlist")
+    logger.info(f"  Strategy: {strategy}")
+    logger.info(f"  Library: {library.name} ({len(library.cells)} cells)")
+    
+    # Convert AIG → LogicNodes
+    logger.info("Converting AIG -> LogicNodes...")
+    logic_nodes = aig_to_logic_nodes(aig)
+    logger.info(f"  Converted {len(logic_nodes)} LogicNodes from AIG")
+    
+    # Create TechnologyMapper
+    mapper = TechnologyMapper(library)
+    
+    # Add LogicNodes to mapper
+    for logic_node in logic_nodes:
+        mapper.add_logic_node(logic_node)
+    
+    # Perform technology mapping
+    results = mapper.perform_technology_mapping(strategy)
+    
+    # Add additional statistics
+    results['input_aig_nodes'] = aig.count_nodes()
+    results['input_aig_and_nodes'] = aig.count_and_nodes()
+    results['converted_logic_nodes'] = len(logic_nodes)
+    results['library_name'] = library.name
+    
+    # Store mapper object for later conversion to netlist (for verification)
+    # Note: This is a reference to the mapper, which contains logic_network with mapped cells
+    results['_mapper'] = mapper  # Internal use only (starts with _)
+    results['_aig'] = aig  # Store AIG for output mapping
+    
+    logger.info(f"Technology mapping completed:")
+    logger.info(f"  Mapped nodes: {results['mapped_nodes']}/{results['total_nodes']}")
+    logger.info(f"  Success rate: {results['mapping_success_rate']*100:.1f}%")
+    
+    return results
+
+
+def convert_mapped_logic_network_to_netlist(
+    mapper: TechnologyMapper,
+    aig,
+    original_netlist: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Convert mapped LogicNode network back to netlist format for verification.
+    
+    This function converts the technology-mapped logic network (with mapped cells)
+    back to a netlist dictionary format that can be used for Verilog generation
+    and ModelSim verification.
+    
+    Args:
+        mapper: TechnologyMapper object after technology mapping (contains mapped logic_network)
+        aig: AIG object (to get primary inputs/outputs)
+        original_netlist: Original netlist to get structure (inputs, outputs names)
+    
+    Returns:
+        Dictionary with netlist format:
+        {
+            'inputs': [...],
+            'outputs': [...],
+            'nodes': [
+                {
+                    'id': 'node_id',
+                    'type': 'NAND2',  # mapped cell name or function
+                    'inputs': [...],
+                    'output': 'output_signal',
+                    ...
+                },
+                ...
+            ]
+        }
+    """
+    logger.debug("Converting mapped logic network to netlist format...")
+    
+    # Get inputs and outputs from original netlist or AIG
+    inputs = original_netlist.get('inputs', [])
+    outputs = original_netlist.get('outputs', [])
+    
+    # If not available in original, try to extract from AIG
+    if not inputs and hasattr(aig, 'pis'):
+        inputs = [pi.var_name or f"pi_{pi.node_id}" for pi in aig.pis if pi.var_name]
+    
+    if not outputs and hasattr(aig, 'pos'):
+        # Get output names from AIG (may need mapping)
+        outputs = [f"out{i}" for i in range(len(aig.pos))]
+        # Try to get from original netlist's output_mapping if available
+        if 'attrs' in original_netlist and 'output_mapping' in original_netlist['attrs']:
+            output_mapping = original_netlist['attrs']['output_mapping']
+            outputs = list(output_mapping.keys()) if output_mapping else outputs
+    
+    mapped_netlist = {
+        'inputs': inputs,
+        'outputs': outputs,
+        'nodes': []
+    }
+    
+    # Build mapping from LogicNode outputs to primary outputs
+    # Track which logic node drives which primary output
+    output_to_po_mapping = {}  # {logic_node_output: primary_output_name}
+    
+    # Try to map from AIG primary outputs to logic nodes
+    if hasattr(aig, 'pos') and aig.pos:
+        # For simple case: if we have same number of POs and logic nodes, map directly
+        # Or try to find mapping from original netlist
+        if 'attrs' in original_netlist and 'output_mapping' in original_netlist['attrs']:
+            # Use original output mapping if available
+            original_output_mapping = original_netlist['attrs']['output_mapping']
+            # This maps output names to node IDs, we need reverse mapping
+            pass  # Will handle below
+        
+        # For now, if single output and single logic node, map directly
+        if len(outputs) == 1 and len(mapper.logic_network) == 1:
+            # Find the logic node that should drive the output
+            # Usually it's the one that processes the last node in AIG
+            for logic_node in mapper.logic_network.values():
+                output_to_po_mapping[logic_node.output] = outputs[0]
+    
+    # Convert each LogicNode in mapper.logic_network to netlist node format
+    for node_name, logic_node in mapper.logic_network.items():
+        # Determine the output signal name
+        # If this node drives a primary output, use the PO name, otherwise use internal name
+        output_signal = output_to_po_mapping.get(logic_node.output, logic_node.output)
+        
+        node_dict = {
+            'id': logic_node.name,
+            'output': output_signal,  # Use mapped output name
+            'inputs': logic_node.inputs,
+        }
+        
+        if logic_node.mapped_cell:
+            # If mapped to a library cell, use cell name as type
+            node_dict['type'] = logic_node.mapped_cell.name  # e.g., 'NAND2', 'NOR2', 'AND2'
+            node_dict['cell_name'] = logic_node.mapped_cell.name
+            node_dict['function'] = logic_node.function
+            # Store mapping information
+            node_dict['mapped'] = True
+            if hasattr(logic_node.mapped_cell, 'area'):
+                node_dict['area'] = logic_node.mapped_cell.area
+            if hasattr(logic_node.mapped_cell, 'delay'):
+                node_dict['delay'] = logic_node.mapped_cell.delay
+        else:
+            # If not mapped, extract gate type from function
+            # e.g., "AND(A,B)" -> "AND"
+            function_parts = logic_node.function.split('(')
+            gate_type = function_parts[0] if function_parts else logic_node.function
+            node_dict['type'] = gate_type
+            node_dict['function'] = logic_node.function
+            node_dict['mapped'] = False
+        
+        mapped_netlist['nodes'].append(node_dict)
+    
+    logger.debug(f"Converted {len(mapped_netlist['nodes'])} nodes to netlist format")
+    
+    return mapped_netlist
 
 
 def load_library_from_file(file_path: str, library_type: Optional[str] = None) -> TechnologyLibrary:

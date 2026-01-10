@@ -93,26 +93,55 @@ class DCEOptimizer:
         # Start from all output ports using output_mapping
         output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
         outputs = netlist.get('outputs', [])
+        nodes_data = netlist.get('nodes', {})
+        is_dict_format = isinstance(nodes_data, dict)
         
         for output in outputs:
             if isinstance(output, str):
                 output_name = output
                 # Find the node that drives this output
+                # Method 1: Check output_mapping
                 if output_name in output_mapping:
                     node_id = output_mapping[output_name]
                     queue.append(node_id)
                     reachable.add(node_id)
                     logger.debug(f"Starting from output {output_name} -> node {node_id}")
+                else:
+                    # Method 2: Find node by output field
+                    if is_dict_format:
+                        for node_id, node in nodes_data.items():
+                            if isinstance(node, dict) and node.get('output') == output_name:
+                                queue.append(node_id)
+                                reachable.add(node_id)
+                                logger.debug(f"Starting from output {output_name} -> node {node_id}")
+                                break
+                    else:
+                        for node in nodes_data:
+                            if isinstance(node, dict) and node.get('output') == output_name:
+                                node_id = node.get('id', '')
+                                if node_id:
+                                    queue.append(node_id)
+                                    reachable.add(node_id)
+                                    logger.debug(f"Starting from output {output_name} -> node {node_id}")
+                                    break
         
         # BFS to find all reachable nodes
+        nodes_data = netlist.get('nodes', {})
+        is_dict_format = isinstance(nodes_data, dict)
+        
         while queue:
             current_node = queue.pop(0)
-            # Find node by ID in list
+            # Find node by ID - handle both dict and list formats
             node = None
-            for n in netlist.get('nodes', []):
-                if isinstance(n, dict) and n.get('id') == current_node:
-                    node = n
-                    break
+            if is_dict_format:
+                # Dictionary format: nodes is {'n1': {...}, 'n2': {...}}
+                node = nodes_data.get(current_node)
+            else:
+                # List format: nodes is [{...}, {...}]
+                for n in nodes_data:
+                    if isinstance(n, dict) and n.get('id') == current_node:
+                        node = n
+                        break
             
             # Check if node is a dictionary
             if not isinstance(node, dict):
@@ -144,14 +173,25 @@ class DCEOptimizer:
                     continue
                 
                 # Method 2: Check node.output field (legacy format)
-                # nodes is a list, iterate directly
-                for other_node in netlist.get('nodes', []):
-                    if isinstance(other_node, dict):
-                        other_node_name = other_node.get('id', '')
-                        if other_node.get('output') == input_name and other_node_name not in reachable:
-                            reachable.add(other_node_name)
-                            queue.append(other_node_name)
+                # Handle both dict and list formats
+                nodes_data = netlist.get('nodes', {})
+                if isinstance(nodes_data, dict):
+                    # Dictionary format
+                    for other_node_name, other_node in nodes_data.items():
+                        if isinstance(other_node, dict) and other_node.get('output') == input_name:
+                            if other_node_name not in reachable:
+                                reachable.add(other_node_name)
+                                queue.append(other_node_name)
                             break
+                else:
+                    # List format
+                    for other_node in nodes_data:
+                        if isinstance(other_node, dict):
+                            other_node_name = other_node.get('id', '')
+                            if other_node.get('output') == input_name and other_node_name not in reachable:
+                                reachable.add(other_node_name)
+                                queue.append(other_node_name)
+                                break
         
         return reachable
     
@@ -166,26 +206,38 @@ class DCEOptimizer:
         Returns:
             Netlist with dead nodes removed
         """
-        nodes = netlist.get('nodes', [])
-        dead_nodes = []
+        nodes = netlist.get('nodes', {})
         
-        # Find dead nodes
-        for i, node in enumerate(nodes):
-            if isinstance(node, dict) and 'id' in node:
-                node_id = node['id']
-                if node_id not in reachable_nodes:
-                    dead_nodes.append(i)
-        
-        # Count dead nodes before removing
-        self.removed_nodes = len(dead_nodes)
-        
-        # Remove dead nodes (in reverse order to maintain indices)
-        for i in reversed(dead_nodes):
-            logger.debug(f"Removed dead node: {nodes[i].get('id', 'unknown')}")
-            del nodes[i]
-        
-        # Update netlist
-        netlist['nodes'] = nodes
+        # Handle both dict and list formats
+        if isinstance(nodes, dict):
+            # Dictionary format: remove keys not in reachable_nodes
+            dead_node_keys = [key for key in nodes.keys() if key not in reachable_nodes]
+            self.removed_nodes = len(dead_node_keys)
+            
+            for key in dead_node_keys:
+                logger.debug(f"Removed dead node: {key}")
+                del nodes[key]
+            
+            netlist['nodes'] = nodes
+        else:
+            # List format: remove items by index
+            dead_nodes = []
+            for i, node in enumerate(nodes):
+                if isinstance(node, dict) and 'id' in node:
+                    node_id = node['id']
+                    if node_id not in reachable_nodes:
+                        dead_nodes.append(i)
+            
+            # Count dead nodes before removing
+            self.removed_nodes = len(dead_nodes)
+            
+            # Remove dead nodes (in reverse order to maintain indices)
+            for i in reversed(dead_nodes):
+                logger.debug(f"Removed dead node: {nodes[i].get('id', 'unknown')}")
+                del nodes[i]
+            
+            # Update netlist
+            netlist['nodes'] = nodes
         
         return netlist
     

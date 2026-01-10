@@ -1,0 +1,31 @@
+================================================================================
+VERIFICATION REPORT: test_simple_not_synthesis_verify
+================================================================================
+Generated: 2026-01-09 23:55:38
+
+SUMMARY
+--------------------------------------------------------------------------------
+Status: PASSED
+Total tests: 4
+Passed: 4
+Failed: 0
+Success rate: 100.0%
+
+GENERATED FILES
+--------------------------------------------------------------------------------
+Original Verilog: test_simple_not_synthesis_verify_original.v
+Mapped Verilog: test_simple_not_synthesis_verify_mapped.v
+Testbench: test_simple_not_synthesis_verify_tb.v
+Simulation log: test_simple_not_synthesis_verify_simulation.log
+Report: test_simple_not_synthesis_verify_verification_report.txt
+
+TEST RESULTS
+--------------------------------------------------------------------------------
+Test 0: PASS
+Test 1: PASS
+Test 2: PASS
+Test 3: PASS
+
+================================================================================
+END OF REPORT
+================================================================================

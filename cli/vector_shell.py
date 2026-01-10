@@ -29,6 +29,7 @@ class VectorShell:
         """Khởi tạo shell với trạng thái trống và cấu hình tùy chọn."""
         self.netlist: Optional[Union[Dict[str, Any], Any]] = None
         self.current_netlist: Optional[Union[Dict[str, Any], Any]] = None
+        self.current_aig = None  # AIG object sau synthesis
         self.filename: Optional[str] = None
         self.history: list = []
         self.config = config or {}
@@ -56,12 +57,15 @@ class VectorShell:
             'clear': self._clear_screen,
             'help': self._show_help,
             'exit': self._exit_shell,
+            'dump': self._dump_ast,
+            'dump_ast': self._dump_ast,
         # Logic Synthesis algorithms
         'strash': self._run_strash,
         'cse': self._run_cse,
         'constprop': self._run_constprop,
         'balance': self._run_balance,
-        'synthesis': self._run_complete_synthesis,
+        'synthesis': self._run_synthesis,
+        'optimize': self._run_optimization,
             # VLSI CAD Part 1 features
             'dce': self._run_dce,
             'bdd': self._run_bdd,
@@ -75,7 +79,9 @@ class VectorShell:
             'place': self._run_placement,
             'route': self._run_routing,
             'timing': self._run_timing_analysis,
-            'techmap': self._run_technology_mapping
+            'techmap': self._run_technology_mapping,
+            'complete_flow': self._run_complete_flow,
+            'workflow': self._run_complete_flow  # Alias
         }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
         
         # Yosys integration removed
@@ -363,6 +369,7 @@ class VectorShell:
         print("  wires                 - Detailed wire analysis")
         print("  modules               - Module instantiation details")
         print("  export [file]         - Export netlist to JSON file (manual export)")
+        print("  dump / dump_ast       - Dump netlist structure as AST tree (like Yosys)")
         print()
         print("Simulation:")
         print("  simulate              - Run simulation (auto-detect vector/scalar)")
@@ -374,7 +381,8 @@ class VectorShell:
         print("  cse                   - Common subexpression elimination")
         print("  constprop             - Constant propagation")
         print("  balance               - Logic balancing")
-        print("  synthesis             - Complete synthesis flow")
+        print("  synthesis             - Synthesis: Netlist → AIG")
+        print("  complete_flow         - Complete flow: Synthesis -> Optimization -> Techmap")
         print()
         print("VLSI CAD Algorithms:")
         print("  bdd                   - Binary Decision Diagram operations")
@@ -390,19 +398,24 @@ class VectorShell:
         print("  help                  - Show this help")
         print("  exit                  - Quit the shell")
         print("")
-        print("Logic Synthesis Algorithms:")
+        print("Synthesis & Optimization:")
+        print("  synthesis            - Synthesis: Netlist -> AIG conversion")
+        print("  optimize <level>     - Optimization: AIG optimization (basic/standard/aggressive)")
+        print("  complete_flow        - Complete flow: Synthesis → Optimization → Techmap [--verify]")
+        print("  workflow             - Alias for complete_flow")
+        print("")
+        print("Individual Optimization Steps (on AIG):")
         print("  strash               - Structural Hashing (remove duplicates)")
         print("  cse                  - Common Subexpression Elimination")
         print("  constprop            - Constant Propagation")
         print("  balance              - Logic Balancing")
-        print("  synthesis <level>    - Complete synthesis flow (basic/standard/aggressive)")
         print("")
         print("VLSI CAD Part 1 Features:")
         print("  dce <level>          - Dead Code Elimination (basic/advanced/aggressive)")
         print("  bdd <operation>      - Binary Decision Diagrams (create/analyze/convert)")
         print("  bed <operation>      - Boolean Expression Diagrams (create/up_one/up_all/compare)")
         print("  sat <operation>      - SAT Solver (solve/verify/check)")
-        print("  verify <type>        - Circuit verification (equivalence/property/functional)")
+        print("  verify <type>        - Circuit verification (functional/synthesis/optimization)")
         print("  quine <minterms>     - Quine-McCluskey Boolean minimization")
         print("  minimize <minterms>  - Alias for quine")
         print("  aig <operation>      - And-Inverter Graph (create/strash/convert)")
@@ -412,6 +425,7 @@ class VectorShell:
         print("  route <algorithm>    - Routing algorithms (maze/lee/ripup)")
         print("  timing               - Static Timing Analysis (STA)")
         print("  techmap <strategy>   - Technology mapping (area/delay/balanced)")
+        print("  complete_flow        - Complete flow: Synthesis → Optimization → Techmap")
 
     def _exit_shell(self, parts=None):
         """Thoát khỏi shell."""
@@ -545,59 +559,85 @@ class VectorShell:
         except Exception as e:
             print(f"[ERROR] Logic Balancing failed: {e}")
     
-    def _run_complete_synthesis(self, parts):
-        """Chạy Complete Logic Synthesis Flow."""
-        if not parts or len(parts) < 2:
-            print("Usage: synthesis <level>")
-            print("Levels: basic, standard, aggressive")
-            return
-        
-        level = parts[1].lower()
-        if level not in ["basic", "standard", "aggressive"]:
-            print("Invalid synthesis level. Use: basic, standard, or aggressive")
-            return
-        
+    def _run_synthesis(self, parts):
+        """Chạy Synthesis: Netlist -> AIG conversion."""
         if not self.current_netlist:
             print("[ERROR] No netlist loaded. Use 'read <file>' first.")
             return
         
         try:
-            from core.synthesis.synthesis_flow import run_complete_synthesis
+            from core.synthesis.synthesis_flow import synthesize
             
-            print(f"[INFO] Running Complete Logic Synthesis Flow - Level: {level}")
-            original_nodes = len(self.current_netlist.get('nodes', {}))
+            print("[INFO] Running Synthesis: Netlist -> AIG conversion...")
             
-            optimized_netlist = run_complete_synthesis(self.current_netlist, level)
-            
-            # Cập nhật metadata stats sau synthesis
-            optimized_netlist = self._update_metadata_stats(optimized_netlist)
-            
-            self.current_netlist = optimized_netlist
-            
-            # Đếm nodes chính xác (hỗ trợ cả dict và list)
-            nodes = optimized_netlist.get('nodes', [])
-            if isinstance(nodes, dict):
-                final_nodes = len(nodes)
-            elif isinstance(nodes, list):
-                final_nodes = len(nodes)
+            # Count original nodes
+            nodes_data = self.current_netlist.get('nodes', {})
+            if isinstance(nodes_data, dict):
+                original_nodes = len(nodes_data)
+            elif isinstance(nodes_data, list):
+                original_nodes = len(nodes_data)
             else:
-                final_nodes = 0
+                original_nodes = 0
             
-            reduction = original_nodes - final_nodes
+            # Convert Netlist -> AIG
+            self.current_aig = synthesize(self.current_netlist)
             
-            print(f"[OK] Complete Synthesis Flow completed!")
-            print(f"  Original: {original_nodes} nodes")
-            print(f"  Final: {final_nodes} nodes")
-            print(f"  Total reduction: {reduction} nodes ({(reduction/original_nodes)*100:.1f}%)")
-            
-            # Tự động export JSON sau synthesis nếu được bật
-            if self.auto_export_json:
-                self._export_synthesized_json(level)
+            # Print results
+            print(f"[OK] Synthesis completed!")
+            print(f"  Netlist nodes: {original_nodes}")
+            print(f"  AIG nodes: {self.current_aig.count_nodes()}")
+            print(f"  AIG AND nodes: {self.current_aig.count_and_nodes()}")
+            print(f"  Primary inputs: {len(self.current_aig.pis)}")
+            print(f"  Primary outputs: {len(self.current_aig.pos)}")
+            print(f"[INFO] Next step: Run 'optimize <level>' to optimize AIG")
             
         except ImportError:
-            print("[ERROR] Synthesis Flow module not available")
+            print("[ERROR] Synthesis module not available")
         except Exception as e:
-            print(f"[ERROR] Complete Synthesis Flow failed: {e}")
+            print(f"[ERROR] Synthesis failed: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _run_optimization(self, parts):
+        """Chạy Optimization: AIG optimization."""
+        if not parts or len(parts) < 2:
+            print("Usage: optimize <level>")
+            print("Levels: basic, standard, aggressive")
+            return
+        
+        level = parts[1].lower()
+        if level not in ["basic", "standard", "aggressive"]:
+            print("Invalid optimization level. Use: basic, standard, or aggressive")
+            return
+        
+        if not self.current_aig:
+            print("[ERROR] No AIG available. Run 'synthesis' first to convert Netlist -> AIG.")
+            return
+        
+        try:
+            from core.optimization.optimization_flow import optimize
+            
+            print(f"[INFO] Running AIG Optimization - Level: {level}")
+            original_nodes = self.current_aig.count_nodes()
+            
+            # Optimize AIG
+            self.current_aig = optimize(self.current_aig, level)
+            
+            final_nodes = self.current_aig.count_nodes()
+            reduction = original_nodes - final_nodes
+            
+            print(f"[OK] AIG Optimization completed!")
+            print(f"  Original AIG nodes: {original_nodes}")
+            print(f"  Optimized AIG nodes: {final_nodes}")
+            if original_nodes > 0:
+                print(f"  Total reduction: {reduction} nodes ({(reduction/original_nodes)*100:.1f}%)")
+            
+        except ImportError:
+            print("[ERROR] Optimization module not available")
+        except Exception as e:
+            print(f"[ERROR] Optimization failed: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _run_dce(self, parts):
         """Chạy Dead Code Elimination optimization."""
@@ -692,28 +732,98 @@ class VectorShell:
             print(f"[ERROR] SAT operation failed: {e}")
     
     def _run_verification(self, parts):
-        """Chạy circuit verification."""
+        """Chạy circuit verification với ModelSim."""
+        if not self.current_netlist:
+            print("[ERROR] No netlist loaded. Use 'read <file>' first.")
+            return
+        
         if not parts or len(parts) < 2:
             print("Usage: verify <type>")
-            print("Types: equivalence, property, functional")
+            print("Types:")
+            print("  functional  - Functional simulation verification (requires synthesis)")
+            print("  synthesis   - Verify synthesis correctness (Original vs Synthesized)")
+            print("  optimization - Verify optimization correctness (Synthesized vs Optimized)")
+            print("")
+            print("Examples:")
+            print("  verify functional     # Run functional verification")
+            print("  verify synthesis      # Verify synthesis step")
             return
         
         verify_type = parts[1].lower()
         
-        if verify_type == "equivalence":
-            print("[INFO] Running equivalence verification...")
-            # Implementation sẽ ở đây
-            print("[OK] Equivalence verification completed")
-        elif verify_type == "property":
-            print("[INFO] Running property verification...")
-            # Implementation sẽ ở đây
-            print("[OK] Property verification completed")
-        elif verify_type == "functional":
-            print("[INFO] Running functional verification...")
-            # Implementation sẽ ở đây
-            print("[OK] Functional verification completed")
-        else:
-            print("Invalid verification type. Use: equivalence, property, or functional")
+        try:
+            from core.complete_flow import run_complete_flow
+            
+            # Generate test vectors
+            inputs = self.current_netlist.get('inputs', [])
+            num_inputs = len(inputs)
+            num_combinations = min(2 ** num_inputs, 32)  # Limit to 32 for performance
+            
+            test_vectors = []
+            for i in range(num_combinations):
+                test_inputs = {}
+                for j, input_name in enumerate(inputs):
+                    bit_value = (i >> (num_inputs - 1 - j)) & 1
+                    test_inputs[input_name] = bit_value
+                test_vectors.append({'inputs': test_inputs})
+            
+            print(f"[INFO] Generated {len(test_vectors)} test vectors")
+            print("")
+            
+            if verify_type == "functional" or verify_type == "synthesis":
+                # Run synthesis with verification
+                print("[INFO] Running synthesis verification (Original vs Synthesized)...")
+                results = run_complete_flow(
+                    self.current_netlist,
+                    optimization_level="standard",
+                    enable_optimization=False,
+                    enable_techmap=False,
+                    enable_verification=True,
+                    test_vectors=test_vectors
+                )
+                
+                if 'verification' in results and 'synthesis_verification' in results['verification']:
+                    synth_verif = results['verification']['synthesis_verification']
+                    if synth_verif and not synth_verif.get('skipped'):
+                        status = "[PASS]" if synth_verif.get('passed') else "[FAIL]"
+                        print(f"\n{status} Synthesis Verification:")
+                        print(f"  Tests: {synth_verif['passed_tests']}/{synth_verif['total_tests']} passed")
+                        if synth_verif.get('failed_tests', 0) > 0:
+                            print(f"  Failed: {synth_verif['failed_tests']}")
+                
+            elif verify_type == "optimization":
+                # Run optimization with verification
+                print("[INFO] Running optimization verification (Synthesized vs Optimized)...")
+                results = run_complete_flow(
+                    self.current_netlist,
+                    optimization_level="standard",
+                    enable_optimization=True,
+                    enable_techmap=False,
+                    enable_verification=True,
+                    test_vectors=test_vectors
+                )
+                
+                if 'verification' in results and 'optimization_verification' in results['verification']:
+                    opt_verif = results['verification']['optimization_verification']
+                    if opt_verif and not opt_verif.get('skipped'):
+                        status = "[PASS]" if opt_verif.get('passed') else "[FAIL]"
+                        print(f"\n{status} Optimization Verification:")
+                        print(f"  Tests: {opt_verif['passed_tests']}/{opt_verif['total_tests']} passed")
+                        if opt_verif.get('failed_tests', 0) > 0:
+                            print(f"  Failed: {opt_verif['failed_tests']}")
+            else:
+                print(f"[ERROR] Invalid verification type: {verify_type}")
+                print("Use: functional, synthesis, or optimization")
+                return
+            
+        except ImportError as e:
+            print(f"[ERROR] Verification module not available: {e}")
+            import traceback
+            traceback.print_exc()
+        except Exception as e:
+            print(f"[ERROR] Verification failed: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _bdd_create_operations(self):
         """Minh họa BDD creation operations."""
@@ -912,24 +1022,38 @@ class VectorShell:
             print("    techmap area ice40              # Use techlibs/fpga/ice40/")
             print("    techmap area xilinx             # Use techlibs/fpga/xilinx/")
             print("    techmap balanced techlibs/asic/standard_cells.lib")
+            print("")
+            print("Note: Techmap requires AIG from synthesis or optimization.")
+            print("      Run 'synthesis' or 'optimize <level>' first.")
             return
         
-        if not self.current_netlist:
-            print("[ERROR] No netlist loaded. Use 'read <file>' and 'synthesis <level>' first.")
+        if not self.current_aig:
+            print("[ERROR] No AIG available. Run 'synthesis' first to convert Netlist -> AIG.")
+            print("        Or run 'optimize <level>' if you have an AIG.")
             return
         
         strategy = parts[1].lower()
         library_path = parts[2] if len(parts) > 2 else None
         
+        # Normalize strategy name
+        strategy_map = {
+            "area": "area_optimal",
+            "delay": "delay_optimal",
+            "balanced": "balanced"
+        }
+        strategy = strategy_map.get(strategy, strategy)
+        
         try:
             from core.technology_mapping.technology_mapping import (
-                TechnologyMapper, LogicNode, create_standard_library, load_library_from_file
+                techmap, create_standard_library, load_library_from_file
             )
             import os
             
             print(f"[INFO] Running technology mapping with {strategy} strategy...")
+            print(f"[INFO] Input AIG: {self.current_aig.count_nodes()} nodes, {self.current_aig.count_and_nodes()} AND nodes")
             
             # Load library từ file hoặc tự động tìm trong techlibs/
+            library = None  # Initialize library variable
             library_type = None
             if library_path:
                 # Kiểm tra xem có phải là library type không
@@ -937,7 +1061,7 @@ class VectorShell:
                               "ice40", "intel", "lattice", "xilinx"]
                 if library_path.lower() in valid_types:
                     library_type = library_path.lower()
-                    library_path = None
+                    library = self._try_load_default_library(library_type)
                 elif os.path.exists(library_path):
                     # Đường dẫn file hợp lệ
                     print(f"[INFO] Loading library from: {library_path}")
@@ -958,82 +1082,222 @@ class VectorShell:
                 print("[INFO] No library specified, trying to find library in techlibs/...")
                 library = self._try_load_default_library("auto")
             
-            mapper = TechnologyMapper(library)
+            # Ensure library is not None before using
+            if library is None:
+                print("[WARNING] No library loaded, using standard library")
+                library = create_standard_library()
             
-            # Convert netlist nodes to LogicNodes
-            nodes = self.current_netlist.get('nodes', {})
+            # Use new techmap() function that takes AIG as input
+            results = techmap(self.current_aig, library, strategy)
             
-            # Normalize nodes to list if dict
-            if isinstance(nodes, dict):
-                nodes_list = list(nodes.values())
-            else:
-                nodes_list = nodes if isinstance(nodes, list) else []
-            
-            # Create LogicNodes from netlist
-            for i, node_data in enumerate(nodes_list):
-                if not isinstance(node_data, dict):
-                    continue
-                
-                node_id = node_data.get('id', f'node_{i}')
-                node_type = node_data.get('type', 'UNKNOWN')
-                
-                # Get inputs/fanins
-                inputs = node_data.get('inputs', [])
-                fanins = node_data.get('fanins', [])
-                
-                # Extract input signals from fanins (fanins format: [['signal', False], ...])
-                input_signals = []
-                if fanins:
-                    for fanin in fanins:
-                        if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
-                            input_signals.append(str(fanin[0]))
-                        elif isinstance(fanin, str):
-                            input_signals.append(fanin)
-                elif inputs:
-                    input_signals = [str(inp) for inp in inputs]
-                
-                # Create function string based on node type and inputs
-                if len(input_signals) >= 2:
-                    # 2+ input gates: AND(A,B), OR(A,B), XOR(A,B), etc.
-                    function = f"{node_type}({','.join(input_signals[:2])})"  # Use first 2 inputs for now
-                elif len(input_signals) == 1:
-                    # Single input: NOT(A), BUF(A)
-                    function = f"{node_type}({input_signals[0]})"
-                else:
-                    # No inputs (constants, inputs, etc.)
-                    function = node_type
-                
-                # Get output
-                output = node_data.get('output', node_id)
-                
-                # Create LogicNode
-                logic_node = LogicNode(str(node_id), function, input_signals, str(output))
-                mapper.add_logic_node(logic_node)
-            
-            if len(mapper.logic_network) == 0:
-                print("[WARNING] No valid nodes found in netlist for technology mapping")
-                return
-            
-            # Thực hiện mapping
-            if strategy == "area":
-                results = mapper.perform_technology_mapping("area_optimal")
-            elif strategy == "delay":
-                results = mapper.perform_technology_mapping("delay_optimal")
-            elif strategy == "balanced":
-                results = mapper.perform_technology_mapping("balanced")
-            else:
-                print("Invalid strategy. Use: area, delay, or balanced")
-                return
-            
-            # In kết quả
-            mapper.print_mapping_report(results)
+            # Print mapping report
+            print("\n" + "="*60)
+            print("TECHNOLOGY MAPPING REPORT")
+            print("="*60)
+            print(f"Mapping Strategy: {results['strategy']}")
+            print(f"Input AIG nodes: {results.get('input_aig_nodes', 'N/A')}")
+            print(f"Input AIG AND nodes: {results.get('input_aig_and_nodes', 'N/A')}")
+            print(f"Converted LogicNodes: {results.get('converted_logic_nodes', 'N/A')}")
+            print(f"Total Nodes: {results['total_nodes']}")
+            print(f"Mapped Nodes: {results['mapped_nodes']}")
+            print(f"Mapping Success Rate: {results['mapping_success_rate']*100:.1f}%")
+            if 'total_area' in results:
+                print(f"Total Area: {results['total_area']:.2f}")
+            if 'total_delay' in results:
+                print(f"Total Delay: {results['total_delay']:.2f}")
+            print(f"Library: {results.get('library_name', 'N/A')}")
+            print("="*60)
             
             print("[OK] Technology mapping completed")
+            print("[INFO] Techmap is now independent: AIG -> Technology-mapped netlist")
             
         except ImportError:
             print("[ERROR] Technology mapping module not available")
         except Exception as e:
             print(f"[ERROR] Technology mapping failed: {e}")
+    
+    def _run_complete_flow(self, parts):
+        """Chạy complete flow: Synthesis -> Optimization -> Technology Mapping."""
+        if not parts or len(parts) < 2:
+            print("Usage: complete_flow <optimization_level> [techmap_strategy] [techmap_library] [--verify]")
+            print("  optimization_level: basic, standard, aggressive (default: standard)")
+            print("  techmap_strategy: area, delay, balanced (default: area)")
+            print("  techmap_library: library path or type (optional, default: auto)")
+            print("  --verify or -v: Enable verification (functional simulation)")
+            print("")
+            print("Examples:")
+            print("  complete_flow standard              # standard optimization, area techmap")
+            print("  complete_flow aggressive delay      # aggressive optimization, delay techmap")
+            print("  complete_flow standard area asic    # standard optimization, area techmap, ASIC library")
+            print("  complete_flow standard --verify     # with verification enabled")
+            print("")
+            print("This command runs:")
+            print("  1. Synthesis: Netlist -> AIG")
+            if "--verify" in parts or "-v" in parts:
+                print("     -> Verification: Original vs Synthesized")
+            print("  2. Optimization: AIG -> Optimized AIG")
+            if "--verify" in parts or "-v" in parts:
+                print("     -> Verification: Synthesized vs Optimized")
+            print("  3. Technology Mapping: AIG -> Technology-mapped netlist")
+            return
+        
+        if not self.current_netlist:
+            print("[ERROR] No netlist loaded. Use 'read <file>' first.")
+            return
+        
+        # Parse arguments - separate flags from positional args
+        positional_args = [p for p in parts[1:] if not p.startswith('--') and not p.startswith('-')]
+        flags = [p for p in parts[1:] if p.startswith('--') or p.startswith('-')]
+        
+        # Parse positional arguments
+        optimization_level = positional_args[0].lower() if len(positional_args) > 0 else "standard"
+        if optimization_level not in ["basic", "standard", "aggressive"]:
+            print("Invalid optimization level. Use: basic, standard, or aggressive")
+            return
+        
+        techmap_strategy = positional_args[1].lower() if len(positional_args) > 1 else "area"
+        techmap_strategy_map = {
+            "area": "area_optimal",
+            "delay": "delay_optimal",
+            "balanced": "balanced"
+        }
+        techmap_strategy = techmap_strategy_map.get(techmap_strategy, techmap_strategy)
+        
+        techmap_library_path = positional_args[2] if len(positional_args) > 2 else None
+        
+        try:
+            from core.complete_flow import run_complete_flow
+            from core.technology_mapping.technology_mapping import (
+                load_library_from_file, create_standard_library
+            )
+            import os
+            
+            print("=" * 70)
+            print("COMPLETE FLOW: Synthesis → Optimization → Technology Mapping")
+            print("=" * 70)
+            print(f"Optimization level: {optimization_level}")
+            print(f"Techmap strategy: {techmap_strategy}")
+            print("")
+            
+            # Load library if specified
+            library = None
+            if techmap_library_path:
+                valid_types = ["asic", "fpga", "fpga_common", "anlogic", "gowin", 
+                              "ice40", "intel", "lattice", "xilinx"]
+                if techmap_library_path.lower() in valid_types:
+                    # Library type
+                    library = self._try_load_default_library(techmap_library_path.lower())
+                elif os.path.exists(techmap_library_path):
+                    # Library file path
+                    library = load_library_from_file(techmap_library_path)
+                else:
+                    print(f"[WARNING] Library path not found: {techmap_library_path}")
+                    print("[INFO] Will use auto-detected library")
+            
+            # Check for --verify flag
+            enable_verification = "--verify" in flags or "-v" in flags or "--verify" in parts or "-v" in parts
+            test_vectors = None
+            
+            if enable_verification:
+                # Generate test vectors automatically
+                inputs = self.current_netlist.get('inputs', [])
+                num_inputs = len(inputs)
+                num_combinations = min(2 ** num_inputs, 32)  # Limit to 32 for performance
+                
+                test_vectors = []
+                for i in range(num_combinations):
+                    test_inputs = {}
+                    for j, input_name in enumerate(inputs):
+                        bit_value = (i >> (num_inputs - 1 - j)) & 1
+                        test_inputs[input_name] = bit_value
+                    test_vectors.append({'inputs': test_inputs})
+                
+                print(f"[INFO] Verification enabled: {len(test_vectors)} test vectors generated")
+            
+            # Run complete flow
+            results = run_complete_flow(
+                self.current_netlist,
+                optimization_level=optimization_level,
+                techmap_strategy=techmap_strategy,
+                techmap_library=library,
+                enable_optimization=True,
+                enable_techmap=True,
+                enable_verification=enable_verification,
+                test_vectors=test_vectors
+            )
+                
+            # Update current AIG to the final AIG (from optimization or synthesis)
+            if results['optimization'].get('enabled') and results['optimization'].get('aig'):
+                self.current_aig = results['optimization']['aig']
+            elif results['synthesis'].get('aig'):
+                self.current_aig = results['synthesis']['aig']
+            
+            # Print summary
+            print("\n" + "=" * 70)
+            print("COMPLETE FLOW RESULTS SUMMARY")
+            print("=" * 70)
+            
+            # Synthesis results
+            synth_stats = results['synthesis']['stats']
+            print(f"\n[1] Synthesis:")
+            print(f"    Netlist nodes: {synth_stats['netlist_nodes']}")
+            print(f"    AIG nodes: {synth_stats['aig_nodes']}")
+            print(f"    AIG AND nodes: {synth_stats['aig_and_nodes']}")
+            
+            # Optimization results
+            if results['optimization'].get('enabled') and results['optimization'].get('stats'):
+                opt_stats = results['optimization']['stats']
+                print(f"\n[2] Optimization:")
+                print(f"    Before: {opt_stats['nodes_before']} nodes")
+                print(f"    After: {opt_stats['nodes_after']} nodes")
+                print(f"    Reduction: {opt_stats['reduction']} nodes ({opt_stats['reduction_percent']:.1f}%)")
+            else:
+                print(f"\n[2] Optimization: SKIPPED")
+            
+            # Techmap results
+            if results['techmap'].get('enabled') and results['techmap'].get('results'):
+                tm_results = results['techmap']['results']
+                print(f"\n[3] Technology Mapping:")
+                print(f"    Mapped: {tm_results['mapped_nodes']}/{tm_results['total_nodes']} nodes")
+                print(f"    Success rate: {tm_results['mapping_success_rate']*100:.1f}%")
+                if 'total_area' in tm_results:
+                    print(f"    Total area: {tm_results['total_area']:.2f}")
+                if 'total_delay' in tm_results:
+                    print(f"    Total delay: {tm_results['total_delay']:.2f}")
+            else:
+                print(f"\n[3] Technology Mapping: SKIPPED")
+            
+            # Verification results
+            if enable_verification and 'verification' in results:
+                verif = results['verification']
+                print(f"\n[VERIFICATION] Results:")
+                
+                if 'synthesis_verification' in verif:
+                    synth_verif = verif['synthesis_verification']
+                    if synth_verif and not synth_verif.get('skipped'):
+                        status = "PASS" if synth_verif.get('passed') else "FAIL"
+                        print(f"    Synthesis Verification: {status}")
+                        print(f"      Tests: {synth_verif['passed_tests']}/{synth_verif['total_tests']} passed")
+                
+                if 'optimization_verification' in verif:
+                    opt_verif = verif['optimization_verification']
+                    if opt_verif and not opt_verif.get('skipped'):
+                        status = "PASS" if opt_verif.get('passed') else "FAIL"
+                        print(f"    Optimization Verification: {status}")
+                        print(f"      Tests: {opt_verif['passed_tests']}/{opt_verif['total_tests']} passed")
+            
+            print("=" * 70)
+            print("[OK] Complete flow finished successfully!")
+            print("=" * 70)
+            
+        except ImportError as e:
+            print(f"[ERROR] Complete flow module not available: {e}")
+            import traceback
+            traceback.print_exc()
+        except Exception as e:
+            print(f"[ERROR] Complete flow failed: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _try_load_default_library(self, library_type: str = "auto"):
         """
@@ -1257,6 +1521,182 @@ class VectorShell:
                 print(f"       {j+1}. {conn}")
         
         print(f"\nTotal: {len(module_insts)} module instantiations")
+    
+    def _dump_ast(self, parts=None):
+        """
+        Dump netlist structure dạng AST tree (tương tự Yosys -dump_ast).
+        
+        Prints netlist structure in tree format:
+        - Module declaration
+        - Ports (inputs/outputs)
+        - Assignments với expression tree structure
+        """
+        if not self.current_netlist:
+            netlist_to_show = self.netlist
+            if not netlist_to_show:
+                print("[ERROR] No netlist loaded. Use 'read <file>' first.")
+                return
+        else:
+            netlist_to_show = self.current_netlist
+        
+        # Get netlist data
+        if isinstance(netlist_to_show, dict):
+            module_name = netlist_to_show.get('name', 'unknown')
+            inputs = netlist_to_show.get('inputs', [])
+            outputs = netlist_to_show.get('outputs', [])
+            nodes = netlist_to_show.get('nodes', [])
+            output_mapping = netlist_to_show.get('attrs', {}).get('output_mapping', {})
+        else:
+            print("[ERROR] Invalid netlist format.")
+            return
+        
+        # Convert nodes to list if dict
+        if isinstance(nodes, dict):
+            nodes = list(nodes.values())
+        
+        print("Dumping Netlist AST Structure:")
+        print("=" * 70)
+        print(f"\nNETLIST_MODULE <{module_name}>")
+        
+        # Print ports
+        for inp in inputs:
+            print(f"  NETLIST_WIRE <{inp}> input port")
+        
+        for out in outputs:
+            print(f"  NETLIST_WIRE <{out}> output port")
+        
+        # Build mappings:
+        # 1. signal_to_node: output signal name -> node
+        # 2. node_by_id: node_id -> node
+        # 3. node_outputs: node_id -> output signal name
+        signal_to_node = {}
+        node_by_id = {}
+        node_outputs = {}
+        all_signals = set(inputs)  # Include inputs as valid signals
+        
+        for node in nodes:
+            node_id = node.get('id', '')
+            output = node.get('output', '')
+            node_by_id[node_id] = node
+            if output:
+                signal_to_node[output] = node
+                node_outputs[node_id] = output
+                all_signals.add(output)
+        
+        # Build output assignments tree
+        for output_name in outputs:
+            print(f"\n  NETLIST_ASSIGN <{output_name}>")
+            
+            # Find node that drives this output
+            node_id = output_mapping.get(output_name, '')
+            node = None
+            
+            if node_id and node_id in node_by_id:
+                node = node_by_id[node_id]
+            elif output_name in signal_to_node:
+                node = signal_to_node[output_name]
+            else:
+                # Try to find node by matching output name with node output
+                for n in nodes:
+                    if n.get('output') == output_name:
+                        node = n
+                        break
+            
+            if node:
+                self._print_expression_tree(
+                    node, nodes, signal_to_node, node_by_id, node_outputs,
+                    all_signals, indent="    "
+                )
+            else:
+                print(f"    NETLIST_IDENTIFIER <{output_name}>")
+        
+        print("\n--- END OF AST DUMP ---")
+    
+    def _print_expression_tree(self, node, all_nodes, signal_to_node, 
+                               node_by_id, node_outputs, all_signals, indent=""):
+        """
+        Print expression tree cho một node (recursive).
+        
+        Args:
+            node: Node dictionary
+            all_nodes: List of all nodes
+            signal_to_node: Dict mapping output signal names to nodes
+            node_by_id: Dict mapping node_id to node
+            node_outputs: Dict mapping node_id to output signal name
+            all_signals: Set of all valid signal names (inputs + node outputs)
+            indent: Current indentation string
+        """
+        node_type = node.get('type', 'UNKNOWN')
+        node_id = node.get('id', '')
+        output = node.get('output', '')
+        
+        # Get inputs
+        inputs = node.get('inputs', [])
+        fanins = node.get('fanins', [])
+        
+        # Determine input signals
+        input_signals = []
+        if fanins:
+            for fanin in fanins:
+                if isinstance(fanin, (list, tuple)) and len(fanin) > 0:
+                    input_signals.append(str(fanin[0]))
+                else:
+                    input_signals.append(str(fanin))
+        elif inputs:
+            input_signals = [str(inp) for inp in inputs]
+        
+        # Map node type to AST-like format
+        ast_type_map = {
+            'AND': 'NETLIST_BIT_AND',
+            'OR': 'NETLIST_BIT_OR',
+            'XOR': 'NETLIST_BIT_XOR',
+            'NAND': 'NETLIST_BIT_NAND',
+            'NOR': 'NETLIST_BIT_NOR',
+            'XNOR': 'NETLIST_BIT_XNOR',
+            'NOT': 'NETLIST_BIT_NOT',
+            'BUF': 'NETLIST_BUF',
+            'ADD': 'NETLIST_ADD',
+            'SUB': 'NETLIST_SUB',
+            'MUL': 'NETLIST_MUL',
+            'DIV': 'NETLIST_DIV',
+            'EQ': 'NETLIST_EQ',
+            'MUX': 'NETLIST_MUX',
+        }
+        
+        ast_type = ast_type_map.get(node_type, f'NETLIST_{node_type}')
+        
+        # Print node
+        if len(input_signals) > 0:
+            print(f"{indent}{ast_type} <{node_id}>")
+            
+            # Print children (inputs)
+            for input_signal in input_signals:
+                # Check if this signal is output of another node (including temp signals)
+                if input_signal in signal_to_node:
+                    # This is output of another node - recursive print
+                    child_node = signal_to_node[input_signal]
+                    self._print_expression_tree(
+                        child_node, all_nodes, signal_to_node,
+                        node_by_id, node_outputs, all_signals,
+                        indent=indent + "  "
+                    )
+                elif input_signal in all_signals:
+                    # Valid signal (input or intermediate) - print as identifier
+                    if input_signal in ['const_True', 'const_False', '1', '0']:
+                        const_val = '1' if input_signal in ['const_True', '1'] else '0'
+                        print(f"{indent}  NETLIST_CONSTANT <{const_val}>")
+                    else:
+                        print(f"{indent}  NETLIST_IDENTIFIER <{input_signal}>")
+                else:
+                    # Unknown signal - print as-is
+                    print(f"{indent}  NETLIST_IDENTIFIER <{input_signal}>")
+        else:
+            # Leaf node
+            if node_type in ['CONST0', 'CONST1']:
+                const_val = '1' if node_type == 'CONST1' else '0'
+                print(f"{indent}NETLIST_CONSTANT <{const_val}>")
+            else:
+                print(f"{indent}{ast_type} <{node_id}>")
     
     def _export_synthesized_json(self, level="standard"):
         """Tự động export JSON sau synthesis."""

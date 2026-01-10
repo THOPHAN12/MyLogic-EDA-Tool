@@ -25,40 +25,45 @@ logger = logging.getLogger(__name__)
 
 class SynthesisFlow:
     """
-    Complete Logic Synthesis Flow.
+    Synthesis Flow: Netlist → AIG Conversion
     
-    Tích hợp tất cả các thuật toán tổng hợp luận lý theo thứ tự:
-    1. Structural Hashing (Strash)
-    2. Dead Code Elimination (DCE)
-    3. Common Subexpression Elimination (CSE)
-    4. Constant Propagation (ConstProp)
-    5. Logic Balancing (Balance)
+    SYNTHESIS là bước riêng biệt (1 trong 3 hướng độc lập), chỉ làm chuyển đổi representation:
+    - Input: Netlist Dictionary (từ parser)
+    - Output: AIG (And-Inverter Graph)
+    
+    3 hướng độc lập:
+    1. SYNTHESIS: Netlist → AIG (file này)
+    2. OPTIMIZE: AIG → Optimized AIG (core/optimization/optimization_flow.py)
+    3. TECHMAP: AIG → Technology-mapped netlist (core/technology_mapping/technology_mapping.py)
+    
+    Lưu ý: Đây KHÔNG phải là optimization. Optimization được thực hiện riêng trên AIG.
     """
     
     def __init__(self):
-        self.optimization_stats = {
-            'strash': {'nodes_before': 0, 'nodes_after': 0, 'removed': 0},
-            'dce': {'nodes_before': 0, 'nodes_after': 0, 'removed': 0},
-            'cse': {'nodes_before': 0, 'nodes_after': 0, 'removed': 0},
-            'constprop': {'nodes_before': 0, 'nodes_after': 0, 'removed': 0},
-            'balance': {'nodes_before': 0, 'nodes_after': 0, 'added': 0}
+        self.aig = None
+        self.conversion_stats = {
+            'netlist_nodes': 0,
+            'aig_nodes': 0,
+            'aig_and_nodes': 0,
+            'primary_inputs': 0,
+            'primary_outputs': 0
         }
         
-    def run_complete_synthesis(self, netlist: Dict[str, Any], 
-                              optimization_level: str = "standard") -> Dict[str, Any]:
+    def synthesize(self, netlist: Dict[str, Any]) -> 'AIG':
         """
-        Chạy complete logic synthesis flow.
+        Synthesis: Convert Netlist Dictionary → AIG.
+        
+        Đây là bước SYNTHESIS riêng biệt.
+        Chỉ làm chuyển đổi representation, không tối ưu hóa.
         
         Args:
-            netlist: Circuit netlist
-            optimization_level: "basic", "standard", "aggressive"
+            netlist: Circuit netlist dictionary từ parser
             
         Returns:
-            Synthesized netlist
+            AIG object
             
         Raises:
             ValidationError: If netlist is invalid
-            OptimizationError: If synthesis fails
         """
         # Validate input netlist
         try:
@@ -67,221 +72,114 @@ class SynthesisFlow:
             logger.error(f"Synthesis failed: Invalid input netlist: {e}")
             raise
         
-        # Validate optimization level
-        if optimization_level not in ["basic", "standard", "aggressive"]:
-            raise ValueError(f"Invalid optimization level: {optimization_level}. Must be 'basic', 'standard', or 'aggressive'")
-        logger.info(f"Starting Complete Logic Synthesis Flow - Level: {optimization_level}")
+        logger.info("Starting Synthesis: Netlist -> AIG conversion...")
         
         if not isinstance(netlist, dict) or 'nodes' not in netlist:
-            logger.warning("Invalid netlist format")
-            return netlist
+            raise ValueError("Invalid netlist format")
         
-        original_nodes = len(netlist['nodes'])
-        current_netlist = netlist.copy()
+        # Count original nodes
+        nodes_data = netlist.get('nodes', {})
+        if isinstance(nodes_data, dict):
+            original_nodes = len(nodes_data)
+        elif isinstance(nodes_data, list):
+            original_nodes = len(nodes_data)
+        else:
+            original_nodes = 0
         
-        # Step 1: Structural Hashing
-        logger.info("Step 1: Structural Hashing...")
-        current_netlist = self._run_strash(current_netlist)
+        self.conversion_stats['netlist_nodes'] = original_nodes
         
-        # Step 2: Dead Code Elimination
-        logger.info("Step 2: Dead Code Elimination...")
-        current_netlist = self._run_dce(current_netlist, optimization_level)
+        # Convert Netlist → AIG
+        from core.synthesis.netlist_to_aig import synthesize_netlist_to_aig
+        self.aig = synthesize_netlist_to_aig(netlist)
         
-        # Step 3: Common Subexpression Elimination
-        logger.info("Step 3: Common Subexpression Elimination...")
-        current_netlist = self._run_cse(current_netlist)
-        
-        # Step 4: Constant Propagation
-        logger.info("Step 4: Constant Propagation...")
-        current_netlist = self._run_constprop(current_netlist)
-        
-        # Step 5: Logic Balancing
-        logger.info("Step 5: Logic Balancing...")
-        current_netlist = self._run_balance(current_netlist)
-        
-        # Count final nodes correctly (handle both dict and list formats)
-        final_nodes_data = current_netlist.get('nodes', {})
-        final_nodes = len(final_nodes_data) if isinstance(final_nodes_data, (dict, list)) else 0
-        total_reduction = original_nodes - final_nodes
+        # Update stats
+        self.conversion_stats['aig_nodes'] = self.aig.count_nodes()
+        self.conversion_stats['aig_and_nodes'] = self.aig.count_and_nodes()
+        self.conversion_stats['primary_inputs'] = len(self.aig.pis)
+        self.conversion_stats['primary_outputs'] = len(self.aig.pos)
         
         # Print summary
-        self._print_synthesis_summary(original_nodes, final_nodes, total_reduction)
+        self._print_synthesis_summary()
         
-        return current_netlist
+        return self.aig
     
-    def _run_strash(self, netlist: Dict[str, Any]) -> Dict[str, Any]:
-        """Chạy Structural Hashing."""
-        try:
-            from core.synthesis.strash import apply_strash
-            
-            nodes_before = len(netlist['nodes'])
-            optimized = apply_strash(netlist)
-            nodes_after = len(optimized['nodes'])
-            
-            self.optimization_stats['strash'] = {
-                'nodes_before': nodes_before,
-                'nodes_after': nodes_after,
-                'removed': nodes_before - nodes_after
-            }
-            
-            logger.info(f"  Strash: {nodes_before} -> {nodes_after} nodes (removed {nodes_before - nodes_after})")
-            return optimized
-            
-        except ImportError:
-            logger.warning("Strash module not available")
-            return netlist
-        except Exception as e:
-            logger.error(f"Strash failed: {e}")
-            return netlist
-    
-    def _run_dce(self, netlist: Dict[str, Any], level: str) -> Dict[str, Any]:
-        """Chạy Dead Code Elimination."""
-        try:
-            from core.optimization.dce import apply_dce
-            
-            # Count nodes correctly (handle both dict and list formats)
-            nodes_before_data = netlist.get('nodes', {})
-            nodes_before = len(nodes_before_data) if isinstance(nodes_before_data, (dict, list)) else 0
-            
-            optimized = apply_dce(netlist, level)
-            
-            # Count nodes correctly after DCE
-            nodes_after_data = optimized.get('nodes', {})
-            nodes_after = len(nodes_after_data) if isinstance(nodes_after_data, (dict, list)) else 0
-            
-            self.optimization_stats['dce'] = {
-                'nodes_before': nodes_before,
-                'nodes_after': nodes_after,
-                'removed': nodes_before - nodes_after
-            }
-            
-            logger.info(f"  DCE: {nodes_before} -> {nodes_after} nodes (removed {nodes_before - nodes_after})")
-            return optimized
-            
-        except ImportError:
-            logger.warning("DCE module not available")
-            return netlist
-        except Exception as e:
-            logger.error(f"DCE failed: {e}")
-            return netlist
-    
-    def _run_cse(self, netlist: Dict[str, Any]) -> Dict[str, Any]:
-        """Chạy Common Subexpression Elimination."""
-        try:
-            from core.optimization.cse import apply_cse
-            
-            nodes_before = len(netlist['nodes'])
-            optimized = apply_cse(netlist)
-            nodes_after = len(optimized['nodes'])
-            
-            self.optimization_stats['cse'] = {
-                'nodes_before': nodes_before,
-                'nodes_after': nodes_after,
-                'removed': nodes_before - nodes_after
-            }
-            
-            logger.info(f"  CSE: {nodes_before} -> {nodes_after} nodes (removed {nodes_before - nodes_after})")
-            return optimized
-            
-        except ImportError:
-            logger.warning("CSE module not available")
-            return netlist
-        except Exception as e:
-            logger.error(f"CSE failed: {e}")
-            return netlist
-    
-    def _run_constprop(self, netlist: Dict[str, Any]) -> Dict[str, Any]:
-        """Chạy Constant Propagation."""
-        try:
-            from core.optimization.constprop import apply_constprop
-            
-            nodes_before = len(netlist['nodes'])
-            optimized = apply_constprop(netlist)
-            nodes_after = len(optimized['nodes'])
-            
-            self.optimization_stats['constprop'] = {
-                'nodes_before': nodes_before,
-                'nodes_after': nodes_after,
-                'removed': nodes_before - nodes_after
-            }
-            
-            logger.info(f"  ConstProp: {nodes_before} -> {nodes_after} nodes (removed {nodes_before - nodes_after})")
-            return optimized
-            
-        except ImportError:
-            logger.warning("ConstProp module not available")
-            return netlist
-        except Exception as e:
-            logger.error(f"ConstProp failed: {e}")
-            return netlist
-    
-    def _run_balance(self, netlist: Dict[str, Any]) -> Dict[str, Any]:
-        """Chạy Logic Balancing."""
-        try:
-            from core.optimization.balance import apply_balance
-            
-            nodes_before = len(netlist['nodes'])
-            optimized = apply_balance(netlist)
-            nodes_after = len(optimized['nodes'])
-            
-            self.optimization_stats['balance'] = {
-                'nodes_before': nodes_before,
-                'nodes_after': nodes_after,
-                'added': nodes_after - nodes_before
-            }
-            
-            logger.info(f"  Balance: {nodes_before} -> {nodes_after} nodes (added {nodes_after - nodes_before})")
-            return optimized
-            
-        except ImportError:
-            logger.warning("Balance module not available")
-            return netlist
-        except Exception as e:
-            logger.error(f"Balance failed: {e}")
-            return netlist
-    
-    def _print_synthesis_summary(self, original_nodes: int, final_nodes: int, total_reduction: int):
+    def _print_synthesis_summary(self):
         """In synthesis summary."""
         logger.info("=" * 60)
-        logger.info("LOGIC SYNTHESIS SUMMARY")
+        logger.info("SYNTHESIS SUMMARY (Netlist -> AIG)")
         logger.info("=" * 60)
-        logger.info(f"Original nodes: {original_nodes}")
-        logger.info(f"Final nodes: {final_nodes}")
-        if original_nodes > 0:
-            logger.info(f"Total reduction: {total_reduction} nodes ({(total_reduction/original_nodes)*100:.1f}%)")
-        else:
-            logger.info(f"Total reduction: {total_reduction} nodes (0.0% - empty netlist)")
-        logger.info("")
-        logger.info("Optimization breakdown:")
-        
-        for opt_name, stats in self.optimization_stats.items():
-            if opt_name == 'balance':
-                logger.info(f"  {opt_name.upper()}: {stats['nodes_before']} -> {stats['nodes_after']} (added {stats['added']})")
-            else:
-                logger.info(f"  {opt_name.upper()}: {stats['nodes_before']} -> {stats['nodes_after']} (removed {stats['removed']})")
-        
+        logger.info(f"Netlist nodes: {self.conversion_stats['netlist_nodes']}")
+        logger.info(f"AIG nodes: {self.conversion_stats['aig_nodes']}")
+        logger.info(f"  - AND nodes: {self.conversion_stats['aig_and_nodes']}")
+        logger.info(f"  - Primary inputs: {self.conversion_stats['primary_inputs']}")
+        logger.info(f"  - Primary outputs: {self.conversion_stats['primary_outputs']}")
+        logger.info("=" * 60)
+        logger.info("[OK] Synthesis completed: Netlist -> AIG conversion")
+        logger.info("   (Next step: Run optimization on AIG)")
         logger.info("=" * 60)
     
     def get_statistics(self) -> Dict[str, Any]:
         """Lấy thống kê về synthesis."""
         return {
-            'optimization_stats': self.optimization_stats,
-            'total_optimizations': len(self.optimization_stats)
+            'conversion_stats': self.conversion_stats,
+            'aig_stats': self.aig.get_statistics() if self.aig else {}
         }
+    
+    def run_complete_synthesis(self, netlist: Dict[str, Any], optimization_level: str = "standard") -> Dict[str, Any]:
+        """
+        Run complete synthesis flow (for backward compatibility).
+        
+        This method wraps the deprecated run_complete_synthesis function.
+        """
+        return run_complete_synthesis(netlist, optimization_level)
 
-def run_complete_synthesis(netlist: Dict[str, Any], optimization_level: str = "standard") -> Dict[str, Any]:
+def synthesize(netlist: Dict[str, Any]) -> 'AIG':
     """
-    Convenience function để chạy complete logic synthesis.
+    Synthesis function: Convert Netlist → AIG.
+    
+    Đây là bước SYNTHESIS riêng biệt.
+    Chỉ làm chuyển đổi representation, không tối ưu hóa.
     
     Args:
-        netlist: Circuit netlist
-        optimization_level: "basic", "standard", "aggressive"
+        netlist: Circuit netlist dictionary từ parser
         
     Returns:
-        Synthesized netlist
+        AIG object
     """
     flow = SynthesisFlow()
-    return flow.run_complete_synthesis(netlist, optimization_level)
+    return flow.synthesize(netlist)
+
+# Legacy function for backward compatibility (deprecated)
+def run_complete_synthesis(netlist: Dict[str, Any], optimization_level: str = "standard") -> Dict[str, Any]:
+    """
+    DEPRECATED: Use synthesize() + optimize() instead.
+    
+    This function is kept for backward compatibility but will be removed.
+    Please use:
+    - synthesize(netlist) for Netlist → AIG conversion
+    - optimize(aig, level) for AIG optimization
+    
+    However, this function now correctly returns the optimized netlist.
+    """
+    import warnings
+    warnings.warn(
+        "run_complete_synthesis() is deprecated. Use synthesize() + optimize() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
+    # For backward compatibility, convert to AIG first
+    aig = synthesize(netlist)
+    
+    # Then run optimization
+    from core.optimization.optimization_flow import optimize
+    optimized_aig = optimize(aig, optimization_level)
+    
+    # Convert AIG back to netlist format
+    from core.synthesis.aig import aig_to_netlist
+    optimized_netlist = aig_to_netlist(optimized_aig, netlist)
+    
+    return optimized_netlist
 
 # Test function
 def test_synthesis_flow():

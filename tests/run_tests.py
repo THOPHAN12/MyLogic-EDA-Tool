@@ -15,9 +15,20 @@ import subprocess
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def run_tests(coverage=False, verbose=False):
-    """Run pytest tests."""
-    cmd = ['python', '-m', 'pytest', 'tests/']
+def run_tests(coverage=False, verbose=False, category=None):
+    """Run pytest tests.
+    
+    Args:
+        coverage: Run with coverage report
+        verbose: Verbose output
+        category: Test category to run ('unit', 'integration', 'examples', 'performance', None=all)
+    """
+    if category:
+        test_path = f'tests/{category}/'
+    else:
+        test_path = 'tests/'
+    
+    cmd = ['python', '-m', 'pytest', test_path]
     
     if verbose:
         cmd.append('-v')
@@ -44,9 +55,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run MyLogic EDA Tool tests')
     parser.add_argument('--coverage', '-c', action='store_true', help='Run with coverage')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
+    parser.add_argument('--category', choices=['unit', 'integration', 'examples', 'performance'],
+                       help='Run tests from specific category only')
     
     args = parser.parse_args()
     
-    success = run_tests(coverage=args.coverage, verbose=args.verbose)
+    if args.category:
+        print(f"Running {args.category} tests only...")
+    
+    success = run_tests(coverage=args.coverage, verbose=args.verbose, category=args.category)
     sys.exit(0 if success else 1)
 

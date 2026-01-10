@@ -180,7 +180,28 @@ class AIG:
         if right_val is not None:
             # Right is constant
             if right_val ^ right_inverted:  # Right is True
-                return left if not left_inverted else self._create_not(left)
+                # If right is const1 (True) and not inverted, return left with its inversion
+                if right == self.const1 and not right_inverted:
+                    # Special case: x AND 1 = x, but we need to handle inversion
+                    if left_inverted:
+                        # We need to create NOT of left, but avoid recursion
+                        # Create a new AND node with left and const1, left_inverted=True
+                        # This is the standard way to represent NOT in AIG
+                        key = (left.node_id, right.node_id, True, False)
+                        if key in self.hash_table:
+                            return self.nodes[self.hash_table[key]]
+                        # Create node directly to avoid recursion
+                        node = self._create_node('AND', 
+                                                left=left, right=right,
+                                                left_inverted=True,
+                                                right_inverted=False)
+                        node.level = left.level
+                        self.hash_table[key] = node.node_id
+                        return node
+                    else:
+                        return left
+                else:
+                    return left if not left_inverted else self._create_not(left)
             else:  # Right is False
                 return self.const0
         
@@ -208,14 +229,27 @@ class AIG:
         Create NOT by inverting.
         
         Trong AIG, NOT được biểu diễn bằng cách invert input của AND.
+        NOT(x) = x AND 1 với left_inverted=True
         """
         if node.is_constant():
             return self.create_constant(not node.get_value())
         
-        # For non-constants, we create AND with constant 1
-        # In practice, inversion is handled by flags
-        # Here we create a special structure
-        return self.create_and(node, self.const1, left_inverted=True)
+        # Check if this NOT already exists in hash table
+        # NOT(x) is represented as AND(x, const1) with left_inverted=True
+        key = (node.node_id, self.const1.node_id, True, False)
+        if key in self.hash_table:
+            return self.nodes[self.hash_table[key]]
+        
+        # Create AND node with const1 and left_inverted=True
+        # This represents NOT(x) = !x AND 1
+        # We create it directly to avoid recursion
+        not_node = self._create_node('AND',
+                                    left=node, right=self.const1,
+                                    left_inverted=True,
+                                    right_inverted=False)
+        not_node.level = node.level
+        self.hash_table[key] = not_node.node_id
+        return not_node
     
     def create_not(self, node: AIGNode) -> AIGNode:
         """Create NOT node (wrapper for _create_not)."""
@@ -369,6 +403,172 @@ class AIG:
         else:
             expr = wire_names[node.node_id]
             return f"~{expr}" if inverted else expr
+
+
+def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Convert AIG back to netlist dictionary format.
+    
+    Args:
+        aig: AIG object to convert
+        original_netlist: Original netlist to preserve structure (inputs, outputs names)
+        
+    Returns:
+        Netlist dictionary with nodes converted from AIG
+    """
+    from typing import Dict, List, Any
+    
+    # Get inputs and outputs from original netlist or AIG
+    if original_netlist:
+        inputs = original_netlist.get('inputs', [])
+        outputs = original_netlist.get('outputs', [])
+        module_name = original_netlist.get('name', 'design')
+    else:
+        # Extract from AIG
+        inputs = list(aig.pis.keys())
+        outputs = [f"out{i}" for i in range(len(aig.pos))]
+        module_name = "aig_design"
+    
+    # Convert AIG nodes to netlist nodes
+    nodes = {}
+    node_counter = [0]  # Use list to allow modification in nested function
+    
+    # Map AIG nodes to netlist nodes
+    visited = set()
+    signal_to_node = {}  # signal_name -> node_id
+    
+    def get_or_create_node_for_signal(signal_name: str) -> str:
+        """Get or create a node ID for a signal."""
+        if signal_name in signal_to_node:
+            return signal_to_node[signal_name]
+        
+        node_id = f"n{node_counter[0]}"
+        node_counter[0] += 1
+        signal_to_node[signal_name] = node_id
+        return node_id
+    
+    def convert_aig_node_to_netlist(aig_node: AIGNode, output_signal: str) -> Optional[Dict[str, Any]]:
+        """Convert an AIG node to netlist node format."""
+        if aig_node is None:
+            return None
+        
+        if aig_node.node_id in visited:
+            return None
+        
+        visited.add(aig_node.node_id)
+        
+        if aig_node.is_constant():
+            const_value = aig_node.get_value()
+            node_id = get_or_create_node_for_signal(output_signal)
+            nodes[node_id] = {
+                'id': node_id,
+                'type': 'CONST1' if const_value else 'CONST0',
+                'value': 1 if const_value else 0,
+                'output': output_signal,
+                'name': node_id
+            }
+            return nodes[node_id]
+        
+        elif aig_node.is_pi():
+            # Primary input - no node needed, signal is directly from input
+            return None
+        
+        elif aig_node.is_and():
+            # Convert AND node
+            node_id = get_or_create_node_for_signal(output_signal)
+            
+            # Get input signals
+            left_signal = None
+            right_signal = None
+            
+            if aig_node.left.is_pi():
+                left_signal = aig_node.left.var_name
+            elif aig_node.left.is_constant():
+                left_signal = f"const_{aig_node.left.get_value()}"
+            else:
+                # Need to create intermediate signal
+                left_signal = f"w{aig_node.left.node_id}"
+                convert_aig_node_to_netlist(aig_node.left, left_signal)
+            
+            if aig_node.right.is_pi():
+                right_signal = aig_node.right.var_name
+            elif aig_node.right.is_constant():
+                right_signal = f"const_{aig_node.right.get_value()}"
+            else:
+                # Need to create intermediate signal
+                right_signal = f"w{aig_node.right.node_id}"
+                convert_aig_node_to_netlist(aig_node.right, right_signal)
+            
+            # Handle inversions
+            if aig_node.left_inverted and left_signal:
+                # Create NOT node for left
+                not_left_signal = f"not_{left_signal}"
+                not_node_id = get_or_create_node_for_signal(not_left_signal)
+                nodes[not_node_id] = {
+                    'id': not_node_id,
+                    'type': 'NOT',
+                    'inputs': [left_signal],
+                    'output': not_left_signal,
+                    'name': not_node_id
+                }
+                left_signal = not_left_signal
+            
+            if aig_node.right_inverted and right_signal:
+                # Create NOT node for right
+                not_right_signal = f"not_{right_signal}"
+                not_node_id = get_or_create_node_for_signal(not_right_signal)
+                nodes[not_node_id] = {
+                    'id': not_node_id,
+                    'type': 'NOT',
+                    'inputs': [right_signal],
+                    'output': not_right_signal,
+                    'name': not_node_id
+                }
+                right_signal = not_right_signal
+            
+            # Create AND node
+            if left_signal and right_signal:
+                nodes[node_id] = {
+                    'id': node_id,
+                    'type': 'AND',
+                    'inputs': [left_signal, right_signal],
+                    'output': output_signal,
+                    'name': node_id
+                }
+                return nodes[node_id]
+        
+        return None
+    
+    # Convert all output nodes
+    for i, (po_node, inverted) in enumerate(aig.pos):
+        output_name = outputs[i] if i < len(outputs) else f"out{i}"
+        
+        if inverted:
+            # Need NOT node
+            temp_signal = f"temp_out{i}"
+            convert_aig_node_to_netlist(po_node, temp_signal)
+            
+            not_node_id = get_or_create_node_for_signal(output_name)
+            nodes[not_node_id] = {
+                'id': not_node_id,
+                'type': 'NOT',
+                'inputs': [temp_signal],
+                'output': output_name,
+                'name': not_node_id
+            }
+        else:
+            convert_aig_node_to_netlist(po_node, output_name)
+    
+    # Create netlist dictionary
+    netlist = {
+        'name': module_name,
+        'inputs': inputs,
+        'outputs': outputs,
+        'nodes': nodes,
+        'wires': []  # Wires can be reconstructed from node connections
+    }
+    
+    return netlist
 
 
 # Example usage and testing

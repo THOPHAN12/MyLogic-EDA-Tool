@@ -207,6 +207,23 @@ site/
 *.aig
 *.bench
 
+# Generated Verilog files (from synthesis/optimization/techmap)
+*_synthesized.v
+*_optimized.v
+*_mapped.v
+
+# Temporary ModelSim files
+transcript
+modelsim.ini
+*.wlf
+*.vcd
+
+# Test output directory
+test_output/
+
+# Backup directories
+backup_unnecessary_files/
+
 # ============================================
 # Tools Directory (has its own .gitignore)
 # ============================================

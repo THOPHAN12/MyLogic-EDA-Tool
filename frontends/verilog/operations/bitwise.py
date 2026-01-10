@@ -117,19 +117,47 @@ def parse_not_operation(node_builder: NodeBuilder, lhs: str, rhs: str) -> None:
     
     Đây là phép unary (1 operand).
     
+    Hỗ trợ:
+    - Simple NOT: ~a
+    - Nested expression: ~(a ^ b), ~(a & b), etc.
+    
     Example:
         assign out = ~a;
         -> Tạo NOT node với input [a]
+        
+        assign out = ~(a ^ b);
+        -> Parse (a ^ b) trước, tạo XOR node, rồi tạo NOT node với input là output của XOR
     """
+    from ..core.expression_parser import parse_complex_expression
+    
     # Loại bỏ ~ và lấy operand
     operand = rhs.replace('~', '').strip()
     
-    # Tạo NOT node trực tiếp (không qua BUF)
-    node_builder.create_operation_direct(
-        node_type='NOT',
-        operands=[operand],
-        output_signal=lhs
-    )
+    # Kiểm tra xem operand có phải là nested expression không (có parentheses)
+    if operand.startswith('(') and operand.endswith(')'):
+        # Nested expression - parse trước rồi mới apply NOT
+        # Loại bỏ outer parentheses
+        nested_expr = operand[1:-1].strip()
+        
+        # Tạo temp signal name cho nested expression output
+        temp_signal = f"_temp_{node_builder.node_counter}"
+        
+        # Parse nested expression - sẽ tạo node cho (a ^ b) với output là temp_signal
+        parse_complex_expression(node_builder, temp_signal, nested_expr)
+        
+        # Tạo NOT node với input là temp_signal (output của nested expression)
+        node_builder.create_operation_direct(
+            node_type='NOT',
+            operands=[temp_signal],
+            output_signal=lhs
+        )
+    else:
+        # Simple NOT - operand là một signal đơn giản
+        node_builder.create_operation_direct(
+            node_type='NOT',
+            operands=[operand],
+            output_signal=lhs
+        )
 
 
 def parse_nand_operation(node_builder: NodeBuilder, lhs: str, rhs: str) -> None:

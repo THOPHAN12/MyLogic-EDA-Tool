@@ -1327,7 +1327,24 @@ def _dispatch_assign_parser(lhs: str, rhs: str, node_builder: NodeBuilder, param
         parse_slice(node_builder, lhs, rhs, params)
         return
     
-    # 2. Complex expressions với parentheses
+    # 2. Check NOT operator với nested expressions trước complex expression
+    # NOT với nested expression có nhiều operators cần được xử lý riêng
+    rhs_stripped = rhs.strip()
+    if rhs_stripped.startswith('~'):
+        operand = rhs_stripped[1:].strip()
+        # Nếu operand có parentheses và có nhiều operators, đây là NOT với nested expression
+        if operand.startswith('(') and ')' in operand:
+            # Count operators trong operand (không tính ~)
+            op_count = sum([
+                operand.count('&'), operand.count('|'), operand.count('^'),
+                operand.count('+'), operand.count('-')
+            ])
+            if op_count > 0:  # Có ít nhất 1 operator trong nested expression
+                from ..operations.bitwise import parse_not_operation
+                parse_not_operation(node_builder, lhs, rhs)
+                return
+    
+    # 3. Complex expressions với parentheses
     # Check trước các simple operators
     if '(' in rhs and ')' in rhs:
         # Có parentheses - có thể là complex expression

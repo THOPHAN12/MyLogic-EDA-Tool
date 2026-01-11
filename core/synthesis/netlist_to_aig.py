@@ -136,7 +136,22 @@ class NetlistToAIGConverter:
                 aig_node = self._convert_gate_node(node_data)
                 if aig_node:
                     self.node_mapping[node_id] = aig_node
-                    output = node_data.get('output', node_id)
+                    
+                    # Get output signal from node data or output_mapping
+                    output = node_data.get('output', None)
+                    if not output:
+                        # Check output_mapping to find output signal for this node
+                        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                        # Find signal that maps to this node_id
+                        for signal, mapped_node_id in output_mapping.items():
+                            if mapped_node_id == node_id:
+                                output = signal
+                                break
+                    
+                    # Fallback to node_id if still no output found
+                    if not output:
+                        output = node_id
+                    
                     if output:
                         self.signal_mapping[output] = aig_node
             

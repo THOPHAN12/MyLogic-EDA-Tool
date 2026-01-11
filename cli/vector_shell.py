@@ -381,7 +381,7 @@ class VectorShell:
         print("  cse                   - Common subexpression elimination")
         print("  constprop             - Constant propagation")
         print("  balance               - Logic balancing")
-        print("  synthesis             - Synthesis: Netlist → AIG")
+        print("  synthesis             - Synthesis: Netlist -> AIG")
         print("  complete_flow         - Complete flow: Synthesis -> Optimization -> Techmap")
         print()
         print("VLSI CAD Algorithms:")
@@ -401,7 +401,7 @@ class VectorShell:
         print("Synthesis & Optimization:")
         print("  synthesis            - Synthesis: Netlist -> AIG conversion")
         print("  optimize <level>     - Optimization: AIG optimization (basic/standard/aggressive)")
-        print("  complete_flow        - Complete flow: Synthesis → Optimization → Techmap [--verify]")
+        print("  complete_flow        - Complete flow: Synthesis -> Optimization -> Techmap [--verify]")
         print("  workflow             - Alias for complete_flow")
         print("")
         print("Individual Optimization Steps (on AIG):")
@@ -425,7 +425,7 @@ class VectorShell:
         print("  route <algorithm>    - Routing algorithms (maze/lee/ripup)")
         print("  timing               - Static Timing Analysis (STA)")
         print("  techmap <strategy>   - Technology mapping (area/delay/balanced)")
-        print("  complete_flow        - Complete flow: Synthesis → Optimization → Techmap")
+        print("  complete_flow        - Complete flow: Synthesis -> Optimization -> Techmap")
 
     def _exit_shell(self, parts=None):
         """Thoát khỏi shell."""
@@ -1173,7 +1173,7 @@ class VectorShell:
             import os
             
             print("=" * 70)
-            print("COMPLETE FLOW: Synthesis → Optimization → Technology Mapping")
+            print("COMPLETE FLOW: Synthesis -> Optimization -> Technology Mapping")
             print("=" * 70)
             print(f"Optimization level: {optimization_level}")
             print(f"Techmap strategy: {techmap_strategy}")

@@ -29,6 +29,69 @@ Z9 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/t
 !i113 1
 Z10 o-work work
 Z11 tCvgOpt 0
+valways_combinational_synthesis_verify_mapped
+Z12 !s110 1768121845
+!i10b 1
+!s100 6JZgf=Vn;ze<a@zBfk3XB3
+Id77=bNG7^c796<d2aGdgl3
+R1
+R2
+Z13 w1768121845
+8always_combinational_synthesis_verify_mapped.v
+Falways_combinational_synthesis_verify_mapped.v
+L0 1
+R6
+r1
+!s85 0
+31
+Z14 !s108 1768121845.000000
+Z15 !s107 always_combinational_synthesis_verify_tb.v|always_combinational_synthesis_verify_mapped.v|always_combinational_synthesis_verify_original.v|
+Z16 !s90 -work|work|always_combinational_synthesis_verify_original.v|always_combinational_synthesis_verify_mapped.v|always_combinational_synthesis_verify_tb.v|
+!i113 1
+R10
+R11
+valways_combinational_synthesis_verify_original
+R12
+!i10b 1
+!s100 Pg=SSZFdYa0f6M4:D<T1k0
+I@0fe]Bo]8P6iYHQ`=FBW@3
+R1
+R2
+R13
+8always_combinational_synthesis_verify_original.v
+Falways_combinational_synthesis_verify_original.v
+L0 1
+R6
+r1
+!s85 0
+31
+R14
+R15
+R16
+!i113 1
+R10
+R11
+valways_combinational_synthesis_verify_tb
+R12
+!i10b 1
+!s100 [J?zOPB3k]>LO8E8LHOca3
+IAG:CnDCO1Md0C?EfOQ9=X3
+R1
+R2
+R13
+8always_combinational_synthesis_verify_tb.v
+Falways_combinational_synthesis_verify_tb.v
+L0 3
+R6
+r1
+!s85 0
+31
+R14
+R15
+R16
+!i113 1
+R10
+R11
 varray_indexing_test
 R0
 !i10b 1
@@ -72,7 +135,7 @@ R7
 R10
 R11
 vcase_simple
-Z12 !s110 1765854051
+Z17 !s110 1765854051
 !i10b 1
 !s100 _MQCo?kZ:05cD8GdX6EmG0
 Ia6^:lVzMJ[kh[9OgbGffH1
@@ -86,14 +149,14 @@ R6
 r1
 !s85 0
 31
-Z13 !s108 1765854051.000000
+Z18 !s108 1765854051.000000
 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_simple.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_simple.v|
 !i113 1
 R10
 R11
 vcase_test
-R12
+R17
 !i10b 1
 !s100 mAKkAjL9j^oeEf>DPMd_D2
 I`1=2j:ih[[Xo^jP>>=FG]3
@@ -107,9 +170,198 @@ R6
 r1
 !s85 0
 31
-R13
+R18
 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_statements.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_statements.v|
+!i113 1
+R10
+R11
+vcombinational_gates_optimization_verify_mapped
+Z19 !s110 1768122657
+!i10b 1
+!s100 n<?lN?ICJZ;0OON[@IYlG3
+ILZgH@JR4YDzC45eHD5U>A3
+R1
+R2
+Z20 w1768122657
+8combinational_gates_optimization_verify_mapped.v
+Fcombinational_gates_optimization_verify_mapped.v
+L0 1
+R6
+r1
+!s85 0
+31
+Z21 !s108 1768122657.000000
+Z22 !s107 combinational_gates_optimization_verify_tb.v|combinational_gates_optimization_verify_mapped.v|combinational_gates_optimization_verify_original.v|
+Z23 !s90 -work|work|combinational_gates_optimization_verify_original.v|combinational_gates_optimization_verify_mapped.v|combinational_gates_optimization_verify_tb.v|
+!i113 1
+R10
+R11
+vcombinational_gates_optimization_verify_original
+R19
+!i10b 1
+!s100 M1OZoD>hNR_;L9IVzo?SZ0
+I2Z[So3_TPHVXK=i_BGcc31
+R1
+R2
+R20
+8combinational_gates_optimization_verify_original.v
+Fcombinational_gates_optimization_verify_original.v
+L0 1
+R6
+r1
+!s85 0
+31
+R21
+R22
+R23
+!i113 1
+R10
+R11
+vcombinational_gates_optimization_verify_tb
+R19
+!i10b 1
+!s100 `1e0Q[ceU]kmz37j?l39e3
+IQW0Zm5;fg0]iO:DN;[je92
+R1
+R2
+R20
+8combinational_gates_optimization_verify_tb.v
+Fcombinational_gates_optimization_verify_tb.v
+L0 3
+R6
+r1
+!s85 0
+31
+R21
+R22
+R23
+!i113 1
+R10
+R11
+vcombinational_gates_synthesis_verify_mapped
+R19
+!i10b 1
+!s100 KD=SHWn;BWB`O]^Q0Eib81
+IaF[WVONMgl7hY7aOZOKi=1
+R1
+R2
+Z24 w1768122656
+8combinational_gates_synthesis_verify_mapped.v
+Fcombinational_gates_synthesis_verify_mapped.v
+L0 1
+R6
+r1
+!s85 0
+31
+Z25 !s108 1768122656.000000
+Z26 !s107 combinational_gates_synthesis_verify_tb.v|combinational_gates_synthesis_verify_mapped.v|combinational_gates_synthesis_verify_original.v|
+Z27 !s90 -work|work|combinational_gates_synthesis_verify_original.v|combinational_gates_synthesis_verify_mapped.v|combinational_gates_synthesis_verify_tb.v|
+!i113 1
+R10
+R11
+vcombinational_gates_synthesis_verify_original
+!s110 1768122656
+!i10b 1
+!s100 SaTCjkSlz9Om6oSKEYCP;3
+ILOoZPEiz6DoYNZbe_dVY=3
+R1
+R2
+R24
+8combinational_gates_synthesis_verify_original.v
+Fcombinational_gates_synthesis_verify_original.v
+L0 1
+R6
+r1
+!s85 0
+31
+R25
+R26
+R27
+!i113 1
+R10
+R11
+vcombinational_gates_synthesis_verify_tb
+R19
+!i10b 1
+!s100 MO>[9>dMQRlAXPja9`7R^0
+I^WlOll3:[04;hJB0eNQ2o1
+R1
+R2
+R24
+8combinational_gates_synthesis_verify_tb.v
+Fcombinational_gates_synthesis_verify_tb.v
+L0 3
+R6
+r1
+!s85 0
+31
+R25
+R26
+R27
+!i113 1
+R10
+R11
+vcomplex_expressions_synthesis_verify_mapped
+Z28 !s110 1768120809
+!i10b 1
+!s100 =<Sbg=KdTBBmfLfoZ3gQd0
+I_Fh1NoCFg4I2A0@5TDYm_3
+R1
+R2
+Z29 w1768120809
+8complex_expressions_synthesis_verify_mapped.v
+Fcomplex_expressions_synthesis_verify_mapped.v
+L0 1
+R6
+r1
+!s85 0
+31
+Z30 !s108 1768120809.000000
+Z31 !s107 complex_expressions_synthesis_verify_tb.v|complex_expressions_synthesis_verify_mapped.v|complex_expressions_synthesis_verify_original.v|
+Z32 !s90 -work|work|complex_expressions_synthesis_verify_original.v|complex_expressions_synthesis_verify_mapped.v|complex_expressions_synthesis_verify_tb.v|
+!i113 1
+R10
+R11
+vcomplex_expressions_synthesis_verify_original
+R28
+!i10b 1
+!s100 ;U1o1MaeIom3aieh_hl?71
+I3zIcS1MkTO9VdI6ITCzde0
+R1
+R2
+R29
+8complex_expressions_synthesis_verify_original.v
+Fcomplex_expressions_synthesis_verify_original.v
+L0 1
+R6
+r1
+!s85 0
+31
+R30
+R31
+R32
+!i113 1
+R10
+R11
+vcomplex_expressions_synthesis_verify_tb
+R28
+!i10b 1
+!s100 hf4;<cBBNV8iLBJ^OFLMK0
+IKSHLcYWfi7OnMW2mlFFbM1
+R1
+R2
+R29
+8complex_expressions_synthesis_verify_tb.v
+Fcomplex_expressions_synthesis_verify_tb.v
+L0 3
+R6
+r1
+!s85 0
+31
+R30
+R31
+R32
 !i113 1
 R10
 R11
@@ -121,16 +373,16 @@ Icmaa`O`doK0QSB=1P?PIS3
 R1
 R2
 R3
-Z14 8D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_ordered_ports.v
-Z15 FD:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_ordered_ports.v
+Z33 8D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_ordered_ports.v
+Z34 FD:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_ordered_ports.v
 L0 30
 R6
 r1
 !s85 0
 31
 R7
-Z16 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_ordered_ports.v|
-Z17 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_ordered_ports.v|
+Z35 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_ordered_ports.v|
+Z36 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_ordered_ports.v|
 !i113 1
 R10
 R11
@@ -141,7 +393,7 @@ R0
 IgE90HXFYFLan]L;oNb3Gk1
 R1
 R2
-Z18 w1765712597
+Z37 w1765712597
 8D:/DO_AN_2/Mylogic/examples/15_comprehensive/full_feature_test.v
 FD:/DO_AN_2/Mylogic/examples/15_comprehensive/full_feature_test.v
 L0 16
@@ -204,17 +456,17 @@ R0
 IDl^kh?TLHiZ:R1=QQ2QoU1
 R1
 R2
-R18
-Z19 8D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_ordered_ports.v
-Z20 FD:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_ordered_ports.v
+R37
+Z38 8D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_ordered_ports.v
+Z39 FD:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_ordered_ports.v
 L0 22
 R6
 r1
 !s85 0
 31
 R7
-Z21 !s107 D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_ordered_ports.v|
-Z22 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_ordered_ports.v|
+Z40 !s107 D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_ordered_ports.v|
+Z41 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_ordered_ports.v|
 !i113 1
 R10
 R11
@@ -267,10 +519,10 @@ R0
 IVnfMZg_E0f<8Mf3fT>15_3
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/09_optimization/optimized.v
 FD:/DO_AN_2/Mylogic/examples/09_optimization/optimized.v
-Z23 L0 10
+Z42 L0 10
 R6
 r1
 !s85 0
@@ -289,21 +541,21 @@ I[_7HUBObmm8VHX`=_k35F3
 R1
 R2
 R3
-R14
-R15
+R33
+R34
 L0 2
 R6
 r1
 !s85 0
 31
 R7
-R16
-R17
+R35
+R36
 !i113 1
 R10
 R11
 vparam_expressions
-R12
+R17
 !i10b 1
 !s100 J5=k;X;dOf0HXb`TffYme0
 I=bUD;;HVXGR9k=;S<BUgD0
@@ -317,14 +569,14 @@ R6
 r1
 !s85 0
 31
-R13
+R18
 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_param_expressions.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_param_expressions.v|
 !i113 1
 R10
 R11
 vparam_memory
-R12
+R17
 !i10b 1
 !s100 :O1U_gc?6J?chQI<bFj603
 ILEAfEZPZ_>P=eUzgV]L^O0
@@ -338,14 +590,14 @@ R6
 r1
 !s85 0
 31
-R13
+R18
 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_param_memory.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_param_memory.v|
 !i113 1
 R10
 R11
 vparam_slices
-R12
+R17
 !i10b 1
 !s100 PSaHkKii`d^S6MU=@<U>N2
 I8T7B1CUk2CZ]=gRnPglDM3
@@ -359,14 +611,14 @@ R6
 r1
 !s85 0
 31
-R13
+R18
 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_param_slices.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_param_slices.v|
 !i113 1
 R10
 R11
 vparameterized_width
-R12
+R17
 !i10b 1
 !s100 c2M=9?Rb1B3QG@@YSXS]D0
 IY@;C]AgfH=HG@1`cdC@U41
@@ -387,7 +639,7 @@ R7
 R10
 R11
 vreplication_test
-R12
+R17
 !i10b 1
 !s100 41F:DUbIeZd@^C^`U[bO;0
 InnGDF[iHaBZ`9H^m_<kRc2
@@ -401,14 +653,14 @@ R6
 r1
 !s85 0
 31
-R13
+R18
 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_replication.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_replication.v|
 !i113 1
 R10
 R11
 vsigned_test
-R12
+R17
 !i10b 1
 !s100 IJIz_86[=SV0n`PkOn]_e3
 II:cd2Vg`SHXVBIj<d=AV31
@@ -422,20 +674,20 @@ R6
 r1
 !s85 0
 31
-R13
+R18
 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_signed.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_signed.v|
 !i113 1
 R10
 R11
 vsimple_and_mapped
-Z24 !s110 1765980238
+Z43 !s110 1765980238
 !i10b 1
 !s100 5FdRR>D`f7_6X=MM0PiLd2
 IR<T781MY@Bg0LYbKPN?8z2
 R1
 R2
-Z25 w1765980238
+Z44 w1765980238
 8simple_and_mapped.v
 Fsimple_and_mapped.v
 L0 1
@@ -443,20 +695,20 @@ R6
 r1
 !s85 0
 31
-Z26 !s108 1765980238.000000
-Z27 !s107 simple_and_tb.v|simple_and_mapped.v|simple_and_original.v|
-Z28 !s90 -work|work|simple_and_original.v|simple_and_mapped.v|simple_and_tb.v|
+Z45 !s108 1765980238.000000
+Z46 !s107 simple_and_tb.v|simple_and_mapped.v|simple_and_original.v|
+Z47 !s90 -work|work|simple_and_original.v|simple_and_mapped.v|simple_and_tb.v|
 !i113 1
 R10
 R11
 vsimple_and_optimization_verify_mapped
-Z29 !s110 1766843187
+Z48 !s110 1766843187
 !i10b 1
 !s100 obczU;T2H7Bn?=z4QnAV`3
 ImnE;?^=5V]n`:il2:Z=gO0
 R1
 R2
-Z30 w1766843187
+Z49 w1766843187
 8simple_and_optimization_verify_mapped.v
 Fsimple_and_optimization_verify_mapped.v
 L0 1
@@ -464,20 +716,20 @@ R6
 r1
 !s85 0
 31
-Z31 !s108 1766843187.000000
-Z32 !s107 simple_and_optimization_verify_tb.v|simple_and_optimization_verify_mapped.v|simple_and_optimization_verify_original.v|
-Z33 !s90 -work|work|simple_and_optimization_verify_original.v|simple_and_optimization_verify_mapped.v|simple_and_optimization_verify_tb.v|
+Z50 !s108 1766843187.000000
+Z51 !s107 simple_and_optimization_verify_tb.v|simple_and_optimization_verify_mapped.v|simple_and_optimization_verify_original.v|
+Z52 !s90 -work|work|simple_and_optimization_verify_original.v|simple_and_optimization_verify_mapped.v|simple_and_optimization_verify_tb.v|
 !i113 1
 R10
 R11
 vsimple_and_optimization_verify_original
-R29
+R48
 !i10b 1
 !s100 [3eD]CIK^hJ7L7mTim2O11
 Ij3E2>bXW9NDSMi5DgNLaC3
 R1
 R2
-R30
+R49
 8simple_and_optimization_verify_original.v
 Fsimple_and_optimization_verify_original.v
 L0 1
@@ -485,20 +737,20 @@ R6
 r1
 !s85 0
 31
-R31
-R32
-R33
+R50
+R51
+R52
 !i113 1
 R10
 R11
 vsimple_and_optimization_verify_tb
-R29
+R48
 !i10b 1
 !s100 BTY9ZS:U9F@gkefHHZeYE2
 Im=XP>[c2hSK:O;BgH35[f3
 R1
 R2
-R30
+R49
 8simple_and_optimization_verify_tb.v
 Fsimple_and_optimization_verify_tb.v
 L0 3
@@ -506,20 +758,20 @@ R6
 r1
 !s85 0
 31
-R31
-R32
-R33
+R50
+R51
+R52
 !i113 1
 R10
 R11
 vsimple_and_original
-R24
+R43
 !i10b 1
 !s100 9Yz9NQ_98Xb8EE;z[H=df3
 IfEz3Rbn8IRT?SMzk9JPiY0
 R1
 R2
-R25
+R44
 8simple_and_original.v
 Fsimple_and_original.v
 L0 1
@@ -527,20 +779,20 @@ R6
 r1
 !s85 0
 31
-R26
-R27
-R28
+R45
+R46
+R47
 !i113 1
 R10
 R11
 vsimple_and_synthesis_verify_mapped
-R29
+R48
 !i10b 1
 !s100 MCQTNQ5hDD7_a?G`KYR]73
 I@JoIcFP5fAn06K`_?kBdN0
 R1
 R2
-Z34 w1766843186
+Z53 w1766843186
 8simple_and_synthesis_verify_mapped.v
 Fsimple_and_synthesis_verify_mapped.v
 L0 1
@@ -548,20 +800,20 @@ R6
 r1
 !s85 0
 31
-R31
-Z35 !s107 simple_and_synthesis_verify_tb.v|simple_and_synthesis_verify_mapped.v|simple_and_synthesis_verify_original.v|
-Z36 !s90 -work|work|simple_and_synthesis_verify_original.v|simple_and_synthesis_verify_mapped.v|simple_and_synthesis_verify_tb.v|
+R50
+Z54 !s107 simple_and_synthesis_verify_tb.v|simple_and_synthesis_verify_mapped.v|simple_and_synthesis_verify_original.v|
+Z55 !s90 -work|work|simple_and_synthesis_verify_original.v|simple_and_synthesis_verify_mapped.v|simple_and_synthesis_verify_tb.v|
 !i113 1
 R10
 R11
 vsimple_and_synthesis_verify_original
-R29
+R48
 !i10b 1
 !s100 >VbjnBJ>e?In?zUglN4o`2
 I;JcAm=1BUm>Amc0zI;lC22
 R1
 R2
-R34
+R53
 8simple_and_synthesis_verify_original.v
 Fsimple_and_synthesis_verify_original.v
 L0 1
@@ -569,20 +821,20 @@ R6
 r1
 !s85 0
 31
-R31
-R35
-R36
+R50
+R54
+R55
 !i113 1
 R10
 R11
 vsimple_and_synthesis_verify_tb
-R29
+R48
 !i10b 1
 !s100 :bH<5WeAeUSd81cebH[JD1
 I4BH@U^idejZS34W]TTce93
 R1
 R2
-R34
+R53
 8simple_and_synthesis_verify_tb.v
 Fsimple_and_synthesis_verify_tb.v
 L0 3
@@ -590,20 +842,20 @@ R6
 r1
 !s85 0
 31
-R31
-R35
-R36
+R50
+R54
+R55
 !i113 1
 R10
 R11
 vsimple_and_tb
-R24
+R43
 !i10b 1
 !s100 n]A^cca?bUQ@Ellc2OEQD2
 IOXd4^d35S=n@0SgQbh[OD1
 R1
 R2
-R25
+R44
 8simple_and_tb.v
 Fsimple_and_tb.v
 L0 3
@@ -611,9 +863,9 @@ R6
 r1
 !s85 0
 31
-R26
-R27
-R28
+R45
+R46
+R47
 !i113 1
 R10
 R11
@@ -625,21 +877,21 @@ I3<b?7=Z3M<`Y?Tbb1L^HJ1
 R1
 R2
 R3
-R14
-R15
+R33
+R34
 L0 21
 R6
 r1
 !s85 0
 31
 R7
-R16
-R17
+R35
+R36
 !i113 1
 R10
 R11
 vtask_test
-R12
+R17
 !i10b 1
 !s100 QdcLIP:fjieTAfUT;fDKW3
 I>F`aMd[g:FFCTKFZ_B;1V1
@@ -653,49 +905,49 @@ R6
 r1
 !s85 0
 31
-R13
+R18
 !s107 D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_tasks.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/tests_verilog/yosys_case_tasks.v|
 !i113 1
 R10
 R11
 vtest_always_combinational
-Z37 !s110 1765854049
+Z56 !s110 1765854049
 !i10b 1
 !s100 JU@VL>n^Pk[YLiE@VXaR`2
 Io2fbcoe7h763gPOa:FhI02
 R1
 R2
-Z38 w1765712761
+Z57 w1765712761
 8D:/DO_AN_2/Mylogic/examples/02_always_blocks/test_always_combinational.v
 FD:/DO_AN_2/Mylogic/examples/02_always_blocks/test_always_combinational.v
-R23
+R42
 R6
 r1
 !s85 0
 31
-Z39 !s108 1765854049.000000
+Z58 !s108 1765854049.000000
 !s107 D:/DO_AN_2/Mylogic/examples/02_always_blocks/test_always_combinational.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/02_always_blocks/test_always_combinational.v|
 !i113 1
 R10
 R11
 vtest_always_sequential
-R37
+R56
 !i10b 1
 !s100 2o8J]f5;@CiTnFJlR6aUM2
 INbiR7bGof`W3]8iBFE=b^1
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/02_always_blocks/test_always_sequential.v
 FD:/DO_AN_2/Mylogic/examples/02_always_blocks/test_always_sequential.v
-Z40 L0 11
+Z59 L0 11
 R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/02_always_blocks/test_always_sequential.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/02_always_blocks/test_always_sequential.v|
 !i113 1
@@ -708,10 +960,10 @@ R0
 IZA[W16WB7I5_EB=IifzTj2
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/10_arithmetic/test_arithmetic.v
 FD:/DO_AN_2/Mylogic/examples/10_arithmetic/test_arithmetic.v
-Z41 L0 12
+Z60 L0 12
 R6
 r1
 !s85 0
@@ -744,13 +996,13 @@ r1
 R10
 R11
 vtest_arithmetic_synthesis_verify_original
-Z42 !s110 1767976969
+Z61 !s110 1767976969
 !i10b 1
 !s100 Xan_hV>o[l0N5M`H@3H;g0
 IVH^i:CK2KQel>Ll:HaGi:0
 R1
 R2
-Z43 w1767976969
+Z62 w1767976969
 8test_arithmetic_synthesis_verify_original.v
 Ftest_arithmetic_synthesis_verify_original.v
 L0 1
@@ -758,20 +1010,20 @@ R6
 r1
 !s85 0
 31
-Z44 !s108 1767976969.000000
-Z45 !s107 test_arithmetic_synthesis_verify_tb.v|test_arithmetic_synthesis_verify_mapped.v|test_arithmetic_synthesis_verify_original.v|
-Z46 !s90 -work|work|test_arithmetic_synthesis_verify_original.v|test_arithmetic_synthesis_verify_mapped.v|test_arithmetic_synthesis_verify_tb.v|
+Z63 !s108 1767976969.000000
+Z64 !s107 test_arithmetic_synthesis_verify_tb.v|test_arithmetic_synthesis_verify_mapped.v|test_arithmetic_synthesis_verify_original.v|
+Z65 !s90 -work|work|test_arithmetic_synthesis_verify_original.v|test_arithmetic_synthesis_verify_mapped.v|test_arithmetic_synthesis_verify_tb.v|
 !i113 1
 R10
 R11
 vtest_arithmetic_synthesis_verify_tb
-R42
+R61
 !i10b 1
 !s100 9]D]RiBT[o0Fk8;Efd`cz0
 IP1FY]<>5@CD9@=l2KLQJ=3
 R1
 R2
-R43
+R62
 8test_arithmetic_synthesis_verify_tb.v
 Ftest_arithmetic_synthesis_verify_tb.v
 L0 3
@@ -779,28 +1031,28 @@ R6
 r1
 !s85 0
 31
-R44
-R45
-R46
+R63
+R64
+R65
 !i113 1
 R10
 R11
 vtest_bit_slices
-R37
+R56
 !i10b 1
 !s100 Xn68R6z>V2>n[SHLMzld60
 IPIhNSKH9;XR4`cU?b:z?G2
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/05_bit_manipulation/test_bit_slices.v
 FD:/DO_AN_2/Mylogic/examples/05_bit_manipulation/test_bit_slices.v
-R23
+R42
 R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/05_bit_manipulation/test_bit_slices.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/05_bit_manipulation/test_bit_slices.v|
 !i113 1
@@ -813,10 +1065,10 @@ R0
 I]8P6idK00=oVVP4@?4^SA1
 R1
 R2
-R38
+R57
 8D:/DO_AN_2/Mylogic/examples/11_bitwise/test_bitwise.v
 FD:/DO_AN_2/Mylogic/examples/11_bitwise/test_bitwise.v
-R41
+R60
 R6
 r1
 !s85 0
@@ -828,13 +1080,13 @@ R7
 R10
 R11
 vtest_bitwise_optimization_verify_mapped
-Z47 !s110 1766845615
+Z66 !s110 1766845615
 !i10b 1
 !s100 GHD5aWegzV8dSOO_kHVEF1
 IBYCWURQn=A`O4SW[TLo522
 R1
 R2
-Z48 w1766845615
+Z67 w1766845615
 8test_bitwise_optimization_verify_mapped.v
 Ftest_bitwise_optimization_verify_mapped.v
 L0 1
@@ -842,20 +1094,20 @@ R6
 r1
 !s85 0
 31
-Z49 !s108 1766845615.000000
-Z50 !s107 test_bitwise_optimization_verify_tb.v|test_bitwise_optimization_verify_mapped.v|test_bitwise_optimization_verify_original.v|
-Z51 !s90 -work|work|test_bitwise_optimization_verify_original.v|test_bitwise_optimization_verify_mapped.v|test_bitwise_optimization_verify_tb.v|
+Z68 !s108 1766845615.000000
+Z69 !s107 test_bitwise_optimization_verify_tb.v|test_bitwise_optimization_verify_mapped.v|test_bitwise_optimization_verify_original.v|
+Z70 !s90 -work|work|test_bitwise_optimization_verify_original.v|test_bitwise_optimization_verify_mapped.v|test_bitwise_optimization_verify_tb.v|
 !i113 1
 R10
 R11
 vtest_bitwise_optimization_verify_original
-R47
+R66
 !i10b 1
 !s100 WlA;0f>BUgJ:=GG<RBmEa2
 II>9<IJLIRkM2]_YmEaPgD0
 R1
 R2
-R48
+R67
 8test_bitwise_optimization_verify_original.v
 Ftest_bitwise_optimization_verify_original.v
 L0 1
@@ -863,20 +1115,20 @@ R6
 r1
 !s85 0
 31
-R49
-R50
-R51
+R68
+R69
+R70
 !i113 1
 R10
 R11
 vtest_bitwise_optimization_verify_tb
-R47
+R66
 !i10b 1
 !s100 B0oZBN5TlV[ZZacEU[aj_2
 I9O3H=cNjo<mnGLA7Fb?[C2
 R1
 R2
-R48
+R67
 8test_bitwise_optimization_verify_tb.v
 Ftest_bitwise_optimization_verify_tb.v
 L0 3
@@ -884,20 +1136,20 @@ R6
 r1
 !s85 0
 31
-R49
-R50
-R51
+R68
+R69
+R70
 !i113 1
 R10
 R11
 vtest_bitwise_synthesis_verify_mapped
-R47
+R66
 !i10b 1
 !s100 ^K26bHWORQj6gRm2M0=6`2
 IhP1^X4_a`7;;LS]mN85K21
 R1
 R2
-Z52 w1766845614
+Z71 w1766845614
 8test_bitwise_synthesis_verify_mapped.v
 Ftest_bitwise_synthesis_verify_mapped.v
 L0 1
@@ -905,20 +1157,20 @@ R6
 r1
 !s85 0
 31
-R49
-Z53 !s107 test_bitwise_synthesis_verify_tb.v|test_bitwise_synthesis_verify_mapped.v|test_bitwise_synthesis_verify_original.v|
-Z54 !s90 -work|work|test_bitwise_synthesis_verify_original.v|test_bitwise_synthesis_verify_mapped.v|test_bitwise_synthesis_verify_tb.v|
+R68
+Z72 !s107 test_bitwise_synthesis_verify_tb.v|test_bitwise_synthesis_verify_mapped.v|test_bitwise_synthesis_verify_original.v|
+Z73 !s90 -work|work|test_bitwise_synthesis_verify_original.v|test_bitwise_synthesis_verify_mapped.v|test_bitwise_synthesis_verify_tb.v|
 !i113 1
 R10
 R11
 vtest_bitwise_synthesis_verify_original
-R47
+R66
 !i10b 1
 !s100 iX;IieE;05kPY1b=Sf[;z3
 I2CO2UdR]5?JTUAiEkh8j51
 R1
 R2
-R52
+R71
 8test_bitwise_synthesis_verify_original.v
 Ftest_bitwise_synthesis_verify_original.v
 L0 1
@@ -926,20 +1178,20 @@ R6
 r1
 !s85 0
 31
-R49
-R53
-R54
+R68
+R72
+R73
 !i113 1
 R10
 R11
 vtest_bitwise_synthesis_verify_tb
-R47
+R66
 !i10b 1
 !s100 Ca0EkTSK`hQbFG_Zz`0ok3
 Ib10@DdK3_2b2i385^DS_53
 R1
 R2
-R52
+R71
 8test_bitwise_synthesis_verify_tb.v
 Ftest_bitwise_synthesis_verify_tb.v
 L0 3
@@ -947,28 +1199,28 @@ R6
 r1
 !s85 0
 31
-R49
-R53
-R54
+R68
+R72
+R73
 !i113 1
 R10
 R11
 vtest_case
-R37
+R56
 !i10b 1
 !s100 bkY^LUdWn`InAXebL3o7Y1
 I_WdWEcD?INNb9_EKCoWha2
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/04_case_statements/test_case.v
 FD:/DO_AN_2/Mylogic/examples/04_case_statements/test_case.v
-R40
+R59
 R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/04_case_statements/test_case.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/04_case_statements/test_case.v|
 !i113 1
@@ -981,7 +1233,7 @@ R0
 I52H=ad5UUW0;7S3Pi^:A:1
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/13_comparison/test_comparison.v
 FD:/DO_AN_2/Mylogic/examples/13_comparison/test_comparison.v
 L0 13
@@ -996,28 +1248,28 @@ R7
 R10
 R11
 vtest_functions
-R37
+R56
 !i10b 1
 !s100 1JQ4`XIS0VIT<ilgkDhI13
 IV^<^fU2mceli:UIh0eT9G1
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/07_functions_tasks/test_functions.v
 FD:/DO_AN_2/Mylogic/examples/07_functions_tasks/test_functions.v
-R40
+R59
 R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/07_functions_tasks/test_functions.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/07_functions_tasks/test_functions.v|
 !i113 1
 R10
 R11
 vtest_generate_for
-R37
+R56
 !i10b 1
 !s100 <F8oAho8_n@JHR9n7lS[n3
 IH9=enDg2Wn9J7JO^>e0kG2
@@ -1026,25 +1278,25 @@ R2
 w1765712873
 8D:/DO_AN_2/Mylogic/examples/03_generate_blocks/test_generate_for.v
 FD:/DO_AN_2/Mylogic/examples/03_generate_blocks/test_generate_for.v
-R23
+R42
 R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/03_generate_blocks/test_generate_for.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/03_generate_blocks/test_generate_for.v|
 !i113 1
 R10
 R11
 vtest_generate_if
-R37
+R56
 !i10b 1
 !s100 GfO?_9d`N@_l]oOW1k3Dl0
 IU^6=W:A<XKW2<^5;;km2Z3
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/03_generate_blocks/test_generate_if.v
 FD:/DO_AN_2/Mylogic/examples/03_generate_blocks/test_generate_if.v
 L0 9
@@ -1052,7 +1304,7 @@ R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/03_generate_blocks/test_generate_if.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/03_generate_blocks/test_generate_if.v|
 !i113 1
@@ -1065,10 +1317,10 @@ R0
 IE=C9U]Bf1oOZS_6D:<7>n2
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/12_logical/test_logical.v
 FD:/DO_AN_2/Mylogic/examples/12_logical/test_logical.v
-R23
+R42
 R6
 r1
 !s85 0
@@ -1080,28 +1332,28 @@ R7
 R10
 R11
 vtest_memory
-Z55 !s110 1765978548
+Z74 !s110 1765978548
 !i10b 1
 !s100 i1Y?YIDALGOdWhel9G1a>3
 Im6J4GCR:Wc5`Az<f1KD1[0
 R1
 R2
-R18
+R37
 8test_memory.v
 Ftest_memory.v
-R23
+R42
 R6
 r1
 !s85 0
 31
-Z56 !s108 1765978548.000000
+Z75 !s108 1765978548.000000
 !s107 test_memory.v|
 !s90 -work|work|test_memory.v|
 !i113 1
 R10
 R11
 vtest_memory_tb
-R55
+R74
 !i10b 1
 !s100 W2T<37F^@AeT5Vk<=o=L82
 IWGU@4j<^oF]1XZINY1KK20
@@ -1115,7 +1367,7 @@ R6
 r1
 !s85 0
 31
-R56
+R75
 !s107 test_memory_tb.v|
 !s90 -work|work|test_memory_tb.v|
 !i113 1
@@ -1128,15 +1380,15 @@ R0
 IR7BnzhE9dXJ^2>BgT=]]V2
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_named_ports.v
 FD:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_named_ports.v
-R41
+R60
 R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_named_ports.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/08_module_instantiation/test_named_ports.v|
 !i113 1
@@ -1149,22 +1401,22 @@ R0
 IhoLGBHGh]EeoVg=LBL58j2
 R1
 R2
-R18
-R19
-R20
+R37
+R38
+R39
 L0 9
 R6
 r1
 !s85 0
 31
 R7
-R21
-R22
+R40
+R41
 !i113 1
 R10
 R11
 vtest_parameters
-R37
+R56
 !i10b 1
 !s100 [z8ADPoIgZNiEf>f?nDj22
 IeXUc@MX47:cPnn1HCSR<J0
@@ -1173,33 +1425,33 @@ R2
 w1765712923
 8D:/DO_AN_2/Mylogic/examples/01_parameters/test_parameters.v
 FD:/DO_AN_2/Mylogic/examples/01_parameters/test_parameters.v
-R40
+R59
 R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/01_parameters/test_parameters.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/01_parameters/test_parameters.v|
 !i113 1
 R10
 R11
 vtest_replication
-R37
+R56
 !i10b 1
 !s100 GP>S0N3[?F?T4Q5`5^1RU1
 IZZcIVzonj8FZW[81>o^_o1
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/05_bit_manipulation/test_replication.v
 FD:/DO_AN_2/Mylogic/examples/05_bit_manipulation/test_replication.v
-R23
+R42
 R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/05_bit_manipulation/test_replication.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/05_bit_manipulation/test_replication.v|
 !i113 1
@@ -1212,10 +1464,10 @@ R0
 I1EA8RCzYJodgI`SiDNV6:0
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/14_shift_operations/test_shift.v
 FD:/DO_AN_2/Mylogic/examples/14_shift_operations/test_shift.v
-R23
+R42
 R6
 r1
 !s85 0
@@ -1227,13 +1479,13 @@ R7
 R10
 R11
 vtest_simple_not_synthesis_verify_mapped
-Z57 !s110 1767977738
+Z76 !s110 1767977738
 !i10b 1
 !s100 kJKn0=GIhK<i0]V;h:eao2
 Iz4MZl?mJ2<35QKzEzIWQY2
 R1
 R2
-Z58 w1767977737
+Z77 w1767977737
 8test_simple_not_synthesis_verify_mapped.v
 Ftest_simple_not_synthesis_verify_mapped.v
 L0 1
@@ -1241,20 +1493,20 @@ R6
 r1
 !s85 0
 31
-Z59 !s108 1767977738.000000
-Z60 !s107 test_simple_not_synthesis_verify_tb.v|test_simple_not_synthesis_verify_mapped.v|test_simple_not_synthesis_verify_original.v|
-Z61 !s90 -work|work|test_simple_not_synthesis_verify_original.v|test_simple_not_synthesis_verify_mapped.v|test_simple_not_synthesis_verify_tb.v|
+Z78 !s108 1767977738.000000
+Z79 !s107 test_simple_not_synthesis_verify_tb.v|test_simple_not_synthesis_verify_mapped.v|test_simple_not_synthesis_verify_original.v|
+Z80 !s90 -work|work|test_simple_not_synthesis_verify_original.v|test_simple_not_synthesis_verify_mapped.v|test_simple_not_synthesis_verify_tb.v|
 !i113 1
 R10
 R11
 vtest_simple_not_synthesis_verify_original
-R57
+R76
 !i10b 1
 !s100 9kbH65BEYmjWkUE2Ojg;32
 IdO4jTK9S@JR<Go9ij]R030
 R1
 R2
-R58
+R77
 8test_simple_not_synthesis_verify_original.v
 Ftest_simple_not_synthesis_verify_original.v
 L0 1
@@ -1262,20 +1514,20 @@ R6
 r1
 !s85 0
 31
-R59
-R60
-R61
+R78
+R79
+R80
 !i113 1
 R10
 R11
 vtest_simple_not_synthesis_verify_tb
-R57
+R76
 !i10b 1
 !s100 PRAe[foJVPUNEN2i^f8?W2
 ISb=Dm9JQ0H[C0NnefYYbN3
 R1
 R2
-R58
+R77
 8test_simple_not_synthesis_verify_tb.v
 Ftest_simple_not_synthesis_verify_tb.v
 L0 3
@@ -1283,20 +1535,20 @@ R6
 r1
 !s85 0
 31
-R59
-R60
-R61
+R78
+R79
+R80
 !i113 1
 R10
 R11
 vtest_tasks
-R37
+R56
 !i10b 1
 !s100 D5ehV7459J7h3?X<hkMoQ3
 InIW?85MaFI<WS6:IP3Q=10
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/07_functions_tasks/test_tasks.v
 FD:/DO_AN_2/Mylogic/examples/07_functions_tasks/test_tasks.v
 L0 9
@@ -1304,7 +1556,7 @@ R6
 r1
 !s85 0
 31
-R39
+R58
 !s107 D:/DO_AN_2/Mylogic/examples/07_functions_tasks/test_tasks.v|
 !s90 -reportprogress|300|-work|work|-stats=none|D:/DO_AN_2/Mylogic/examples/07_functions_tasks/test_tasks.v|
 !i113 1
@@ -1320,7 +1572,7 @@ R2
 w1765713592
 8D:/DO_AN_2/Mylogic/examples/16_technology_mapping/test_techmap.v
 FD:/DO_AN_2/Mylogic/examples/16_technology_mapping/test_techmap.v
-R40
+R59
 R6
 r1
 !s85 0
@@ -1338,10 +1590,10 @@ R0
 Ia3dfGikc^B@GA`49mJL?@0
 R1
 R2
-R18
+R37
 8D:/DO_AN_2/Mylogic/examples/09_optimization/unoptimized.v
 FD:/DO_AN_2/Mylogic/examples/09_optimization/unoptimized.v
-R40
+R59
 R6
 r1
 !s85 0

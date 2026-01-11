@@ -6,9 +6,9 @@ vlib work
 vmap work work
 
 # Compile Verilog files
-vlog -work work test_simple_not_synthesis_verify_original.v test_simple_not_synthesis_verify_mapped.v test_simple_not_synthesis_verify_tb.v
+vlog -work work combinational_gates_optimization_verify_original.v combinational_gates_optimization_verify_mapped.v combinational_gates_optimization_verify_tb.v
 
 # Run simulation
-vsim -c -do "run -all; quit -f" test_simple_not_synthesis_verify_tb
+vsim -c -do "run -all; quit -f" combinational_gates_optimization_verify_tb
 # Ensure exit even if errors occur
 quit -force

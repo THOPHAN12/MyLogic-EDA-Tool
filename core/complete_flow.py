@@ -55,12 +55,16 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str) -> str:
     inputs = netlist.get('inputs', [])
     outputs = netlist.get('outputs', [])
     nodes = netlist.get('nodes', {})
+    attrs = netlist.get('attrs', {})
+    output_mapping = attrs.get('output_mapping', {})
     
     # Convert nodes dict to list if needed
     if isinstance(nodes, dict):
         nodes_list = list(nodes.values())
+        nodes_dict = nodes
     else:
         nodes_list = nodes
+        nodes_dict = {node.get('id', f'node_{i}'): node for i, node in enumerate(nodes) if isinstance(node, dict)}
     
     lines = [f"module {module_name}("]
     
@@ -74,23 +78,137 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str) -> str:
     lines.append("")
     
     # Wire declarations
+    # First pass: collect all signals referenced in nodes
     internal_signals = set()
+    referenced_signals = set()  # Signals referenced in assign statements
+    
+    # Pattern to match Verilog constants (e.g., 1'b0, 2'b00, 8'hFF)
+    const_pattern = re.compile(r"^\d+'[bdh]\w+$")
+    
+    # Collect signals that are outputs of nodes
     for node in nodes_list:
         if isinstance(node, dict):
             output = node.get('output', node.get('id', ''))
             if output and output not in inputs and output not in outputs:
-                # Skip constant signals (const_True, const_False) - they will be replaced with literals
-                if output not in ['const_True', 'const_False']:
+                # Skip constant signals (const_True, const_False, and Verilog constants like 1'b0, 2'b00)
+                if output not in ['const_True', 'const_False'] and not const_pattern.match(str(output)):
                     internal_signals.add(output)
     
-    if internal_signals:
+    # Second pass: collect all signals referenced in input_signals
+    # This includes temporary signals like _temp_3, _temp_5 that may not have nodes
+    for node in nodes_list:
+        if not isinstance(node, dict):
+            continue
+        node_inputs = node.get('inputs', [])
+        node_fanins = node.get('fanins', [])
+        
+        # Collect from fanins
+        if node_fanins:
+            for fanin in node_fanins:
+                if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
+                    signal = str(fanin[0])
+                    if signal not in ['const_True', 'const_False'] and signal not in inputs and signal not in outputs and not const_pattern.match(signal):
+                        referenced_signals.add(signal)
+                else:
+                    signal = str(fanin)
+                    if signal not in ['const_True', 'const_False'] and signal not in inputs and signal not in outputs and not const_pattern.match(signal):
+                        referenced_signals.add(signal)
+        # Collect from inputs
+        elif node_inputs:
+            for inp in node_inputs:
+                signal = str(inp)
+                if signal not in ['const_True', 'const_False'] and signal not in inputs and signal not in outputs and not const_pattern.match(signal):
+                    referenced_signals.add(signal)
+    
+    # Also collect signals from output_mapping (temp signals)
+    # These are signals that map to nodes but don't have nodes with output field
+    output_mapping_signals = set()
+    if output_mapping:
+        for signal, node_id in output_mapping.items():
+            if signal not in inputs and signal not in outputs:
+                if signal not in ['const_True', 'const_False'] and not const_pattern.match(str(signal)):
+                    output_mapping_signals.add(signal)
+                    # Also add to referenced_signals so we create wire declarations
+                    referenced_signals.add(signal)
+    
+    # Combine internal_signals and referenced_signals
+    all_internal_signals = internal_signals.union(referenced_signals)
+    
+    if all_internal_signals:
         lines.append("  // Internal wires")
-        for signal in sorted(internal_signals):
+        for signal in sorted(all_internal_signals):
             lines.append(f"  wire {signal};")
         lines.append("")
     
     # Logic statements
     lines.append("  // Logic implementation")
+    
+    # First, create assign statements for signals in output_mapping
+    # These are temp signals that map to nodes
+    if output_mapping and nodes_dict:
+        for signal, node_id in output_mapping.items():
+            if signal not in inputs and signal not in outputs:
+                # Find the node for this signal
+                if node_id in nodes_dict:
+                    node = nodes_dict[node_id]
+                    if isinstance(node, dict):
+                        node_type = node.get('type', '')
+                        node_inputs = node.get('inputs', [])
+                        node_fanins = node.get('fanins', [])
+                        
+                        # Get input signals
+                        input_signals = []
+                        if node_fanins:
+                            for fanin in node_fanins:
+                                if isinstance(fanin, (list, tuple)) and len(fanin) >= 1:
+                                    sig = str(fanin[0])
+                                    if sig == 'const_True':
+                                        sig = "1'b1"
+                                    elif sig == 'const_False':
+                                        sig = "1'b0"
+                                    if len(fanin) > 1 and fanin[1]:
+                                        sig = f"~{sig}"
+                                    input_signals.append(sig)
+                                else:
+                                    sig = str(fanin)
+                                    if sig == 'const_True':
+                                        sig = "1'b1"
+                                    elif sig == 'const_False':
+                                        sig = "1'b0"
+                                    input_signals.append(sig)
+                        elif node_inputs:
+                            for inp in node_inputs:
+                                sig = str(inp)
+                                if sig == 'const_True':
+                                    sig = "1'b1"
+                                elif sig == 'const_False':
+                                    sig = "1'b0"
+                                input_signals.append(sig)
+                        
+                        # Generate assign statement
+                        if node_type.upper() == 'AND' and len(input_signals) >= 2:
+                            expr = " & ".join(input_signals)
+                            lines.append(f"  assign {signal} = {expr};")
+                        elif node_type.upper() == 'OR' and len(input_signals) >= 2:
+                            expr = " | ".join(input_signals)
+                            lines.append(f"  assign {signal} = {expr};")
+                        elif node_type.upper() in ['NOT', 'INV'] and len(input_signals) >= 1:
+                            lines.append(f"  assign {signal} = ~{input_signals[0]};")
+                        elif node_type.upper() == 'XOR' and len(input_signals) >= 2:
+                            expr = " ^ ".join(input_signals)
+                            lines.append(f"  assign {signal} = {expr};")
+                        elif node_type.upper() == 'NAND' and len(input_signals) >= 2:
+                            expr = " & ".join(input_signals)
+                            lines.append(f"  assign {signal} = ~({expr});")
+                        elif node_type.upper() == 'NOR' and len(input_signals) >= 2:
+                            expr = " | ".join(input_signals)
+                            lines.append(f"  assign {signal} = ~({expr});")
+                        # Fallback to AND
+                        elif len(input_signals) >= 2:
+                            expr = " & ".join(input_signals)
+                            lines.append(f"  assign {signal} = {expr};")
+    
+    # Then, create assign statements for nodes
     for node in nodes_list:
         if not isinstance(node, dict):
             continue

@@ -1,0 +1,43 @@
+================================================================================
+VERIFICATION REPORT: complex_expressions_synthesis_verify
+================================================================================
+Generated: 2026-01-11 15:40:10
+
+SUMMARY
+--------------------------------------------------------------------------------
+Status: PASSED
+Total tests: 16
+Passed: 16
+Failed: 0
+Success rate: 100.0%
+
+GENERATED FILES
+--------------------------------------------------------------------------------
+Original Verilog: complex_expressions_synthesis_verify_original.v
+Mapped Verilog: complex_expressions_synthesis_verify_mapped.v
+Testbench: complex_expressions_synthesis_verify_tb.v
+Simulation log: complex_expressions_synthesis_verify_simulation.log
+Report: complex_expressions_synthesis_verify_verification_report.txt
+
+TEST RESULTS
+--------------------------------------------------------------------------------
+Test 0: PASS
+Test 1: PASS
+Test 2: PASS
+Test 3: PASS
+Test 4: PASS
+Test 5: PASS
+Test 6: PASS
+Test 7: PASS
+Test 8: PASS
+Test 9: PASS
+Test 10: PASS
+Test 11: PASS
+Test 12: PASS
+Test 13: PASS
+Test 14: PASS
+Test 15: PASS
+
+================================================================================
+END OF REPORT
+================================================================================

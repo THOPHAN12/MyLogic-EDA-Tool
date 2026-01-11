@@ -589,6 +589,11 @@ def _parse_output_ports(netlist: Dict, port_list: str, module_body: str, params:
             signal = signal.strip()
             if not signal:
                 continue
+            # Remove keywords 'reg' and 'wire' from signal name
+            # Example: 'reg out1' -> 'out1', 'wire out2' -> 'out2'
+            signal = re.sub(r'^\s*(reg|wire)\s+', '', signal).strip()
+            if not signal:
+                continue
             if signal not in netlist['outputs']:
                 netlist['outputs'].append(signal)
             netlist['attrs']['vector_widths'][signal] = width
@@ -1395,6 +1400,21 @@ def _dispatch_assign_parser(lhs: str, rhs: str, node_builder: NodeBuilder, param
                 from ..operations.bitwise import parse_not_operation
                 parse_not_operation(node_builder, lhs, rhs)
                 return
+        
+        # Check xem có nhiều operators với precedence khác nhau không
+        # Nếu có, cần dùng complex expression parser để xử lý operator precedence
+        # Count các operators khác nhau
+        has_and = '&' in rhs
+        has_or = '|' in rhs
+        has_xor = '^' in rhs
+        operator_count = sum([has_and, has_or, has_xor])
+        
+        # Nếu có nhiều hơn 1 operator type, đây là complex expression cần xử lý precedence
+        if operator_count > 1:
+            # Complex expression với multiple operator types - dùng expression parser
+            parse_complex_expression(node_builder, lhs, rhs)
+            return
+        
         # Binary bitwise operations
         from ..operations.bitwise import parse_bitwise_operation
         parse_bitwise_operation(node_builder, bitwise_op, lhs, rhs)

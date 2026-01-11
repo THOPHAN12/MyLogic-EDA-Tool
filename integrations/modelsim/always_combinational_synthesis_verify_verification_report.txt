@@ -1,0 +1,35 @@
+================================================================================
+VERIFICATION REPORT: always_combinational_synthesis_verify
+================================================================================
+Generated: 2026-01-11 15:57:25
+
+SUMMARY
+--------------------------------------------------------------------------------
+Status: PASSED
+Total tests: 8
+Passed: 8
+Failed: 0
+Success rate: 100.0%
+
+GENERATED FILES
+--------------------------------------------------------------------------------
+Original Verilog: always_combinational_synthesis_verify_original.v
+Mapped Verilog: always_combinational_synthesis_verify_mapped.v
+Testbench: always_combinational_synthesis_verify_tb.v
+Simulation log: always_combinational_synthesis_verify_simulation.log
+Report: always_combinational_synthesis_verify_verification_report.txt
+
+TEST RESULTS
+--------------------------------------------------------------------------------
+Test 0: PASS
+Test 1: PASS
+Test 2: PASS
+Test 3: PASS
+Test 4: PASS
+Test 5: PASS
+Test 6: PASS
+Test 7: PASS
+
+================================================================================
+END OF REPORT
+================================================================================

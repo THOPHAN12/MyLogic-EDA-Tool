@@ -133,13 +133,18 @@ def load_liberty_library(file_path: str) -> TechnologyLibrary:
                 
                 # Special handling for DFF cells: function is "IQ" (internal state)
                 # Use cell name to create proper function signature
-                if cell_name.upper().startswith('DFF_'):
+                if cell_name.upper().startswith('DFF_') or cell_name.lower().startswith('df'):
                     # For DFF cells, infer function from cell name instead of "IQ"
                     function = _infer_function_from_name(cell_name)
                 else:
-                    # Convert Liberty function to standard format
-                    # "!A" -> "NOT(A)", "A&B" -> "AND(A,B)", etc.
-                    function = _convert_liberty_function(function)
+                    # Check if function is just a cell name (like "and2", "nand2")
+                    # If it matches the cell name, infer from name instead
+                    if function.lower() == cell_name.lower() or function == cell_name:
+                        function = _infer_function_from_name(cell_name)
+                    else:
+                        # Convert Liberty function to standard format
+                        # "!A" -> "NOT(A)", "A&B" -> "AND(A,B)", etc.
+                        function = _convert_liberty_function(function)
             else:
                 # Try to infer from cell name
                 function = _infer_function_from_name(cell_name)
@@ -237,9 +242,10 @@ def _convert_liberty_function(func_str: str) -> str:
 def _infer_function_from_name(cell_name: str) -> str:
     """Infer function from cell name if function not found."""
     name_upper = cell_name.upper()
+    name_lower = cell_name.lower()
     
     # DFF cells (flip-flops)
-    if name_upper.startswith('DFF_'):
+    if name_upper.startswith('DFF_') or name_lower.startswith('df'):
         # DFF_N, DFF_P (2 inputs: D, C)
         if name_upper in ['DFF_N', 'DFF_P']:
             return f"{cell_name}(D,C)"
@@ -251,32 +257,45 @@ def _infer_function_from_name(cell_name: str) -> str:
             # Generic DFF
             return f"{cell_name}(D,C)"
     
-    if name_upper.startswith('INV'):
+    # Handle both uppercase (INV, AND2) and lowercase (inv, and2) cell names
+    if name_upper.startswith('INV') or name_lower.startswith('inv'):
         return "NOT(A)"
-    elif name_upper.startswith('BUF'):
+    elif name_upper.startswith('BUF') or name_lower.startswith('buf'):
         return "BUF(A)"
-    elif name_upper.startswith('NAND'):
+    elif name_upper.startswith('NAND') or name_lower.startswith('nand'):
         num_inputs = _extract_number_from_name(name_upper, 'NAND')
+        if num_inputs == 2:  # Default if not found
+            num_inputs = _extract_number_from_name(name_lower, 'nand')
         inputs = ','.join([chr(65 + i) for i in range(num_inputs)])
         return f"NAND({inputs})"
-    elif name_upper.startswith('NOR'):
+    elif name_upper.startswith('NOR') or name_lower.startswith('nor'):
         num_inputs = _extract_number_from_name(name_upper, 'NOR')
+        if num_inputs == 2:  # Default if not found
+            num_inputs = _extract_number_from_name(name_lower, 'nor')
         inputs = ','.join([chr(65 + i) for i in range(num_inputs)])
         return f"NOR({inputs})"
-    elif name_upper.startswith('AND'):
+    elif name_upper.startswith('AND') or name_lower.startswith('and'):
         num_inputs = _extract_number_from_name(name_upper, 'AND')
+        if num_inputs == 2:  # Default if not found
+            num_inputs = _extract_number_from_name(name_lower, 'and')
         inputs = ','.join([chr(65 + i) for i in range(num_inputs)])
         return f"AND({inputs})"
-    elif name_upper.startswith('OR'):
+    elif name_upper.startswith('OR') or name_lower.startswith('or'):
         num_inputs = _extract_number_from_name(name_upper, 'OR')
+        if num_inputs == 2:  # Default if not found
+            num_inputs = _extract_number_from_name(name_lower, 'or')
         inputs = ','.join([chr(65 + i) for i in range(num_inputs)])
         return f"OR({inputs})"
-    elif name_upper.startswith('XOR'):
+    elif name_upper.startswith('XOR') or name_lower.startswith('xor'):
         num_inputs = _extract_number_from_name(name_upper, 'XOR')
+        if num_inputs == 2:  # Default if not found
+            num_inputs = _extract_number_from_name(name_lower, 'xor')
         inputs = ','.join([chr(65 + i) for i in range(num_inputs)])
         return f"XOR({inputs})"
-    elif name_upper.startswith('XNOR'):
+    elif name_upper.startswith('XNOR') or name_lower.startswith('xnor'):
         num_inputs = _extract_number_from_name(name_upper, 'XNOR')
+        if num_inputs == 2:  # Default if not found
+            num_inputs = _extract_number_from_name(name_lower, 'xnor')
         inputs = ','.join([chr(65 + i) for i in range(num_inputs)])
         return f"XNOR({inputs})"
     

@@ -1006,6 +1006,7 @@ class VectorShell:
             print("  - Path to .lib, .json, or .v file")
             print("  - Library type (auto-detect from techlibs/):")
             print("    * asic          - ASIC standard cells")
+            print("    * sky130       - SKY130 PDK (High Density)")
             print("    * fpga          - Auto-scan all FPGA libraries")
             print("    * fpga_common   - FPGA common cells")
             print("    * anlogic       - Anlogic FPGA")
@@ -1129,6 +1130,7 @@ class VectorShell:
             print("  complete_flow standard              # standard optimization, area techmap")
             print("  complete_flow aggressive delay      # aggressive optimization, delay techmap")
             print("  complete_flow standard area asic    # standard optimization, area techmap, ASIC library")
+            print("  complete_flow standard balanced sky130  # standard optimization, balanced techmap, SKY130 library")
             print("  complete_flow standard --verify     # with verification enabled")
             print("")
             print("This command runs:")
@@ -1182,7 +1184,7 @@ class VectorShell:
             # Load library if specified
             library = None
             if techmap_library_path:
-                valid_types = ["asic", "fpga", "fpga_common", "anlogic", "gowin", 
+                valid_types = ["asic", "sky130", "fpga", "fpga_common", "anlogic", "gowin", 
                               "ice40", "intel", "lattice", "xilinx"]
                 if techmap_library_path.lower() in valid_types:
                     # Library type
@@ -1305,7 +1307,7 @@ class VectorShell:
         Fallback về standard library nếu không tìm thấy.
         
         Args:
-            library_type: "auto", "asic", "fpga", "fpga_common", "anlogic", 
+            library_type: "auto", "asic", "sky130", "fpga", "fpga_common", "anlogic", 
                          "gowin", "ice40", "intel", "lattice", "xilinx"
         """
         from core.technology_mapping.technology_mapping import (
@@ -1323,6 +1325,10 @@ class VectorShell:
             "asic": [
                 project_root / "techlibs" / "asic" / "standard_cells.json",
                 project_root / "techlibs" / "asic" / "standard_cells.lib",
+            ],
+            "sky130": [
+                project_root / "techlibs" / "asic" / "sky130" / "sky130_fd_sc_hd.json",  # JSON format (preferred)
+                project_root / "techlibs" / "asic" / "sky130" / "sky130_fd_sc_hd.lib",   # Liberty format (fallback)
             ],
             "fpga_common": [
                 project_root / "techlibs" / "fpga" / "common" / "cells.lib",
@@ -1359,8 +1365,9 @@ class VectorShell:
         default_paths = []
         
         if library_type == "auto" or library_type is None:
-            # Tự động thử tất cả các đường dẫn (ưu tiên ASIC trước, sau đó là FPGA)
+            # Tự động thử tất cả các đường dẫn (ưu tiên ASIC/SKY130 trước, sau đó là FPGA)
             default_paths = library_paths["asic"].copy()
+            default_paths.extend(library_paths.get("sky130", []))
             # Thêm tất cả các FPGA libraries
             for fpga_type in ["fpga_common", "anlogic", "gowin", "ice40", "intel", "lattice", "xilinx"]:
                 default_paths.extend(library_paths.get(fpga_type, []))

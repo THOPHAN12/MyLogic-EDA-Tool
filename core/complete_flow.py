@@ -208,7 +208,9 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str) -> str:
                             expr = " & ".join(input_signals)
                             lines.append(f"  assign {signal} = {expr};")
     
-    # Then, create assign statements for nodes
+    # Then, create gate instances or assign statements for nodes
+    instance_counter = {}  # Track instance numbers for each cell type
+    
     for node in nodes_list:
         if not isinstance(node, dict):
             continue
@@ -217,6 +219,8 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str) -> str:
         node_inputs = node.get('inputs', [])
         node_fanins = node.get('fanins', [])
         output = node.get('output', node.get('id', ''))
+        cell_name = node.get('cell_name', '')
+        mapped = node.get('mapped', False)
         
         if not output:
             continue
@@ -256,7 +260,42 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str) -> str:
         else:
             continue
         
-        # Generate Verilog statement
+        # If node is mapped to a library cell, create gate instance
+        if mapped and cell_name:
+            # Create gate instance: cell_name instance_name (.pin1(sig1), .pin2(sig2), .out(sig_out));
+            # Get cell pin names from node (if available) or use default A, B, Y
+            cell_pins = node.get('cell_pins', {})
+            
+            # Default pin names for common gates
+            if not cell_pins:
+                if len(input_signals) == 1:
+                    cell_pins = {'A': input_signals[0], 'Y': output}
+                elif len(input_signals) == 2:
+                    cell_pins = {'A': input_signals[0], 'B': input_signals[1], 'Y': output}
+                elif len(input_signals) == 3:
+                    cell_pins = {'A': input_signals[0], 'B': input_signals[1], 'C': input_signals[2], 'Y': output}
+                else:
+                    # Use positional mapping
+                    pin_names = ['A', 'B', 'C', 'D', 'E', 'F'][:len(input_signals)]
+                    cell_pins = {pin: sig for pin, sig in zip(pin_names, input_signals)}
+                    cell_pins['Y'] = output
+            
+            # Generate instance name
+            if cell_name not in instance_counter:
+                instance_counter[cell_name] = 0
+            instance_counter[cell_name] += 1
+            instance_name = f"{cell_name}_inst{instance_counter[cell_name]}"
+            
+            # Create instance statement
+            pin_connections = []
+            for pin, signal in cell_pins.items():
+                pin_connections.append(f".{pin}({signal})")
+            
+            instance_line = f"  {cell_name} {instance_name} ({', '.join(pin_connections)});"
+            lines.append(instance_line)
+            continue
+        
+        # Generate Verilog statement (for unmapped nodes)
         node_type_upper = node_type.upper()
         
         # Check if it's a library cell name
@@ -768,6 +807,12 @@ def run_complete_flow(
                 'library_name': library.name,
                 'enabled': True
             }
+            
+            # Store mapper and AIG for gate level netlist generation
+            if '_mapper' in techmap_results:
+                results['techmap']['_mapper'] = techmap_results['_mapper']
+            if '_aig' in techmap_results:
+                results['techmap']['_aig'] = techmap_results['_aig']
             
             logger.info(_safe_log_msg(f"[OK] Technology mapping completed:"))
             logger.info(f"   Mapped nodes: {techmap_results['mapped_nodes']}/{techmap_results['total_nodes']}")

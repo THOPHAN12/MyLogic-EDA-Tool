@@ -57,7 +57,7 @@ def test_file(file_path, sky130_lib):
     # 3. Optimization
     try:
         from core.optimization.optimization_flow import optimize
-        optimized_aig = optimize(aig, level='standard')
+        optimized_aig = optimize(aig)
         if optimized_aig.count_nodes() >= 0:
             results['optimization'] = True
             reduction = aig.count_nodes() - optimized_aig.count_nodes()
@@ -93,7 +93,6 @@ def test_file(file_path, sky130_lib):
         
         flow_results = run_complete_flow(
             netlist,
-            optimization_level='standard',
             enable_optimization=True,
             enable_techmap=True,
             enable_verification=False,

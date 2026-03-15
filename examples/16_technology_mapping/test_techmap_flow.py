@@ -41,8 +41,8 @@ def demo_techmap_flow():
     print(f"  Outputs: {netlist.get('outputs', [])}")
     
     # Step 2: Synthesis
-    print("\n[2/5] Running Synthesis (standard)...")
-    optimized = run_complete_synthesis(netlist, "standard")
+    print("\n[2/5] Running Synthesis...")
+    optimized = run_complete_synthesis(netlist)
     print(f"  Optimized nodes: {len(optimized.get('nodes', []))}")
     
     # Step 3: Load Library

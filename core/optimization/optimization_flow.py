@@ -55,21 +55,11 @@ class AIGOptimizationFlow:
             'balance': {'nodes_before': 0, 'nodes_after': 0, 'added': 0}
         }
         
-    def optimize(self, aig: AIG, level: str = "standard") -> AIG:
+    def optimize(self, aig: AIG) -> AIG:
         """
-        Chạy complete AIG optimization flow.
-        
-        Args:
-            aig: AIG object từ synthesis
-            level: Optimization level ("basic", "standard", "aggressive")
-            
-        Returns:
-            Optimized AIG
+        Chạy AIG optimization flow (một chuẩn duy nhất: Strash, DCE, CSE, ConstProp, Balance).
         """
-        if level not in ["basic", "standard", "aggressive"]:
-            raise ValueError(f"Invalid optimization level: {level}. Must be 'basic', 'standard', or 'aggressive'")
-        
-        logger.info(f"Starting AIG Optimization Flow - Level: {level}")
+        logger.info("Starting AIG Optimization Flow...")
         
         original_nodes = aig.count_nodes()
         current_aig = aig
@@ -78,19 +68,19 @@ class AIGOptimizationFlow:
         logger.info("Step 1: Structural Hashing (Strash)...")
         current_aig = self._run_strash(current_aig)
         
-        # Step 2: Dead Code Elimination
+        # Step 2: Dead Code Elimination (DCE)
         logger.info("Step 2: Dead Code Elimination (DCE)...")
-        current_aig = self._run_dce(current_aig, level)
+        current_aig = self._run_dce(current_aig)
         
-        # Step 3: Common Subexpression Elimination
+        # Step 3: Common Subexpression Elimination (CSE)
         logger.info("Step 3: Common Subexpression Elimination (CSE)...")
         current_aig = self._run_cse(current_aig)
         
-        # Step 4: Constant Propagation
+        # Step 4: Constant Propagation (ConstProp)
         logger.info("Step 4: Constant Propagation (ConstProp)...")
         current_aig = self._run_constprop(current_aig)
         
-        # Step 5: Logic Balancing
+        # Step 5: Logic Balancing (Balance)
         logger.info("Step 5: Logic Balancing (Balance)...")
         current_aig = self._run_balance(current_aig)
         
@@ -126,13 +116,11 @@ class AIGOptimizationFlow:
             logger.error(f"Strash failed: {e}")
             return aig
     
-    def _run_dce(self, aig: AIG, level: str) -> AIG:
+    def _run_dce(self, aig: AIG) -> AIG:
         """Chạy Dead Code Elimination trên AIG."""
         try:
             nodes_before = aig.count_nodes()
-            
-            # DCE trên AIG: loại bỏ nodes không reachable từ outputs
-            optimized_aig = self._apply_dce_on_aig(aig, level)
+            optimized_aig = self._apply_dce_on_aig(aig)
             
             nodes_after = optimized_aig.count_nodes()
             
@@ -219,8 +207,8 @@ class AIGOptimizationFlow:
             logger.error(f"Balance failed: {e}")
             return aig
     
-    def _apply_dce_on_aig(self, aig: AIG, level: str) -> AIG:
-        """Apply DCE trên AIG."""
+    def _apply_dce_on_aig(self, aig: AIG) -> AIG:
+        """Apply DCE trên AIG (một chuẩn duy nhất)."""
         # Simplified DCE: rebuild AIG chỉ với reachable nodes
         # In practice, you'd do proper reachability analysis
         new_aig = AIG()
@@ -231,25 +219,30 @@ class AIGOptimizationFlow:
             new_pi = new_aig.create_pi(var_name)
             pi_map[old_pi.node_id] = new_pi
         
-        # Recreate reachable nodes (simplified - just recreate all for now)
+        # Recreate reachable nodes; node_map: old_node_id -> new_node (for shared nodes)
         visited = set()
+        node_map: Dict[int, AIGNode] = {}
         
         def recreate_node(old_node: AIGNode) -> AIGNode:
             if old_node.node_id in visited:
-                return pi_map.get(old_node.node_id) or new_aig.nodes.get(old_node.node_id)
+                return pi_map.get(old_node.node_id) or node_map.get(old_node.node_id)
             
             visited.add(old_node.node_id)
             
             if old_node.is_constant():
-                return new_aig.create_constant(old_node.get_value())
+                n = new_aig.create_constant(old_node.get_value())
+                node_map[old_node.node_id] = n
+                return n
             elif old_node.is_pi():
                 return pi_map[old_node.node_id]
             else:
                 left = recreate_node(old_node.left)
                 right = recreate_node(old_node.right)
-                return new_aig.create_and(left, right,
+                n = new_aig.create_and(left, right,
                                         old_node.left_inverted,
                                         old_node.right_inverted)
+                node_map[old_node.node_id] = n
+                return n
         
         # Recreate outputs (only reachable nodes)
         for old_po, inverted in aig.pos:
@@ -325,18 +318,19 @@ class AIGOptimizationFlow:
                 
                 # AND(x, 0) = 0 or AND(0, x) = 0
                 if (left_val is False) or (right_val is False):
+                    node_map[old_node.node_id] = new_aig.const0
                     return new_aig.const0
                 
                 # AND(x, 1) = x (with inversion handling)
                 if right_val is True:
-                    if old_node.right_inverted:
-                        return new_aig.create_not(left)
-                    return left
+                    res = new_aig.create_not(left) if old_node.right_inverted else left
+                    node_map[old_node.node_id] = res
+                    return res
                 
                 if left_val is True:
-                    if old_node.left_inverted:
-                        return new_aig.create_not(right)
-                    return right
+                    res = new_aig.create_not(right) if old_node.left_inverted else right
+                    node_map[old_node.node_id] = res
+                    return res
                 
                 # No constant propagation possible, create AND node
                 new_node = new_aig.create_and(
@@ -445,7 +439,7 @@ class AIGOptimizationFlow:
             return sorted_nodes[0]
         
         def balance_node(old_node: AIGNode) -> Optional[AIGNode]:
-            """Balance a single node."""
+            """Balance a single node. Always add to node_map so shared nodes are preserved."""
             if old_node is None:
                 return None
             
@@ -465,12 +459,13 @@ class AIGOptimizationFlow:
                 # Balance left and right subtrees first
                 left = balance_node(old_node.left)
                 right = balance_node(old_node.right)
-                
-                if left is None or right is None:
-                    return None
+                # Fallback to const0 if any input missing (avoid None -> lost PO)
+                if left is None:
+                    left = new_aig.const0
+                if right is None:
+                    right = new_aig.const0
                 
                 # Simple approach: just balance the current AND
-                # More advanced: collect chains and rebuild
                 new_node = new_aig.create_and(
                     left, right,
                     old_node.left_inverted,
@@ -485,7 +480,6 @@ class AIGOptimizationFlow:
         for old_po, inverted in aig.pos:
             new_po = balance_node(old_po)
             if new_po is None:
-                # Fallback: use original node
                 continue
             if inverted:
                 new_po = new_aig.create_not(new_po)
@@ -524,22 +518,12 @@ class AIGOptimizationFlow:
         }
 
 
-def optimize(aig: AIG, level: str = "standard") -> AIG:
+def optimize(aig: AIG) -> AIG:
     """
-    Optimization function: Optimize AIG.
-    
-    Đây là bước OPTIMIZATION riêng biệt.
-    Tối ưu hóa trên AIG với 5 bước: Strash, DCE, CSE, ConstProp, Balance.
-    
-    Args:
-        aig: AIG object từ synthesis
-        level: Optimization level ("basic", "standard", "aggressive")
-        
-    Returns:
-        Optimized AIG
+    Tối ưu AIG (một chuẩn duy nhất: Strash, DCE, CSE, ConstProp, Balance).
     """
     flow = AIGOptimizationFlow()
-    return flow.optimize(aig, level)
+    return flow.optimize(aig)
 
 
 # Test function
@@ -560,7 +544,7 @@ if __name__ == "__main__":
     print("Test AIG Optimization")
     print(f"Original AIG: {aig.count_nodes()} nodes")
     
-    optimized = optimize(aig, "standard")
+    optimized = optimize(aig)
     
     print(f"Optimized AIG: {optimized.count_nodes()} nodes")
     print("✅ Optimization test passed!")

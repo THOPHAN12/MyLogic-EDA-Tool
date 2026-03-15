@@ -394,7 +394,6 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str) -> str:
 
 def run_complete_flow(
     netlist: Dict[str, Any],
-    optimization_level: str = "standard",
     techmap_strategy: str = "area_optimal",
     techmap_library = None,
     enable_optimization: bool = True,
@@ -406,7 +405,7 @@ def run_complete_flow(
     write_verilog: bool = True
 ) -> Dict[str, Any]:
     """
-    Chạy complete flow: Synthesis → Verification → Optimization → Verification → Technology Mapping.
+    Chạy complete flow: Synthesis → Verification → Optimization → Verification → Technology Mapping (một chuẩn duy nhất).
     
     Flow:
     1. SYNTHESIS: Netlist → AIG
@@ -414,13 +413,9 @@ def run_complete_flow(
     2. OPTIMIZATION: AIG → Optimized AIG
        → VERIFICATION 2: Synthesized vs Optimized (functional simulation)
     3. TECHMAP (optional): AIG → Technology-mapped netlist
-       → No verification needed (implementation mapping only)
-    
-    Similar to Yosys flow: read → synth → verify → optimize → verify → techmap → write_verilog
     
     Args:
         netlist: Circuit netlist dictionary từ parser
-        optimization_level: Optimization level ("basic", "standard", "aggressive")
         techmap_strategy: Technology mapping strategy ("area_optimal", "delay_optimal", "balanced")
         techmap_library: Technology library object (None = auto-load standard library)
         enable_optimization: Có chạy optimization không (default: True)
@@ -478,7 +473,7 @@ def run_complete_flow(
         >>> from core.complete_flow import run_complete_flow
         >>> 
         >>> netlist = parse_verilog("design.v")
-        >>> results = run_complete_flow(netlist, "standard", "area_optimal")
+        >>> results = run_complete_flow(netlist, techmap_strategy="area_optimal")
         >>> 
         >>> # Access results
         >>> synthesized_aig = results['synthesis']['aig']
@@ -652,10 +647,8 @@ def run_complete_flow(
             
             original_aig_nodes = aig.count_nodes()
             logger.info(f"Input AIG: {original_aig_nodes} nodes")
-            logger.info(f"Optimization level: {optimization_level}")
-            
-            # Run optimization
-            optimized_aig = optimize(aig, optimization_level)
+            # Run optimization (một chuẩn duy nhất)
+            optimized_aig = optimize(aig)
             
             optimization_stats = {
                 'nodes_before': original_aig_nodes,
@@ -941,13 +934,9 @@ def run_synthesis_only(netlist: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def run_synthesis_optimization(netlist: Dict[str, Any], optimization_level: str = "standard") -> Dict[str, Any]:
+def run_synthesis_optimization(netlist: Dict[str, Any]) -> Dict[str, Any]:
     """Chạy synthesis + optimization (Netlist → AIG → Optimized AIG)."""
-    return run_complete_flow(
-        netlist,
-        optimization_level=optimization_level,
-        enable_techmap=False
-    )
+    return run_complete_flow(netlist, enable_techmap=False)
 
 
 # Test function
@@ -970,7 +959,6 @@ if __name__ == "__main__":
     # Test complete flow
     results = run_complete_flow(
         test_netlist,
-        optimization_level="standard",
         techmap_strategy="area_optimal",
         enable_optimization=True,
         enable_techmap=True

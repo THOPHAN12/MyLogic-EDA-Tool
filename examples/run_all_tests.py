@@ -39,7 +39,7 @@ def test_file(file_path, category):
         original_nodes = len(netlist.get('nodes', []))
         
         # Synthesize
-        synthesized = run_complete_synthesis(netlist, "standard")
+        synthesized = run_complete_synthesis(netlist)
         final_nodes = len(synthesized.get('nodes', []))
         
         reduction = original_nodes - final_nodes

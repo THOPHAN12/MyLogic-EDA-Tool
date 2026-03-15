@@ -290,26 +290,30 @@ class AIG:
             new_pi = new_aig.create_pi(var_name)
             pi_map[old_pi.node_id] = new_pi
         
-        # Recreate nodes in topological order
-        # This is a simplified version - in practice, you'd do proper topological sort
+        # Recreate nodes in topological order; node_map: old_node_id -> new_node (for shared nodes)
         visited = set()
+        node_map: Dict[int, AIGNode] = {}
         
         def recreate_node(old_node: AIGNode) -> AIGNode:
             if old_node.node_id in visited:
-                return pi_map.get(old_node.node_id) or new_aig.nodes.get(old_node.node_id)
+                return pi_map.get(old_node.node_id) or node_map.get(old_node.node_id)
             
             visited.add(old_node.node_id)
             
             if old_node.is_constant():
-                return new_aig.create_constant(old_node.get_value())
+                n = new_aig.create_constant(old_node.get_value())
+                node_map[old_node.node_id] = n
+                return n
             elif old_node.is_pi():
                 return pi_map[old_node.node_id]
             else:
                 left = recreate_node(old_node.left)
                 right = recreate_node(old_node.right)
-                return new_aig.create_and(left, right,
-                                         old_node.left_inverted,
-                                         old_node.right_inverted)
+                n = new_aig.create_and(left, right,
+                                      old_node.left_inverted,
+                                      old_node.right_inverted)
+                node_map[old_node.node_id] = n
+                return n
         
         # Recreate outputs
         for old_po, inverted in self.pos:
@@ -436,6 +440,7 @@ def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) 
     # Map AIG nodes to netlist nodes
     visited = set()
     signal_to_node = {}  # signal_name -> node_id
+    aig_node_id_to_signal: Dict[int, str] = {}  # aig_node.node_id -> output_signal (for alias when PO shared)
     
     def get_or_create_node_for_signal(signal_name: str) -> str:
         """Get or create a node ID for a signal."""
@@ -448,14 +453,27 @@ def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) 
         return node_id
     
     def convert_aig_node_to_netlist(aig_node: AIGNode, output_signal: str) -> Optional[Dict[str, Any]]:
-        """Convert an AIG node to netlist node format."""
+        """Convert an AIG node to netlist node format. Every PO gets a node (alias if already visited)."""
         if aig_node is None:
             return None
         
+        # Already visited: same AIG node drives another output -> create BUF/alias so output appears in netlist
         if aig_node.node_id in visited:
+            existing_signal = aig_node_id_to_signal.get(aig_node.node_id)
+            if existing_signal is not None:
+                node_id = get_or_create_node_for_signal(output_signal)
+                nodes[node_id] = {
+                    'id': node_id,
+                    'type': 'BUF',
+                    'inputs': [existing_signal],
+                    'output': output_signal,
+                    'name': node_id
+                }
+                return nodes[node_id]
             return None
         
         visited.add(aig_node.node_id)
+        aig_node_id_to_signal[aig_node.node_id] = output_signal
         
         if aig_node.is_constant():
             const_value = aig_node.get_value()
@@ -470,8 +488,16 @@ def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) 
             return nodes[node_id]
         
         elif aig_node.is_pi():
-            # Primary input - no node needed, signal is directly from input
-            return None
+            # Primary input driving an output: create BUF so output appears in netlist
+            node_id = get_or_create_node_for_signal(output_signal)
+            nodes[node_id] = {
+                'id': node_id,
+                'type': 'BUF',
+                'inputs': [aig_node.var_name],
+                'output': output_signal,
+                'name': node_id
+            }
+            return nodes[node_id]
         
         elif aig_node.is_and():
             # Convert AND node

@@ -125,13 +125,9 @@ class SynthesisFlow:
             'aig_stats': self.aig.get_statistics() if self.aig else {}
         }
     
-    def run_complete_synthesis(self, netlist: Dict[str, Any], optimization_level: str = "standard") -> Dict[str, Any]:
-        """
-        Run complete synthesis flow (for backward compatibility).
-        
-        This method wraps the deprecated run_complete_synthesis function.
-        """
-        return run_complete_synthesis(netlist, optimization_level)
+    def run_complete_synthesis(self, netlist: Dict[str, Any]) -> Dict[str, Any]:
+        """Run complete synthesis flow (một chuẩn duy nhất)."""
+        return run_complete_synthesis(netlist)
 
 def synthesize(netlist: Dict[str, Any]) -> 'AIG':
     """
@@ -149,37 +145,15 @@ def synthesize(netlist: Dict[str, Any]) -> 'AIG':
     flow = SynthesisFlow()
     return flow.synthesize(netlist)
 
-# Legacy function for backward compatibility (deprecated)
-def run_complete_synthesis(netlist: Dict[str, Any], optimization_level: str = "standard") -> Dict[str, Any]:
+def run_complete_synthesis(netlist: Dict[str, Any]) -> Dict[str, Any]:
     """
-    DEPRECATED: Use synthesize() + optimize() instead.
-    
-    This function is kept for backward compatibility but will be removed.
-    Please use:
-    - synthesize(netlist) for Netlist → AIG conversion
-    - optimize(aig, level) for AIG optimization
-    
-    However, this function now correctly returns the optimized netlist.
+    Chạy synthesis đầy đủ: Netlist → AIG → tối ưu → netlist (một chuẩn duy nhất).
     """
-    import warnings
-    warnings.warn(
-        "run_complete_synthesis() is deprecated. Use synthesize() + optimize() instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    
-    # For backward compatibility, convert to AIG first
     aig = synthesize(netlist)
-    
-    # Then run optimization
     from core.optimization.optimization_flow import optimize
-    optimized_aig = optimize(aig, optimization_level)
-    
-    # Convert AIG back to netlist format
+    optimized_aig = optimize(aig)
     from core.synthesis.aig import aig_to_netlist
-    optimized_netlist = aig_to_netlist(optimized_aig, netlist)
-    
-    return optimized_netlist
+    return aig_to_netlist(optimized_aig, netlist)
 
 # Test function
 def test_synthesis_flow():
@@ -214,7 +188,7 @@ def test_synthesis_flow():
     print("  Contains: duplicates, common subexpressions, dead code, constants")
     
     # Run complete synthesis
-    synthesized = run_complete_synthesis(test_netlist, "standard")
+    synthesized = run_complete_synthesis(test_netlist)
     
     print(f"\nSynthesized circuit:")
     print(f"  Nodes: {len(synthesized['nodes'])}")

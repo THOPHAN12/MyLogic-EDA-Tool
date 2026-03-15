@@ -69,7 +69,7 @@ def test_optimization(aig):
         print(f"Input AIG: {original_nodes} nodes, {original_and_nodes} AND nodes")
         
         # Run optimization
-        optimized_aig = optimize(aig, level='standard')
+        optimized_aig = optimize(aig)
         
         optimized_nodes = optimized_aig.count_nodes()
         optimized_and_nodes = optimized_aig.count_and_nodes()
@@ -172,7 +172,6 @@ def test_complete_flow_integration(test_file):
         
         results = run_complete_flow(
             netlist,
-            optimization_level='standard',
             enable_optimization=True,
             enable_techmap=True,
             enable_verification=False,

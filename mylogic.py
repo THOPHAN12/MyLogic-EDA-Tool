@@ -113,13 +113,12 @@ def detect_file_type(file_path: str) -> str:
     except:
         return "unknown"
 
-def run_synthesis_mode(file_path: str, level: str, debug: bool = False):
-    """Chạy synthesis mode và thoát."""
+def run_synthesis_mode(file_path: str, debug: bool = False):
+    """Chạy synthesis mode và thoát (một chuẩn duy nhất)."""
     print("=" * 70)
     print(" MyLogic - Automatic Synthesis Mode")
     print("=" * 70)
     print(f"Input file: {file_path}")
-    print(f"Optimization level: {level}")
     print("")
     
     try:
@@ -127,12 +126,14 @@ def run_synthesis_mode(file_path: str, level: str, debug: bool = False):
         print("[1/3] Parsing Verilog...")
         netlist = parse_verilog(file_path)
         original_nodes = len(netlist.get('nodes', {}))
+        if isinstance(netlist.get('nodes'), list):
+            original_nodes = len(netlist.get('nodes', []))
         print(f"  Loaded {original_nodes} nodes")
         
         # Run synthesis
-        print(f"\n[2/3] Running complete synthesis flow ({level})...")
+        print("\n[2/3] Running synthesis flow...")
         from core.synthesis.synthesis_flow import run_complete_synthesis
-        synthesized = run_complete_synthesis(netlist, level)
+        synthesized = run_complete_synthesis(netlist)
         final_nodes = len(synthesized.get('nodes', {}))
         
         # Export results
@@ -141,7 +142,7 @@ def run_synthesis_mode(file_path: str, level: str, debug: bool = False):
         os.makedirs(output_dir, exist_ok=True)
         
         base_name = os.path.splitext(os.path.basename(file_path))[0]
-        output_file = os.path.join(output_dir, f"{base_name}_synthesized_{level}.json")
+        output_file = os.path.join(output_dir, f"{base_name}_synthesized.json")
         
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(synthesized, f, indent=2)
@@ -154,7 +155,10 @@ def run_synthesis_mode(file_path: str, level: str, debug: bool = False):
         print("=" * 70)
         print(f"Original nodes: {original_nodes}")
         print(f"Optimized nodes: {final_nodes}")
-        print(f"Reduction: {original_nodes - final_nodes} nodes ({((original_nodes-final_nodes)/original_nodes)*100:.1f}%)")
+        if original_nodes > 0:
+            print(f"Reduction: {original_nodes - final_nodes} nodes ({((original_nodes-final_nodes)/original_nodes)*100:.1f}%)")
+        else:
+            print(f"Output nodes: {final_nodes}")
         print("=" * 70)
         print("[SUCCESS] Synthesis completed!")
         
@@ -261,8 +265,8 @@ Examples:
                        help="Force vector shell")
     parser.add_argument("--check-deps", action="store_true",
                        help="Check dependencies and exit")
-    parser.add_argument("--synthesize", "-s", type=str, choices=["basic", "standard", "aggressive"],
-                       help="Run complete synthesis flow and exit (requires --file)")
+    parser.add_argument("--synthesize", "-s", action="store_true",
+                       help="Run synthesis and exit (requires --file)")
     
     args = parser.parse_args()
     
@@ -276,7 +280,7 @@ Examples:
         if not args.file:
             print("[ERROR] --synthesize requires --file option")
             sys.exit(1)
-        run_synthesis_mode(args.file, args.synthesize, args.debug)
+        run_synthesis_mode(args.file, args.debug)
         return
     
     # Setup logging

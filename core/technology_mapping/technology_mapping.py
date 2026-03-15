@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-Technology Mapping for VLSI Physical Design
+Technology Mapping (Ánh xạ công nghệ)
 
-Dựa trên các khái niệm VLSI CAD Part 2 và tham khảo từ ABC (YosysHQ/abc).
-Technology mapping và library binding với cut enumeration.
+Tham khảo từ ABC (YosysHQ/abc). Technology mapping và library binding với cut enumeration.
 
 ABC Reference: src/map/mapper.c
 - Cut enumeration algorithms
@@ -176,9 +175,7 @@ class LogicNode:
 
 class TechnologyMapper:
     """
-    Technology mapping engine.
-    
-    Based on VLSI CAD Part 2 concepts for technology mapping.
+    Technology mapping engine (ánh xạ thiết kế sang thư viện standard cells).
     """
     
     def __init__(self, library: TechnologyLibrary):

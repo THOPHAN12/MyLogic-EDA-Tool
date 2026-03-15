@@ -59,7 +59,7 @@ def demo_techmap_flow():
     print("\n[4/5] Creating Technology Mapper...")
     mapper = TechnologyMapper(library)
     
-    # Convert netlist nodes to LogicNode (giống như vector_shell.py)
+    # Convert netlist nodes to LogicNode (giống như mylogic_shell.py)
     nodes = optimized.get('nodes', {})
     node_count = 0
     

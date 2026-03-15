@@ -13,8 +13,8 @@ PROJECT_EMAIL = "thophan12@example.com"
 
 # Project Descriptions
 PROJECT_DESCRIPTION_SHORT = "Unified Electronic Design Automation Tool"
-PROJECT_DESCRIPTION_LONG = "Unified Electronic Design Automation Tool with Advanced VLSI CAD Algorithms"
-PROJECT_DESCRIPTION_DETAILED = "A comprehensive EDA tool for digital circuit design, logic synthesis, optimization, and verification with both scalar and vector support, powered by Yosys synthesis engine and advanced VLSI CAD algorithms."
+PROJECT_DESCRIPTION_LONG = "Unified Electronic Design Automation Tool for Logic Synthesis Learning"
+PROJECT_DESCRIPTION_DETAILED = "A comprehensive EDA tool for digital circuit design, logic synthesis, optimization, and technology mapping with both scalar and vector support, powered by Yosys synthesis engine. Focus: Verilog → AIG → optimization (Strash, DCE, CSE, ConstProp, Balance) → technology mapping → gate-level netlist."
 
 # Branding Messages
 WELCOME_MESSAGE = f"{PROJECT_NAME} v{PROJECT_VERSION}"
@@ -46,16 +46,6 @@ ALGORITHMS = {
     "BALANCE": "Logic Balancing"
 }
 
-# VLSI CAD Algorithm Names
-VLSI_ALGORITHMS = {
-    "BDD": "Binary Decision Diagrams",
-    "SAT": "SAT Solver",
-    "PLACEMENT": "Placement Algorithms",
-    "ROUTING": "Routing Algorithms",
-    "STA": "Static Timing Analysis",
-    "TECHMAP": "Technology Mapping"
-}
-
 # File Extensions
 SUPPORTED_INPUT_EXTENSIONS = [".v", ".verilog"]
 SUPPORTED_OUTPUT_EXTENSIONS = [".v", ".json", ".blif", ".edif", ".spice", ".dot", ".liberty", ".sv"]
@@ -71,7 +61,7 @@ LICENSE = "MIT"
 LICENSE_URL = "https://opensource.org/licenses/MIT"
 
 # Keywords for PyPI
-PYPI_KEYWORDS = ["eda", "vlsi", "synthesis", "optimization", "simulation", "verilog", "yosys"]
+PYPI_KEYWORDS = ["eda", "synthesis", "optimization", "simulation", "verilog", "yosys", "technology-mapping", "aig"]
 
 # Development Status
 DEVELOPMENT_STATUS = "4 - Beta"

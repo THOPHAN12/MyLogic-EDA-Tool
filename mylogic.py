@@ -35,7 +35,7 @@ from typing import Optional, Dict, Any
 # Thêm thư mục gốc project vào đường dẫn để import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from cli.vector_shell import VectorShell
+from cli.mylogic_shell import MyLogicShell
 from parsers import parse_verilog
 
 # Import constants
@@ -195,7 +195,7 @@ def check_dependencies():
 
 def create_shell(mode: str, config: Dict[str, Any], file_path: Optional[str] = None):
     """Create appropriate shell based on mode."""
-    shell = VectorShell(config)
+    shell = MyLogicShell(config)
     print("=" * 60)
     print(WELCOME_MESSAGE)
     print(SUBTITLE_MESSAGE)

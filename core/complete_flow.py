@@ -8,7 +8,7 @@ Luồng tự động chạy cả 4 bước:
 3. TECHMAP: AIG → Technology-mapped netlist
 4. VERIFICATION: ModelSim simulation để so sánh output
 
-Đây là workflow hoàn chỉnh cho VLSI CAD flow.
+Luồng phù hợp phạm vi đề tài: tổng hợp luận lý, tối ưu, ánh xạ công nghệ.
 """
 
 import sys

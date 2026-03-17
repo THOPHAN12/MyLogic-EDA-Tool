@@ -174,7 +174,6 @@ def test_complete_flow_integration(test_file):
             netlist,
             enable_optimization=True,
             enable_techmap=True,
-            enable_verification=False,
             techmap_library=sky130_lib,
             write_verilog=True,
             output_dir=output_dir

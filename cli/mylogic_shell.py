@@ -2,7 +2,7 @@
 MyLogic interactive shell – CLI chính cho công cụ tổng hợp luận lý.
 
 Cung cấp: đọc Verilog, synthesis (Netlist → AIG), tối ưu (Strash, DCE, CSE, ConstProp, Balance),
-technology mapping, complete flow, mô phỏng (scalar/vector), thống kê và xuất netlist.
+technology mapping, complete flow, thống kê và xuất netlist.
 """
 
 import os
@@ -14,11 +14,6 @@ from typing import Any, Dict, Optional, Union
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from parsers import parse_verilog
-from core.simulation.arithmetic_simulation import simulate_arithmetic_netlist
-from core.simulation.arithmetic_simulation import VectorValue
-
-# Yosys integration removed
-
 
 class MyLogicShell:
     """Shell tương tác chính của MyLogic EDA Tool (tổng hợp luận lý, tối ưu, ánh xạ công nghệ)."""
@@ -49,8 +44,6 @@ class MyLogicShell:
             'modules': self._show_module_details,
             'export': self._export_json,
             'export_json': self._export_json,
-            'simulate': self._simulate_unified,
-            'vsimulate': self._simulate_vector_netlist,
             'history': self._show_history,
             'clear': self._clear_screen,
             'help': self._show_help,
@@ -75,7 +68,7 @@ class MyLogicShell:
 
     def run(self):
         """Chạy interactive shell."""
-        print("Welcome to MyLogic Vector Shell. Type 'help' for commands.")
+        print("Welcome to MyLogic Shell. Type 'help' for commands.")
         while True:
             try:
                 cmd = input(self.prompt).strip()
@@ -264,72 +257,6 @@ class MyLogicShell:
         else:
             print("Vector details only available for vector netlists.")
 
-    def _simulate_unified(self, parts=None):
-        """Simulation thống nhất tự động phát hiện vector vs scalar."""
-        if not self.netlist:
-            print("[ERROR] No netlist loaded.")
-            return
-        
-        # Kiểm tra xem đây có phải là vector design không
-        if isinstance(self.netlist, dict):
-            vector_widths = self.netlist.get('attrs', {}).get('vector_widths', {})
-            has_vector_io = any(width > 1 for width in vector_widths.values())
-            
-            if has_vector_io:
-                # Sử dụng vector simulation
-                print("[INFO] Detected vector design, using vector simulation...")
-                self._simulate_vector_netlist()
-            else:
-                # Sử dụng scalar simulation
-                print("[INFO] Detected scalar design, using scalar simulation...")
-                self._simulate_netlist()
-        else:
-            # Netlist object (scalar)
-            print("[INFO] Detected scalar design, using scalar simulation...")
-            self._simulate_netlist()
-
-    def _simulate_netlist(self):
-        """Mô phỏng scalar netlist sử dụng vector simulation."""
-        if not isinstance(self.netlist, dict):
-            print("[ERROR] Scalar simulation requires vector netlist.")
-            return
-        
-        vec = {}
-        inputs = self.netlist.get("inputs", [])
-        vector_widths = self.netlist.get('attrs', {}).get('vector_widths', {})
-        
-        for inp in inputs:
-            width = vector_widths.get(inp, 1)
-            if width > 1:
-                val = input(f"  Value for [{width-1}:0] {inp} (integer): ")
-                try:
-                    vec[inp] = VectorValue(int(val.strip()), width)
-                except ValueError:
-                    print(f"[ERROR] Invalid input. Use integer for {width}-bit value.")
-                    return
-            else:
-                val = input(f"  Value for {inp} (0/1): ")
-                try:
-                    vec[inp] = VectorValue(int(val.strip()), 1)
-                except ValueError:
-                    print("[ERROR] Invalid input. Use 0 or 1.")
-                    return
-        
-        try:
-            out = simulate_arithmetic_netlist(self.netlist, vec)
-            print("  -> Outputs:")
-            for output_name, output_value in out.items():
-                if isinstance(output_value, VectorValue):
-                    print(f"    {output_name}: {output_value} (int: {output_value.to_int()})")
-                else:
-                    print(f"    {output_name}: {output_value}")
-        except Exception as e:
-            print(f"[ERROR] Simulation failed: {e}")
-
-    def _simulate_vector_netlist(self, parts=None):
-        """Mô phỏng vector netlist (giờ sử dụng logic thống nhất _simulate_netlist)."""
-        self._simulate_netlist()
-
     def _show_history(self, parts=None):
         """Hiển thị lịch sử commands."""
         if not self.history:
@@ -358,10 +285,6 @@ class MyLogicShell:
         print("  export [file]         - Export netlist to JSON file (manual export)")
         print("  dump / dump_ast       - Dump netlist structure as AST tree (like Yosys)")
         print()
-        print("Simulation:")
-        print("  simulate              - Run simulation (auto-detect vector/scalar)")
-        print("  vsimulate             - Run vector simulation (n-bit, legacy)")
-        print()
         print("Logic Synthesis:")
         print("  synthesis             - Netlist -> AIG")
         print("  strash                - Structural hashing")
@@ -371,7 +294,7 @@ class MyLogicShell:
         print("  balance              - Logic balancing")
         print("  optimize             - AIG optimization (Strash, DCE, CSE, ConstProp, Balance)")
         print("  techmap [strategy]   - Technology mapping (area/delay/balanced)")
-        print("  complete_flow [strategy] [library] - Full flow; add --verify for verification")
+        print("  complete_flow [strategy] [library] - Full flow")
         print("  aig <op>              - AIG (create/strash/convert/stats)")
         print()
         print("Utility: stats, vectors, nodes, wires, modules, export, history, clear, help, exit")
@@ -740,17 +663,15 @@ class MyLogicShell:
     def _run_complete_flow(self, parts):
         """Chạy complete flow: Synthesis -> Optimization -> Technology Mapping (một chuẩn duy nhất)."""
         if not parts:
-            print("Usage: complete_flow [techmap_strategy] [techmap_library] [--verify]")
+            print("Usage: complete_flow [techmap_strategy] [techmap_library]")
             print("  techmap_strategy: area, delay, balanced (default: area)")
             print("  techmap_library: library path or type (optional, default: auto)")
-            print("  --verify or -v: Enable verification (functional simulation)")
             print("")
             print("Examples:")
             print("  complete_flow                    # area techmap, auto library")
             print("  complete_flow delay               # delay-optimal techmap")
             print("  complete_flow area asic           # area techmap, ASIC library")
             print("  complete_flow balanced sky130    # balanced techmap, SKY130 library")
-            print("  complete_flow --verify            # with verification enabled")
             return
         
         if not self.current_netlist:
@@ -759,6 +680,7 @@ class MyLogicShell:
         
         # Parse arguments - separate flags from positional args
         positional_args = [p for p in parts[1:] if not p.startswith('--') and not p.startswith('-')]
+        # flags kept for backward compatibility; no simulation/verification flags supported
         flags = [p for p in parts[1:] if p.startswith('--') or p.startswith('-')]
         
         techmap_strategy = positional_args[0].lower() if len(positional_args) > 0 else "area"
@@ -799,26 +721,6 @@ class MyLogicShell:
                     print(f"[WARNING] Library path not found: {techmap_library_path}")
                     print("[INFO] Will use auto-detected library")
             
-            # Check for --verify flag
-            enable_verification = "--verify" in flags or "-v" in flags or "--verify" in parts or "-v" in parts
-            test_vectors = None
-            
-            if enable_verification:
-                # Generate test vectors automatically
-                inputs = self.current_netlist.get('inputs', [])
-                num_inputs = len(inputs)
-                num_combinations = min(2 ** num_inputs, 32)  # Limit to 32 for performance
-                
-                test_vectors = []
-                for i in range(num_combinations):
-                    test_inputs = {}
-                    for j, input_name in enumerate(inputs):
-                        bit_value = (i >> (num_inputs - 1 - j)) & 1
-                        test_inputs[input_name] = bit_value
-                    test_vectors.append({'inputs': test_inputs})
-                
-                print(f"[INFO] Verification enabled: {len(test_vectors)} test vectors generated")
-            
             # Run complete flow (một chuẩn duy nhất)
             results = run_complete_flow(
                 self.current_netlist,
@@ -826,8 +728,6 @@ class MyLogicShell:
                 techmap_library=library,
                 enable_optimization=True,
                 enable_techmap=True,
-                enable_verification=enable_verification,
-                test_vectors=test_vectors
             )
                 
             # Update current AIG to the final AIG (from optimization or synthesis)
@@ -870,25 +770,6 @@ class MyLogicShell:
                     print(f"    Total delay: {tm_results['total_delay']:.2f}")
             else:
                 print(f"\n[3] Technology Mapping: SKIPPED")
-            
-            # Verification results
-            if enable_verification and 'verification' in results:
-                verif = results['verification']
-                print(f"\n[VERIFICATION] Results:")
-                
-                if 'synthesis_verification' in verif:
-                    synth_verif = verif['synthesis_verification']
-                    if synth_verif and not synth_verif.get('skipped'):
-                        status = "PASS" if synth_verif.get('passed') else "FAIL"
-                        print(f"    Synthesis Verification: {status}")
-                        print(f"      Tests: {synth_verif['passed_tests']}/{synth_verif['total_tests']} passed")
-                
-                if 'optimization_verification' in verif:
-                    opt_verif = verif['optimization_verification']
-                    if opt_verif and not opt_verif.get('skipped'):
-                        status = "PASS" if opt_verif.get('passed') else "FAIL"
-                        print(f"    Optimization Verification: {status}")
-                        print(f"      Tests: {opt_verif['passed_tests']}/{opt_verif['total_tests']} passed")
             
             print("=" * 70)
             print("[OK] Complete flow finished successfully!")

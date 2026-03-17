@@ -95,7 +95,6 @@ def test_file(file_path, sky130_lib):
             netlist,
             enable_optimization=True,
             enable_techmap=True,
-            enable_verification=False,
             techmap_library=sky130_lib,
             write_verilog=False,  # Don't write files for batch test
             output_dir=output_dir

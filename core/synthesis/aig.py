@@ -433,6 +433,27 @@ def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) 
         outputs = [f"out{i}" for i in range(len(aig.pos))]
         module_name = "aig_design"
     
+    # Reserved prefix for internal nets/nodes to avoid collisions with user signals
+    INTERNAL_PREFIX = "__ml_"
+
+    # Collect user-visible signal names (best-effort) to prevent accidental collisions
+    user_signals = set()
+    if original_netlist:
+        user_signals.update(original_netlist.get('inputs', []) or [])
+        user_signals.update(original_netlist.get('outputs', []) or [])
+        attrs = original_netlist.get('attrs', {}) or {}
+        user_signals.update((attrs.get('vector_widths', {}) or {}).keys())
+        user_signals.update((attrs.get('output_mapping', {}) or {}).keys())
+
+    def _internal(name: str) -> str:
+        """Create an internal net name that won't collide with user signals."""
+        if not name.startswith(INTERNAL_PREFIX):
+            name = f"{INTERNAL_PREFIX}{name}"
+        # In the unlikely event user used the reserved prefix, keep nesting
+        while name in user_signals:
+            name = f"{INTERNAL_PREFIX}{name}"
+        return name
+
     # Convert AIG nodes to netlist nodes
     nodes = {}
     node_counter = [0]  # Use list to allow modification in nested function
@@ -447,7 +468,7 @@ def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) 
         if signal_name in signal_to_node:
             return signal_to_node[signal_name]
         
-        node_id = f"n{node_counter[0]}"
+        node_id = _internal(f"n{node_counter[0]}")
         node_counter[0] += 1
         signal_to_node[signal_name] = node_id
         return node_id
@@ -500,35 +521,79 @@ def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) 
             return nodes[node_id]
         
         elif aig_node.is_and():
-            # Convert AND node
+            # NOT trong AIG = AND(x, const1) với một cạnh inverted. Rút gọn thành NOT/BUF.
+            left_const1 = aig_node.left.is_constant() and aig_node.left.get_value()
+            right_const1 = aig_node.right.is_constant() and aig_node.right.get_value()
+            if right_const1 and not aig_node.right_inverted:
+                # AND(left, 1) hoặc AND(!left, 1)
+                inner_signal = _internal(f"w{aig_node.left.node_id}")
+                if not aig_node.left.is_pi() and not aig_node.left.is_constant():
+                    convert_aig_node_to_netlist(aig_node.left, inner_signal)
+                elif aig_node.left.is_pi():
+                    inner_signal = aig_node.left.var_name
+                elif aig_node.left.is_constant():
+                    inner_signal = _internal(f"const_{aig_node.left.get_value()}")
+                if aig_node.left_inverted and inner_signal:
+                    not_node_id = get_or_create_node_for_signal(output_signal)
+                    nodes[not_node_id] = {
+                        'id': not_node_id, 'type': 'NOT', 'inputs': [inner_signal],
+                        'output': output_signal, 'name': not_node_id
+                    }
+                    return nodes[not_node_id]
+                else:
+                    buf_node_id = get_or_create_node_for_signal(output_signal)
+                    nodes[buf_node_id] = {
+                        'id': buf_node_id, 'type': 'BUF', 'inputs': [inner_signal],
+                        'output': output_signal, 'name': buf_node_id
+                    }
+                    return nodes[buf_node_id]
+            if left_const1 and not aig_node.left_inverted:
+                inner_signal = _internal(f"w{aig_node.right.node_id}")
+                if not aig_node.right.is_pi() and not aig_node.right.is_constant():
+                    convert_aig_node_to_netlist(aig_node.right, inner_signal)
+                elif aig_node.right.is_pi():
+                    inner_signal = aig_node.right.var_name
+                elif aig_node.right.is_constant():
+                    inner_signal = _internal(f"const_{aig_node.right.get_value()}")
+                if aig_node.right_inverted and inner_signal:
+                    not_node_id = get_or_create_node_for_signal(output_signal)
+                    nodes[not_node_id] = {
+                        'id': not_node_id, 'type': 'NOT', 'inputs': [inner_signal],
+                        'output': output_signal, 'name': not_node_id
+                    }
+                    return nodes[not_node_id]
+                else:
+                    buf_node_id = get_or_create_node_for_signal(output_signal)
+                    nodes[buf_node_id] = {
+                        'id': buf_node_id, 'type': 'BUF', 'inputs': [inner_signal],
+                        'output': output_signal, 'name': buf_node_id
+                    }
+                    return nodes[buf_node_id]
+
+            # General AND node
             node_id = get_or_create_node_for_signal(output_signal)
-            
-            # Get input signals
             left_signal = None
             right_signal = None
-            
             if aig_node.left.is_pi():
                 left_signal = aig_node.left.var_name
             elif aig_node.left.is_constant():
-                left_signal = f"const_{aig_node.left.get_value()}"
+                left_signal = _internal(f"const_{aig_node.left.get_value()}")
             else:
-                # Need to create intermediate signal
-                left_signal = f"w{aig_node.left.node_id}"
+                left_signal = _internal(f"w{aig_node.left.node_id}")
                 convert_aig_node_to_netlist(aig_node.left, left_signal)
-            
+
             if aig_node.right.is_pi():
                 right_signal = aig_node.right.var_name
             elif aig_node.right.is_constant():
-                right_signal = f"const_{aig_node.right.get_value()}"
+                right_signal = _internal(f"const_{aig_node.right.get_value()}")
             else:
-                # Need to create intermediate signal
-                right_signal = f"w{aig_node.right.node_id}"
+                right_signal = _internal(f"w{aig_node.right.node_id}")
                 convert_aig_node_to_netlist(aig_node.right, right_signal)
-            
+
             # Handle inversions
             if aig_node.left_inverted and left_signal:
                 # Create NOT node for left
-                not_left_signal = f"not_{left_signal}"
+                not_left_signal = _internal(f"not_{left_signal}")
                 not_node_id = get_or_create_node_for_signal(not_left_signal)
                 nodes[not_node_id] = {
                     'id': not_node_id,
@@ -541,7 +606,7 @@ def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) 
             
             if aig_node.right_inverted and right_signal:
                 # Create NOT node for right
-                not_right_signal = f"not_{right_signal}"
+                not_right_signal = _internal(f"not_{right_signal}")
                 not_node_id = get_or_create_node_for_signal(not_right_signal)
                 nodes[not_node_id] = {
                     'id': not_node_id,
@@ -567,11 +632,14 @@ def aig_to_netlist(aig: AIG, original_netlist: Optional[Dict[str, Any]] = None) 
     
     # Convert all output nodes
     for i, (po_node, inverted) in enumerate(aig.pos):
-        output_name = outputs[i] if i < len(outputs) else f"out{i}"
-        
+        # Multi-bit output: one name in outputs but many POs -> name bits as result[0], result[1], ...
+        if len(outputs) == 1 and len(aig.pos) > 1:
+            output_name = f"{outputs[0]}[{i}]"
+        else:
+            output_name = outputs[i] if i < len(outputs) else f"out{i}"
         if inverted:
             # Need NOT node
-            temp_signal = f"temp_out{i}"
+            temp_signal = _internal(f"temp_out{i}")
             convert_aig_node_to_netlist(po_node, temp_signal)
             
             not_node_id = get_or_create_node_for_signal(output_name)

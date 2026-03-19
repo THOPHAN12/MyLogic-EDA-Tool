@@ -24,6 +24,7 @@ Version: 2.0.0
 """
 
 from .core import parse_verilog
+from .ast import parse_verilog_ast
 
-__all__ = ['parse_verilog']
+__all__ = ['parse_verilog', 'parse_verilog_ast']
 

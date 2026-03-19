@@ -53,16 +53,115 @@ def parse_ternary_operation(
         lhs: Output signal
         rhs: Ternary expression
     """
-    # Parse ternary: condition ? true_val : false_val
-    # Simplified implementation: tạo MUX node
-    
+    from ..core.expression_parser import parse_complex_expression
+    from .arithmetic import detect_arithmetic_operator, parse_arithmetic_operation
+
+    def _split_ternary(expr: str):
+        """Split top-level ternary `cond ? a : b` (ignore nested parens)."""
+        s = expr.strip()
+        q_idx = None
+        depth = 0
+        for i, ch in enumerate(s):
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth = max(0, depth - 1)
+            elif ch == '?' and depth == 0:
+                q_idx = i
+                break
+        if q_idx is None:
+            return None
+        depth = 0
+        c_idx = None
+        for i in range(q_idx + 1, len(s)):
+            ch = s[i]
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth = max(0, depth - 1)
+            elif ch == ':' and depth == 0:
+                c_idx = i
+                break
+        if c_idx is None:
+            return None
+        cond = s[:q_idx].strip()
+        tval = s[q_idx + 1:c_idx].strip()
+        fval = s[c_idx + 1:].strip()
+        return cond, tval, fval
+
+    # Strip one layer of outer parentheses: "(a ? b : c)" -> "a ? b : c"
+    rhs_stripped = rhs.strip()
+    if rhs_stripped.startswith('(') and rhs_stripped.endswith(')'):
+        depth = 0
+        ok = True
+        for i, ch in enumerate(rhs_stripped):
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+                if depth == 0 and i != len(rhs_stripped) - 1:
+                    ok = False
+                    break
+        if ok and depth == 0:
+            rhs_stripped = rhs_stripped[1:-1].strip()
+
+    parts = _split_ternary(rhs_stripped)
+    if not parts:
+        # Fallback: treat as simple assignment
+        node_builder.create_simple_assignment(lhs, rhs)
+        return
+
+    cond_expr, true_expr, false_expr = parts
+
+    def _materialize(expr: str, out_sig: str) -> str:
+        e = expr.strip()
+        # Strip one layer of outer parentheses: "(a + b)" -> "a + b"
+        if e.startswith('(') and e.endswith(')'):
+            depth = 0
+            ok = True
+            for i, ch in enumerate(e):
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+                    if depth == 0 and i != len(e) - 1:
+                        ok = False
+                        break
+            if ok and depth == 0:
+                e = e[1:-1].strip()
+        arith_op = detect_arithmetic_operator(e)
+        if arith_op:
+            parse_arithmetic_operation(node_builder, arith_op, out_sig, e)
+            return out_sig
+        # Nested ternary
+        if is_ternary(e):
+            parse_ternary_operation(node_builder, out_sig, e)
+            return out_sig
+        if ('(' in e and ')' in e) or any(op in e for op in ['&', '|', '^', '==', '!=', '<', '>', '&&', '||', '~', '!']):
+            parse_complex_expression(node_builder, out_sig, e)
+            return out_sig
+        return e
+
+    cond_sig = _materialize(cond_expr, f"{lhs}__cond")
+
+    # Nested ternary support (educational): materialize by recursion
+    true_sig = f"{lhs}__t"
+    if is_ternary(true_expr):
+        parse_ternary_operation(node_builder, true_sig, true_expr)
+    else:
+        true_sig = _materialize(true_expr, true_sig)
+
+    false_sig = f"{lhs}__f"
+    if is_ternary(false_expr):
+        parse_ternary_operation(node_builder, false_sig, false_expr)
+    else:
+        false_sig = _materialize(false_expr, false_sig)
+
     mux_id = node_builder.create_operation_node(
         node_type='MUX',
-        operands=[rhs.strip()],  # Lưu toàn bộ expression
+        operands=[cond_sig, true_sig, false_sig],
         extra_attrs={'ternary': True}
     )
-    
-    # Tạo buffer node
     node_builder.create_buffer_node(mux_id, lhs)
 
 
@@ -176,11 +275,32 @@ def parse_concatenation(
                 parts.append(part)
             i += 1
     
+    # local import to avoid circulars
+    # is_slice/parse_slice are defined below in this file
+
+    # Materialize nested concatenations/slices into temps so synthesis can see structure
+    materialized_parts = []
+    nested_idx = 0
+    for p in parts:
+        pp = p.strip()
+        if is_concatenation(pp):
+            tmp = f"{lhs}__concat{nested_idx}"
+            nested_idx += 1
+            parse_concatenation(node_builder, tmp, pp, params)
+            materialized_parts.append(tmp)
+        elif is_slice(pp):
+            tmp = f"{lhs}__slice{nested_idx}"
+            nested_idx += 1
+            parse_slice(node_builder, tmp, pp, params)
+            materialized_parts.append(tmp)
+        else:
+            materialized_parts.append(pp)
+
     # Tạo CONCAT node với expanded parts
     concat_id = node_builder.create_operation_node(
         node_type='CONCAT',
-        operands=parts,
-        extra_attrs={'expanded_parts': len(parts)}
+        operands=materialized_parts,
+        extra_attrs={'expanded_parts': len(materialized_parts)}
     )
     
     # Tạo buffer node
@@ -271,9 +391,18 @@ def parse_slice(
     first_index = match.group(2).strip()
     second_index = match.group(3) if match.group(3) else None
     
-    # Check xem có phải array index (mem[addr]) hay bit slice (signal[msb:lsb])
-    # Array index thường không có ':' trong index đầu tiên
-    is_array_index = ':' not in first_index
+    # Distinguish bit-select vs array-index:
+    # - signal[const]      -> bit select (SLICE)
+    # - signal[msb:lsb]    -> range slice (SLICE)
+    # - mem[addr]          -> array index (unsupported in strict subset, but parser can still represent it)
+    # Heuristic: if index is not a constant evaluatable to int, treat as ARRAY_INDEX.
+    is_range = ':' in first_index
+    is_const_index = False
+    try:
+        _eval_int_simple(first_index, params)
+        is_const_index = True
+    except Exception:
+        is_const_index = False
     
     if second_index:
         # mem[addr][bit] - Array index với bit select
@@ -311,22 +440,15 @@ def parse_slice(
                 'is_array_bit_select': True
             }
         )
-    elif is_array_index:
-        # mem[addr] - Array/memory index
-        index_val = None
-        try:
-            index_val = _eval_int_simple(first_index, params)
-        except Exception:
-            pass  # Không thể eval (có thể là expression)
-        
-        # Tạo ARRAY_INDEX node
+    elif (not is_range) and (not is_const_index):
+        # mem[addr] (variable index) - represent as ARRAY_INDEX
         slice_id = node_builder.create_operation_node(
             node_type='ARRAY_INDEX',
             operands=[signal_name, first_index],
             extra_attrs={
                 'signal': signal_name,
                 'index': first_index,
-                'index_val': index_val,
+                'index_val': None,
                 'is_memory': True
             }
         )

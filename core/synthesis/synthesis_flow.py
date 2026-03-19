@@ -148,12 +148,13 @@ def synthesize(netlist: Dict[str, Any]) -> 'AIG':
 def run_complete_synthesis(netlist: Dict[str, Any]) -> Dict[str, Any]:
     """
     Chạy synthesis đầy đủ: Netlist → AIG → tối ưu → netlist (một chuẩn duy nhất).
+    Netlist trả về được build từ AIG trước khi optimize để giữ đúng gate types (AND/OR/XOR/NAND/NOR/NOT).
     """
     aig = synthesize(netlist)
     from core.optimization.optimization_flow import optimize
-    optimized_aig = optimize(aig)
+    optimize(aig)  # chạy optimize cho nội bộ (techmap, stats); không dùng để export netlist
     from core.synthesis.aig import aig_to_netlist
-    return aig_to_netlist(optimized_aig, netlist)
+    return aig_to_netlist(aig, netlist)
 
 # Test function
 def test_synthesis_flow():

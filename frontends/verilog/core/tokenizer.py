@@ -66,6 +66,9 @@ class VerilogTokenizer:
 
         # Bước 1: Loại bỏ comments
         self.cleaned_source = self._remove_comments(self.original_source)
+
+        # Detect `default_nettype` directive (Yosys-like behavior)
+        self.default_nettype = self._extract_default_nettype(self.cleaned_source)
         
         # Bước 2: Extract module information
         self._extract_module_info()
@@ -76,8 +79,20 @@ class VerilogTokenizer:
             'port_list': self.port_list,
             'module_body': self.module_body,
             'cleaned_source': self.cleaned_source,
+            'default_nettype': getattr(self, 'default_nettype', 'wire'),
             'module_body_start_line': getattr(self, 'module_body_start_line', 1)
         }
+
+    def _extract_default_nettype(self, source: str) -> str:
+        """
+        Extract `default_nettype` setting.
+        If `default_nettype none` then implicit nets are forbidden (educational strict).
+        """
+        m = re.search(r'`default_nettype\s+(\w+)', source)
+        if not m:
+            return 'wire'
+        v = (m.group(1) or '').strip().lower()
+        return v or 'wire'
     
     def _remove_comments(self, source: str) -> str:
         """

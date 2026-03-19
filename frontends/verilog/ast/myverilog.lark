@@ -1,0 +1,73 @@
+// MyVerilog subset grammar (educational)
+// Supported:
+// - module + ANSI ports (input/output wire/reg, optional [msb:lsb])
+// - wire/reg declarations (optional [msb:lsb])
+// - assign
+// - always @(*) with blocking assignments + if/else (subset)
+// - always @(posedge clk) with nonblocking assignments (subset)
+// - expressions: &, |, ^, ~, +, -, ?:, concat {}, parentheses, bit-select/slice
+//
+// Forbidden keywords are checked in a pre-pass (initial/for/while/casex/casez).
+
+start: module
+
+module: "module" NAME param_list? "(" port_list? ")" ";" module_item* "endmodule"
+
+param_list: "#""(" param_decl ("," param_decl)* ")"   -> params
+param_decl: "parameter" NAME "=" expr                 -> param
+
+port_list: port_decl ("," port_decl)*
+port_decl: port_dir port_type? signedness? range? NAME
+port_dir: "input" | "output"
+port_type: "wire" | "reg"
+signedness: "signed" | "unsigned"
+range: "[" expr ":" expr "]"
+
+module_item: decl ";" | assign_stmt ";" | always_stmt
+
+decl: ("wire"|"reg") signedness? range? name_list
+name_list: NAME ("," NAME)*
+
+assign_stmt: "assign" lvalue "=" expr
+
+always_stmt: "always" "@""(" sens ")" stmt_block
+sens: "*"                       -> sens_all
+    | "posedge" NAME            -> sens_posedge
+
+stmt_block: "begin" stmt* "end"
+          | stmt
+
+stmt: blocking_assign ";"
+    | nonblocking_assign ";"
+    | if_stmt
+
+if_stmt: "if" "(" expr ")" stmt_block ("else" stmt_block)?
+
+blocking_assign: lvalue "=" expr
+nonblocking_assign: lvalue "<=" expr
+
+lvalue: NAME bit_select?
+bit_select: "[" expr (":" expr)? "]"
+
+?expr: ternary
+?ternary: logic_or ("?" expr ":" expr)?
+?logic_or: logic_xor ("|" logic_xor)*
+?logic_xor: logic_and ("^" logic_and)*
+?logic_and: add ("&" add)*
+?add: unary (("+"|"-") unary)*
+?unary: "~" unary
+      | concat
+      | atom
+
+concat: "{" expr ("," expr)+ "}"
+
+atom: lvalue
+    | CONST
+    | "(" expr ")"
+
+CONST: /(\d+)?'[bodhBODH][0-9a-fA-FxXzZ_]+/
+
+NAME: /[A-Za-z_][A-Za-z0-9_]*/
+
+%import common.WS
+%ignore WS

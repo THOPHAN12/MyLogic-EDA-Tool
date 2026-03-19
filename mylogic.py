@@ -1,29 +1,4 @@
 #!/usr/bin/env python3
-"""
-MyLogic - Unified EDA Tool
-
-Công cụ Tự động Hóa Thiết kế Điện tử (EDA) toàn diện cho thiết kế mạch số,
-tối ưu hóa và xác minh với hỗ trợ cả scalar và vector.
-
-Tính năng:
-- Nhiều parser frontend (Verilog, Simple Language)
-- Hỗ trợ mô phỏng Scalar và Vector
-- Các bước tối ưu hóa nâng cao (Strash, DCE, CSE, ConstProp, Balance)
-- Ánh xạ công nghệ (LUT-based, Liberty-based)
-- Phân tích chi phí và tối ưu hóa
-- Kiểm tra tương đương tổ hợp
-- Shell CLI tương tác
-- Phát hiện file thông minh
-
-Cách sử dụng:
-    python mylogic.py                    # Khởi động shell tương tác (tự động phát hiện)
-    python mylogic.py --scalar           # Bắt buộc shell scalar
-    python mylogic.py --vector           # Bắt buộc shell vector
-    python mylogic.py --file <file>      # Load file và tự động phát hiện mode
-    python mylogic.py --help             # Hiển thị help
-    python mylogic.py --version          # Hiển thị phiên bản
-"""
-
 import sys
 import os
 import argparse
@@ -32,7 +7,7 @@ import logging
 import subprocess
 from typing import Optional, Dict, Any
 
-# Thêm thư mục gốc project vào đường dẫn để import
+# Them thu muc goc project vao duong dan de import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cli.mylogic_shell import MyLogicShell
@@ -41,19 +16,24 @@ from parsers import parse_verilog
 # Import constants
 from core.utils.constants import (
     PROJECT_VERSION as VERSION,
-    PROJECT_AUTHOR as AUTHOR, 
+    PROJECT_AUTHOR as AUTHOR,
     PROJECT_DESCRIPTION_LONG as DESCRIPTION,
     WELCOME_MESSAGE,
     SUBTITLE_MESSAGE,
     FEATURES_MESSAGE
 )
 
+# Shell mode constants (tranh magic string rải rác)
+MODE_AUTO = "auto"
+MODE_SCALAR = "scalar"
+MODE_VECTOR = "vector"
+
 def setup_logging(debug: bool = False, log_file: Optional[str] = None) -> None:
     """Thiết lập cấu hình logging."""
     level = logging.DEBUG if debug else logging.INFO
     format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     
-    # Ensure console uses UTF-8 to avoid UnicodeEncodeError on Windows
+    # Dam bao console dung UTF-8 de tranh loi UnicodeEncodeError tren Windows
     try:
         if hasattr(sys.stdout, 'reconfigure'):
             sys.stdout.reconfigure(encoding='utf-8')
@@ -62,12 +42,12 @@ def setup_logging(debug: bool = False, log_file: Optional[str] = None) -> None:
     except Exception:
         pass
 
-    # Stream handler with UTF-8 encoding for Windows consoles
+    # Handler ghi ra stream voi ma hoa UTF-8 cho console tren Windows
     stream_handler = logging.StreamHandler(sys.stdout)
     try:
         stream_handler.setStream(open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1))
     except Exception:
-        # Fallback quietly if not supported
+        # Neu khong ho tro thi chuyen sang cach khac ma khong bao loi
         pass
     handlers = [stream_handler]
     
@@ -80,7 +60,7 @@ def setup_logging(debug: bool = False, log_file: Optional[str] = None) -> None:
         handlers=handlers
     )
     
-    # Giảm độ chi tiết của một số modules
+    # Giam do chi tiet cua mot so modules
     logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 def load_config(config_path: str = "config/mylogic_config.json") -> Dict[str, Any]:
@@ -97,20 +77,17 @@ def load_config(config_path: str = "config/mylogic_config.json") -> Dict[str, An
         return {}
 
 def detect_file_type(file_path: str) -> str:
-    """Detect if file contains vector declarations."""
+    """Phát hiện file có khai báo vector hay không (heuristic: tìm pattern [n:0] trong nội dung)."""
     if not os.path.exists(file_path):
         return "unknown"
-    
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
-        
-        # Check for vector declarations
+        # Heuristic: chỉ kiểm tra có pattern độ rộng bus thường gặp
         if '[3:0]' in content or '[2:0]' in content or '[1:0]' in content or '[4:0]' in content:
-            return "vector"
-        else:
-            return "scalar"
-    except:
+            return MODE_VECTOR
+        return MODE_SCALAR
+    except (OSError, UnicodeDecodeError):
         return "unknown"
 
 def run_synthesis_mode(file_path: str, debug: bool = False):
@@ -125,9 +102,9 @@ def run_synthesis_mode(file_path: str, debug: bool = False):
         # Parse Verilog
         print("[1/3] Parsing Verilog...")
         netlist = parse_verilog(file_path)
-        original_nodes = len(netlist.get('nodes', {}))
-        if isinstance(netlist.get('nodes'), list):
-            original_nodes = len(netlist.get('nodes', []))
+        # netlist['nodes'] có thể là dict hoặc list tùy parser
+        nodes = netlist.get('nodes') or {}
+        original_nodes = len(nodes)
         print(f"  Loaded {original_nodes} nodes")
         
         # Run synthesis
@@ -170,24 +147,24 @@ def run_synthesis_mode(file_path: str, debug: bool = False):
         sys.exit(1)
 
 def check_dependencies():
-    """Kiểm tra các dependencies cần thiết."""
+    """Kiem tra cac dependencies can thiet"""
     print("Checking dependencies...")
     
-    # Kiểm tra NumPy
+    # Kiem tra NumPy
     try:
         import numpy
         print("[OK] NumPy is available")
     except ImportError:
         print("[WARNING] NumPy not available - some features may be limited")
     
-    # Kiểm tra Matplotlib
+    # Kiem tra Matplotlib
     try:
         import matplotlib
         print("[OK] Matplotlib is available")
     except ImportError:
         print("[WARNING] Matplotlib not available - plotting features disabled")
     
-    # Kiểm tra Graphviz
+    # Kiem tra Graphviz
     try:
         result = subprocess.run(["dot", "-V"], capture_output=True, text=True)
         if result.returncode == 0:
@@ -220,25 +197,37 @@ def create_shell(mode: str, config: Dict[str, Any], file_path: Optional[str] = N
     
     return shell
 
-def show_usage_info(mode: str):
-    """Show usage information based on mode."""
+def show_usage_info():
+    """Hiển thị hướng dẫn lệnh theo chế độ shell."""
     print("\nUsage:")
-    if mode == "vector":
-        print("  vsimulate  - Vector simulation (n-bit)")
-        print("  simulate   - Scalar simulation (1-bit, fallback)")
-    else:
-        print("  simulate   - Scalar simulation (1-bit)")
-        print("  strash     - Structural hashing")
-        print("  dce        - Dead code elimination")
-        print("  cse        - Common subexpression elimination")
-        print("  constprop  - Constant propagation")
-        print("  balance    - Balance multi-input gates")
+    print("  strash     - Structural hashing")
+    print("  dce        - Dead code elimination")
+    print("  cse        - Common subexpression elimination")
+    print("  constprop  - Constant propagation")
+    print("  balance    - Balance multi-input gates")
     print("  stats      - Show circuit statistics")
     print("  help       - Show all commands")
     print("  exit       - Quit shell")
 
+
+def _resolve_shell_mode(args: argparse.Namespace) -> str:
+    """Xác định chế độ shell từ args: scalar, vector, hoặc auto (sau đó mặc định vector)."""
+    if args.scalar:
+        return MODE_SCALAR
+    if args.vector:
+        return MODE_VECTOR
+    if args.file:
+        file_type = detect_file_type(args.file)
+        if file_type == MODE_VECTOR:
+            return MODE_VECTOR
+        if file_type == MODE_SCALAR:
+            return MODE_SCALAR
+        return MODE_VECTOR  # khong nhan dang duoc thi mac dinh vector
+    return MODE_VECTOR  # khong co file va khong chu dinh mode thi mac dinh vector
+
+
 def main():
-    """Main entry point for MyLogic EDA Tool."""
+    """Main entry point cho MyLogic EDA Tool."""
     parser = argparse.ArgumentParser(
         description=f"{DESCRIPTION} v{VERSION}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -291,36 +280,16 @@ Examples:
     logger = logging.getLogger(__name__)
     
     try:
-        # Load configuration
         config = load_config(args.config or "config/mylogic_config.json")
-        
-        # Determine shell mode
-        mode = "auto"
-        if args.scalar:
-            mode = "scalar"
-        elif args.vector:
-            mode = "vector"
-        elif args.file:
-            # Auto-detect based on file
-            file_type = detect_file_type(args.file)
-            if file_type == "vector":
-                mode = "vector"
-            elif file_type == "scalar":
-                mode = "scalar"
-            else:
-                mode = "vector"  # Default to vector
-        
-        # If no file and no explicit mode, default to vector
-        if mode == "auto":
-            mode = "vector"
-        
+        mode = _resolve_shell_mode(args)
+
         # Check dependencies
         check_dependencies()
         
         # Create and run shell
         logger.info(f"Starting {DESCRIPTION} v{VERSION} in {mode} mode")
         shell = create_shell(mode, config, args.file)
-        show_usage_info(mode)
+        show_usage_info()
         
         shell.run()
         

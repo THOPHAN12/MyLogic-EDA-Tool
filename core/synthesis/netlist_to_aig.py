@@ -10,6 +10,7 @@ Synthesis chỉ làm việc chuyển đổi representation, không tối ưu hó
 
 import sys
 import os
+import re
 from typing import Dict, List, Set, Any, Optional
 import logging
 
@@ -34,6 +35,8 @@ class NetlistToAIGConverter:
         self.node_mapping: Dict[str, AIGNode] = {}  # netlist_node_id -> AIGNode
         self.signal_mapping: Dict[str, AIGNode] = {}  # signal_name -> AIGNode
         self.multibit_signal_mapping: Dict[str, MultiBitAIGNode] = {}  # signal_name -> MultiBitAIGNode
+        self._strict_synthesis: bool = False
+        self._rev_output_mapping: Dict[str, str] = {}
         
     def convert(self, netlist: Dict[str, Any]) -> AIG:
         """
@@ -53,9 +56,16 @@ class NetlistToAIGConverter:
         # Khởi tạo AIG
         self.aig = AIG()
         self.netlist = netlist
+        self._strict_synthesis = bool((netlist.get("attrs", {}) or {}).get("strict_synthesis", False))
         self.node_mapping = {}
         self.signal_mapping = {}
         self.multibit_signal_mapping = {}
+        self._rev_output_mapping = {}
+        outmap = (netlist.get("attrs", {}) or {}).get("output_mapping", {}) or {}
+        if isinstance(outmap, dict):
+            for sig, nid in outmap.items():
+                if isinstance(nid, str) and nid:
+                    self._rev_output_mapping[nid] = str(sig)
         
         # Bước 1: Tạo Primary Inputs
         self._create_primary_inputs(netlist)
@@ -109,6 +119,44 @@ class NetlistToAIGConverter:
                 if output:
                     self.signal_mapping[output] = self.aig.const1
     
+    def _topological_order(
+        self, nodes_list: List[Dict], output_mapping: Dict[str, str]
+    ) -> List[Dict]:
+        """Sắp xếp nodes theo thứ tự topo (dependency trước)."""
+        node_ids = {n.get('id', ''): n for n in nodes_list if isinstance(n, dict)}
+        node_ids_set = set(node_ids)
+        # deps[node_id] = set of node_ids that must be converted before this node
+        deps = {}
+        for n in nodes_list:
+            if not isinstance(n, dict):
+                continue
+            nid = n.get('id', '')
+            fanins = n.get('fanins', []) or n.get('inputs', [])
+            sigs = []
+            for f in fanins:
+                if isinstance(f, (list, tuple)) and f:
+                    sigs.append(str(f[0]))
+                else:
+                    sigs.append(str(f))
+            deps[nid] = set()
+            for s in sigs:
+                if s in node_ids_set and s != nid:
+                    deps[nid].add(s)
+                elif s in output_mapping and output_mapping[s] != nid:
+                    deps[nid].add(output_mapping[s])
+        result = []
+        remaining = set(deps)
+        while remaining:
+            ready = [nid for nid in remaining if deps[nid].isdisjoint(remaining)]
+            if not ready:
+                # cycle: add remaining in arbitrary order
+                ready = list(remaining)
+            for nid in ready:
+                remaining.discard(nid)
+                if nid in node_ids:
+                    result.append(node_ids[nid])
+        return result
+
     def _convert_nodes(self, netlist: Dict[str, Any]):
         """Convert tất cả nodes sang AIG."""
         nodes = netlist.get('nodes', [])
@@ -119,7 +167,9 @@ class NetlistToAIGConverter:
         else:
             nodes_list = nodes if isinstance(nodes, list) else []
         
-        # Convert nodes theo topological order (simplified - process all nodes)
+        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+        nodes_list = self._topological_order(nodes_list, output_mapping)
+        
         for node_data in nodes_list:
             if not isinstance(node_data, dict):
                 continue
@@ -131,8 +181,8 @@ class NetlistToAIGConverter:
             if node_type in ['CONST0', 'CONST1', 'GND', 'VCC', '0', '1', 'INPUT', 'OUTPUT']:
                 continue
             
-            # Convert based on node type
-            if node_type in ['AND', 'OR', 'XOR', 'NAND', 'NOR', 'XNOR', 'NOT', 'BUF']:
+            # Convert based on node type (BUF handled below for multibit pass-through)
+            if node_type in ['AND', 'OR', 'XOR', 'NAND', 'NOR', 'XNOR', 'NOT']:
                 aig_node = self._convert_gate_node(node_data)
                 if aig_node:
                     self.node_mapping[node_id] = aig_node
@@ -159,7 +209,15 @@ class NetlistToAIGConverter:
             elif node_type == 'ADD':
                 multi_bit_node = self._convert_add_node(node_data)
                 if multi_bit_node:
-                    output = node_data.get('output', node_id)
+                    output = node_data.get('output', None)
+                    if not output:
+                        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                        for sig, mapped_id in output_mapping.items():
+                            if mapped_id == node_id:
+                                output = sig
+                                break
+                    if not output:
+                        output = node_id
                     if output:
                         self.multibit_signal_mapping[output] = multi_bit_node
                         # Also store individual bits in signal_mapping for compatibility
@@ -173,7 +231,15 @@ class NetlistToAIGConverter:
             elif node_type == 'SUB':
                 multi_bit_node = self._convert_sub_node(node_data)
                 if multi_bit_node:
-                    output = node_data.get('output', node_id)
+                    output = node_data.get('output', None)
+                    if not output:
+                        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                        for sig, mapped_id in output_mapping.items():
+                            if mapped_id == node_id:
+                                output = sig
+                                break
+                    if not output:
+                        output = node_id
                     if output:
                         self.multibit_signal_mapping[output] = multi_bit_node
                         for i, bit_node in enumerate(multi_bit_node.bits):
@@ -187,15 +253,52 @@ class NetlistToAIGConverter:
                 aig_node = self._convert_eq_node(node_data)
                 if aig_node:
                     self.node_mapping[node_id] = aig_node
-                    output = node_data.get('output', node_id)
+                    output = node_data.get('output', None)
+                    if not output:
+                        output_mapping = netlist.get('attrs', {}).get('output_mapping', {}) or {}
+                        for sig, mapped_id in output_mapping.items():
+                            if mapped_id == node_id:
+                                output = sig
+                                break
+                    if not output:
+                        output = node_id
                     if output:
                         self.signal_mapping[output] = aig_node
+
+            elif node_type == 'NE':
+                aig_node = self._convert_ne_node(node_data)
+                if aig_node:
+                    self.node_mapping[node_id] = aig_node
+                    output = self._rev_output_mapping.get(node_id) or node_data.get('output') or node_id
+                    self.signal_mapping[output] = aig_node
+
+            elif node_type in ('LT', 'LE', 'GT', 'GE'):
+                aig_node = self._convert_rel_node(node_type, node_data)
+                if aig_node:
+                    self.node_mapping[node_id] = aig_node
+                    output = self._rev_output_mapping.get(node_id) or node_data.get('output') or node_id
+                    self.signal_mapping[output] = aig_node
+
+            elif node_type in ('LAND', 'LOR'):
+                aig_node = self._convert_logical_node(node_type, node_data)
+                if aig_node:
+                    self.node_mapping[node_id] = aig_node
+                    output = self._rev_output_mapping.get(node_id) or node_data.get('output') or node_id
+                    self.signal_mapping[output] = aig_node
             
             # Multiplexer (multi-bit support)
             elif node_type == 'MUX':
                 multi_bit_node = self._convert_mux_node(node_data)
                 if multi_bit_node:
-                    output = node_data.get('output', node_id)
+                    output = node_data.get('output', None)
+                    if not output:
+                        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                        for sig, mapped_id in output_mapping.items():
+                            if mapped_id == node_id:
+                                output = sig
+                                break
+                    if not output:
+                        output = node_id
                     if output:
                         self.multibit_signal_mapping[output] = multi_bit_node
                         for i, bit_node in enumerate(multi_bit_node.bits):
@@ -203,6 +306,130 @@ class NetlistToAIGConverter:
                             self.signal_mapping[bit_name] = bit_node
                         if multi_bit_node.width > 0:
                             self.node_mapping[node_id] = multi_bit_node.bits[0]
+
+            # Concatenation: {a, b, ...} -> multi-bit, first operand is MSB
+            elif node_type == 'CONCAT':
+                multi_bit_node = self._convert_concat_node(node_data)
+                if multi_bit_node:
+                    output = node_data.get('output', node_id)
+                    if not output:
+                        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                        for sig, mapped_id in output_mapping.items():
+                            if mapped_id == node_id:
+                                output = sig
+                                break
+                    if not output:
+                        output = node_id
+                    if output:
+                        self.multibit_signal_mapping[output] = multi_bit_node
+                        for i, bit_node in enumerate(multi_bit_node.bits):
+                            bit_name = f"{output}[{i}]" if multi_bit_node.width > 1 else output
+                            self.signal_mapping[bit_name] = bit_node
+                        if multi_bit_node.width > 0:
+                            self.node_mapping[node_id] = multi_bit_node.bits[0]
+
+            # Slice/index: signal[msb:lsb] or signal[idx]
+            elif node_type == 'SLICE':
+                fanins = node_data.get('fanins', [])
+                ops = []
+                for f in fanins:
+                    if isinstance(f, (list, tuple)) and len(f) >= 1:
+                        ops.append(str(f[0]))
+                    else:
+                        ops.append(str(f))
+                if len(ops) >= 3:
+                    sig_name, msb_s, lsb_s = ops[0], ops[1], ops[2]
+                    try:
+                        def _eval_idx(s: str) -> int:
+                            ss = s.strip()
+                            try:
+                                return int(ss)
+                            except Exception:
+                                params = (self.netlist or {}).get("attrs", {}).get("parameters", {}) or {}
+                                if ss in params and isinstance(params[ss], int):
+                                    return int(params[ss])
+                                # Minimal WIDTH-1 style evaluator
+                                m = re.match(r"^\s*([A-Za-z_]\w*)\s*([-+])\s*(\d+)\s*$", ss)
+                                if m:
+                                    base = m.group(1)
+                                    op = m.group(2)
+                                    k = int(m.group(3))
+                                    if base in params and isinstance(params[base], int):
+                                        return int(params[base]) - k if op == "-" else int(params[base]) + k
+                                raise
+
+                        msb_v = _eval_idx(msb_s)
+                        lsb_v = _eval_idx(lsb_s)
+                        l = min(msb_v, lsb_v)
+                        h = max(msb_v, lsb_v)
+                        width = h - l + 1
+                        base_bits = self._get_multi_bit_signal(sig_name, self._get_signal_width(sig_name, h + 1))
+                        slice_bits = base_bits[l:h + 1]
+                        mb = MultiBitAIGNode(width, slice_bits)
+                        output = node_data.get('output', None)
+                        if not output:
+                            output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                            for sig, mapped_id in output_mapping.items():
+                                if mapped_id == node_id:
+                                    output = sig
+                                    break
+                        if not output:
+                            output = node_id
+                        self.multibit_signal_mapping[output] = mb
+                        for i, bit_node in enumerate(mb.bits):
+                            bit_name = f"{output}[{i}]" if mb.width > 1 else output
+                            self.signal_mapping[bit_name] = bit_node
+                        if mb.width > 0:
+                            self.node_mapping[node_id] = mb.bits[0]
+                    except Exception:
+                        logger.debug("SLICE with non-int indices not supported yet")
+                        continue
+
+            # BUF with multi-bit input (pass-through): input is node_id from CONCAT
+            elif node_type == 'BUF':
+                fanins = node_data.get('fanins', [])
+                inputs = node_data.get('inputs', [])
+                input_list = []
+                if fanins:
+                    input_list = [str(f[0]) if isinstance(f, (list, tuple)) and f else str(f) for f in fanins]
+                elif inputs:
+                    input_list = [str(inp) for inp in inputs]
+                if len(input_list) == 1:
+                    inp_sig = input_list[0]
+                    if inp_sig in self.multibit_signal_mapping:
+                        # Prefer output_mapping (signal name) over node_id so temp2 is keyed by name
+                        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                        output = None
+                        for sig, mapped_id in output_mapping.items():
+                            if mapped_id == node_id:
+                                output = sig
+                                break
+                        if not output:
+                            output = node_data.get('output', node_id)
+                        if not output:
+                            output = node_id
+                        if output:
+                            mb = self.multibit_signal_mapping[inp_sig]
+                            self.multibit_signal_mapping[output] = mb
+                            for i, bit_node in enumerate(mb.bits):
+                                bit_name = f"{output}[{i}]" if mb.width > 1 else output
+                                self.signal_mapping[bit_name] = bit_node
+                            self.node_mapping[node_id] = mb.bits[0]
+                            continue
+                aig_node = self._convert_gate_node(node_data)
+                if aig_node:
+                    self.node_mapping[node_id] = aig_node
+                    output = node_data.get('output', None)
+                    if not output:
+                        output_mapping = netlist.get('attrs', {}).get('output_mapping', {})
+                        for signal, mapped_node_id in output_mapping.items():
+                            if mapped_node_id == node_id:
+                                output = signal
+                                break
+                    if not output:
+                        output = node_id
+                    if output:
+                        self.signal_mapping[output] = aig_node
             
             # Skip sequential/memory for now
             elif node_type in ['DFF', 'ARRAY_INDEX', 'SLICE']:
@@ -237,22 +464,30 @@ class NetlistToAIGConverter:
         # Get AIG nodes for inputs
         aig_inputs = []
         for sig, inv in zip(input_signals, input_inverted):
-            if sig in self.signal_mapping:
+            # Constants like 1'b0, 4'hF, 8'd10
+            if "'" in sig:
+                value, _w = parse_constant_string(sig, 1)
+                const_bit = self.aig.const1 if (value & 1) else self.aig.const0
+                aig_input = const_bit
+            elif sig in self.signal_mapping:
                 aig_input = self.signal_mapping[sig]
-                # Handle inversion
-                if inv:
-                    aig_input = self.aig.create_not(aig_input)
-                aig_inputs.append(aig_input)
+            elif sig in self.aig.pis:
+                aig_input = self.aig.pis[sig]
+            elif sig in self.node_mapping:
+                # Some netlists reference internal node ids directly as fanins
+                aig_input = self.node_mapping[sig]
             else:
-                # Input not found - might be primary input or constant
-                if sig in self.aig.pis:
-                    aig_input = self.aig.pis[sig]
-                    if inv:
-                        aig_input = self.aig.create_not(aig_input)
-                    aig_inputs.append(aig_input)
-                else:
-                    logger.warning(f"Input signal '{sig}' not found, skipping node")
-                    return None
+                # Input not found in mapping: either floating net (loose) or error (strict).
+                if self._strict_synthesis:
+                    raise ValueError(f"Synthesis error: input signal '{sig}' not found (undeclared or undriven)")
+                logger.warning(f"Input signal '{sig}' not found, creating new primary input")
+                aig_input = self.aig.create_pi(sig)
+                self.signal_mapping[sig] = aig_input
+
+            # Handle inversion
+            if inv:
+                aig_input = self.aig.create_not(aig_input)
+            aig_inputs.append(aig_input)
         
         # Convert gate type to AIG
         if node_type == 'AND':
@@ -380,6 +615,10 @@ class NetlistToAIGConverter:
             multibit_const = create_constant_multibit(self.aig, value, actual_width)
             return multibit_const.bits[:width]  # Return requested width
         
+        # If the netlist references a node-id directly, map it back to a signal name when possible.
+        if signal_name in self._rev_output_mapping:
+            signal_name = self._rev_output_mapping[signal_name]
+
         # Regular signal - try to get from mappings
         bits = []
         for i in range(width):
@@ -410,6 +649,8 @@ class NetlistToAIGConverter:
                     bits.append(bit_pi)
             else:
                 # Create new PI for this bit
+                if self._strict_synthesis:
+                    raise ValueError(f"Synthesis error: input signal '{signal_name}' not found (undeclared or undriven)")
                 bit_pi = self.aig.create_pi(bit_name)
                 self.signal_mapping[bit_name] = bit_pi
                 bits.append(bit_pi)
@@ -459,6 +700,31 @@ class NetlistToAIGConverter:
             result_bits.append(sum_result)
         
         return MultiBitAIGNode(width, result_bits)
+
+    def _convert_concat_node(self, node_data: Dict[str, Any]) -> Optional[MultiBitAIGNode]:
+        """Convert CONCAT node: {a, b, ...} -> multi-bit, first operand is MSB."""
+        fanins = node_data.get('fanins', [])
+        if not fanins:
+            return None
+        operands = []
+        for f in fanins:
+            if isinstance(f, (list, tuple)) and len(f) >= 1:
+                operands.append(str(f[0]))
+            else:
+                operands.append(str(f))
+        if not operands:
+            return None
+        all_bits = []
+        for sig in reversed(operands):
+            if sig in self.multibit_signal_mapping:
+                width = self.multibit_signal_mapping[sig].width
+            else:
+                width = self._get_signal_width(sig, 1)
+            bits = self._get_multi_bit_signal(sig, width)
+            all_bits.extend(bits)
+        if not all_bits:
+            return None
+        return MultiBitAIGNode(len(all_bits), all_bits)
     
     def _convert_sub_node(self, node_data: Dict[str, Any]) -> Optional[MultiBitAIGNode]:
         """Convert SUB node: a - b = a + (~b) + 1 (2's complement)."""
@@ -540,6 +806,72 @@ class NetlistToAIGConverter:
             result = self.aig.create_and(result, bit)
         
         return result  # Single-bit result
+
+    def _convert_ne_node(self, node_data: Dict[str, Any]) -> Optional[AIGNode]:
+        eq = self._convert_eq_node(node_data)
+        return self.aig.create_not(eq) if eq else None
+
+    def _convert_rel_node(self, rel: str, node_data: Dict[str, Any]) -> Optional[AIGNode]:
+        """Unsigned relational compare LT/LE/GT/GE (single-bit)."""
+        fanins = node_data.get('fanins', [])
+        if len(fanins) < 2:
+            return None
+        a_signal = str(fanins[0][0]) if isinstance(fanins[0], list) and len(fanins[0]) > 0 else str(fanins[0])
+        b_signal = str(fanins[1][0]) if isinstance(fanins[1], list) and len(fanins[1]) > 0 else str(fanins[1])
+        width = max(self._get_signal_width(a_signal, 1), self._get_signal_width(b_signal, 1))
+        a_bits = self._get_multi_bit_signal(a_signal, width)
+        b_bits = self._get_multi_bit_signal(b_signal, width)
+
+        lt = self.aig.const0
+        gt = self.aig.const0
+        eq = self.aig.const1
+        for i in reversed(range(width)):
+            ai = a_bits[i]
+            bi = b_bits[i]
+            ai_n = self.aig.create_not(ai)
+            bi_n = self.aig.create_not(bi)
+            ai_lt_bi = self.aig.create_and(ai_n, bi)
+            ai_gt_bi = self.aig.create_and(ai, bi_n)
+            lt = self.aig.create_or(lt, self.aig.create_and(eq, ai_lt_bi))
+            gt = self.aig.create_or(gt, self.aig.create_and(eq, ai_gt_bi))
+            eq = self.aig.create_and(eq, self.aig.create_not(self.aig.create_xor(ai, bi)))
+
+        if rel == 'LT':
+            return lt
+        if rel == 'GT':
+            return gt
+        if rel == 'LE':
+            return self.aig.create_or(lt, eq)
+        if rel == 'GE':
+            return self.aig.create_or(gt, eq)
+        return None
+
+    def _convert_logical_node(self, t: str, node_data: Dict[str, Any]) -> Optional[AIGNode]:
+        """Logical AND/OR (single-bit) for results of comparisons etc."""
+        fanins = node_data.get('fanins', [])
+        if len(fanins) < 2:
+            return None
+        a_sig = str(fanins[0][0]) if isinstance(fanins[0], list) and len(fanins[0]) > 0 else str(fanins[0])
+        b_sig = str(fanins[1][0]) if isinstance(fanins[1], list) and len(fanins[1]) > 0 else str(fanins[1])
+
+        # Resolve node-id -> signal if needed
+        if a_sig in self._rev_output_mapping:
+            a_sig = self._rev_output_mapping[a_sig]
+        if b_sig in self._rev_output_mapping:
+            b_sig = self._rev_output_mapping[b_sig]
+
+        a_node = self.signal_mapping.get(a_sig) or self.node_mapping.get(a_sig)
+        b_node = self.signal_mapping.get(b_sig) or self.node_mapping.get(b_sig)
+        if not a_node or not b_node:
+            if self._strict_synthesis:
+                missing = a_sig if not a_node else b_sig
+                raise ValueError(f"Synthesis error: input signal '{missing}' not found (undeclared or undriven)")
+            return None
+        if t == 'LAND':
+            return self.aig.create_and(a_node, b_node)
+        if t == 'LOR':
+            return self.aig.create_or(a_node, b_node)
+        return None
     
     def _convert_mux_node(self, node_data: Dict[str, Any]) -> Optional[MultiBitAIGNode]:
         """
@@ -576,7 +908,12 @@ class NetlistToAIGConverter:
         # For case statement: select signals come after data inputs
         # Number of data inputs = num_cases (or num_cases + 1 if has_default)
         
-        if num_cases > 0:
+        # Special case: ternary MUX produced by parser uses order [sel, true, false]
+        if node_data.get("ternary") is True and len(fanins) >= 3:
+            # data0=false, data1=true, select=sel
+            data_inputs = [fanins[2], fanins[1]]
+            select_inputs = [fanins[0]]
+        elif num_cases > 0:
             # Case statement format
             num_data_inputs = num_cases + (1 if has_default else 0)
             if len(fanins) < num_data_inputs + 1:

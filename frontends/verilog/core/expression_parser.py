@@ -75,7 +75,7 @@ class ExpressionParser:
         
         # Loại bỏ outer parentheses nếu có
         expr = self._remove_outer_parens(expr)
-        
+
         # Tìm main operator (operator ngoài cùng với precedence thấp nhất)
         main_op, pos = self._find_main_operator(expr)
         
@@ -122,6 +122,14 @@ class ExpressionParser:
         """
         expr = expr.strip()
         expr = self._remove_outer_parens(expr)
+
+        # Unary NOT handling for sub-expressions
+        if expr.startswith(('~', '!')) and not expr.startswith(('~&', '~|', '~^', '^~')):
+            opnd = expr[1:].strip()
+            opnd = self._remove_outer_parens(opnd)
+            inner = self._parse_sub_expression(opnd)
+            not_id = self.node_builder.create_operation_node(node_type='NOT', operands=[inner])
+            return not_id
         
         # Tìm main operator trong sub-expression
         main_op, pos = self._find_main_operator(expr)

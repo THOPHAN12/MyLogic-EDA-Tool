@@ -18,7 +18,7 @@ Author: MyLogic Team
 Version: 2.0.0 (Refactored)
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Set
 import re
 
 from .tokenizer import (
@@ -31,9 +31,10 @@ from .node_builder import NodeBuilder, WireGenerator
 from .constants import *
 from ..operations import *
 from .expression_parser import parse_complex_expression
+from core.utils.error_handling import ParserError
 
 
-def parse_verilog(path: str) -> Dict[str, Any]:
+def parse_verilog(path: str, strict: bool = False) -> Dict[str, Any]:
     """
     Parse file Verilog thành netlist dictionary.
     
@@ -68,6 +69,12 @@ def parse_verilog(path: str) -> Dict[str, Any]:
         ValueError: Nếu path invalid
         FileNotFoundError: Nếu file không tồn tại
     """
+    # Optional AST frontend (MyVerilog subset) via env var
+    import os as _os
+    if _os.environ.get("MYLOGIC_USE_AST", "").strip() in ("1", "true", "TRUE", "yes", "YES"):
+        from frontends.verilog.ast import parse_verilog_ast
+        return parse_verilog_ast(path, strict=True)
+
     # Validate input
     if not path or not isinstance(path, str):
         raise ValueError("Path phải là string không rỗng")
@@ -94,18 +101,33 @@ def parse_verilog(path: str) -> Dict[str, Any]:
     # Bước 1: Tokenize
     tokenizer = VerilogTokenizer(source_code, path)
     tokens = tokenizer.tokenize()
+    # Yosys-like: `default_nettype none` forbids implicit nets
+    if tokens.get('default_nettype', 'wire') == 'none':
+        strict = True
+    netlist.setdefault("attrs", {})
+    # strict parse implies strict synthesis (no implicit/floating nets)
+    if strict:
+        netlist["attrs"]["strict_synthesis"] = True
 
     # Kiểm tra lỗi cú pháp cơ bản để trả về thông báo rõ ràng
     if not tokens.get('module_name'):
         raise ValueError(f"Syntax error: không tìm thấy module declaration trong {path}")
     if not tokens.get('module_body', '').strip():
         raise ValueError(f"Syntax error: thiếu 'endmodule' hoặc module body rỗng trong {path}")
+    _validate_delimiter_balance(tokens, path)
+    _validate_port_list_syntax(tokens.get('port_list', ''), path)
     _basic_statement_validation(
         tokens.get('module_body', ''),
         path,
         tokens.get('module_body_start_line', 1)
     )
+    _validate_double_semicolon(tokens.get('module_body', ''), path, tokens.get('module_body_start_line', 1))
+    _validate_semicolon_garbage(tokens.get('module_body', ''), path, tokens.get('module_body_start_line', 1))
+    _validate_begin_end_balance(tokens.get('module_body', ''), path, tokens.get('module_body_start_line', 1))
+    _validate_end_semicolon(tokens.get('module_body', ''), path, tokens.get('module_body_start_line', 1))
     _validate_generate_blocks(tokens.get('module_body', ''), path)
+    if strict:
+        _validate_unsupported_constructs(tokens.get('module_body', ''), path, tokens.get('module_body_start_line', 1))
     
     # Bước 2: Extract module info
     netlist['name'] = tokens['module_name']
@@ -113,8 +135,16 @@ def parse_verilog(path: str) -> Dict[str, Any]:
     # Bước 3: Parse parameters và localparams trước (cần cho width calculation)
     _parse_parameters(netlist, tokens['module_body'])
     
+    # Validate module parameter list (#(...)) syntax to catch obvious typos early
+    _validate_param_list_syntax(tokens.get('param_list', ''), path)
+
     # Thu thập parameter (từ header và body) để hỗ trợ width calculation và unroll for/if
     params = _collect_parameters(tokens.get('param_list', ''), tokens['module_body'])
+    # Expose parameters for downstream validation / strict-mode checks
+    netlist.setdefault("attrs", {})
+    netlist["attrs"].setdefault("parameters", {})
+    if isinstance(params, dict):
+        netlist["attrs"]["parameters"].update(params)
     
     # Bước 3.5: Parse ports và wires (với params để tính parameterized widths)
     _parse_port_declarations(netlist, tokens, params)
@@ -132,6 +162,7 @@ def parse_verilog(path: str) -> Dict[str, Any]:
     # Bước 4.5: Parse assign statements, always blocks, case statements, và gates
     _parse_always_blocks(netlist, tokens['module_body'], node_builder)
     _parse_case_statements(netlist, tokens['module_body'], node_builder)
+    _parse_wire_initializers_to_nodes(netlist, node_builder)  # wire x = expr; -> nodes (trước assign)
     _parse_assign_statements(netlist, assign_body, node_builder)
     _parse_gate_instantiations(netlist, tokens['module_body'], node_builder)
     _parse_module_instantiations(netlist, tokens['module_body'], node_builder)
@@ -152,8 +183,274 @@ def parse_verilog(path: str) -> Dict[str, Any]:
     
     # Bước 8: Ensure output mapping
     _ensure_output_mapping(netlist)
+
+    # Bước 9: (Optional) Strict mode: không cho phép implicit wires
+    if strict:
+        _strict_check_undeclared_signals(netlist, path)
     
     return netlist
+
+
+def _validate_unsupported_constructs(module_body: str, path: str, base_line: int) -> None:
+    """
+    When strict mode is enabled, enforce a MyLogic educational subset so that
+    out-of-scope Verilog does not "half-parse" and later produce confusing synthesis warnings.
+
+    This is intentionally conservative: we error early with a clear message.
+    """
+    text = remove_inline_comments(module_body or "")
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+
+    # Functions / tasks
+    if re.search(r"\bfunction\b", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: function definitions in {path}")
+    if re.search(r"\btask\b", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: task definitions in {path}")
+
+    # Sequential logic: always @(posedge/negedge ...)
+    if re.search(r"@\s*\(\s*(?:posedge|negedge)\b", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: sequential always @(posedge/negedge) in {path}")
+
+    # Generate / case statements are currently out-of-scope for the strict combinational subset
+    if re.search(r"\bgenerate\b", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: generate blocks in {path}")
+    # SystemVerilog-style generate can omit 'generate' keyword; catch common markers.
+    if re.search(r"\bgenvar\b", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: genvar/generate-for constructs in {path}")
+    if re.search(r"\bcase\b", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: case statements in {path}")
+
+    # Memory arrays / multi-dimensional arrays like: reg [7:0] mem [0:15];
+    if re.search(r"\b(?:reg|wire)\b[^\n;]*\[[^\]]+\]\s*\w+\s*\[[^\]]+\]\s*;", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: memory/array declarations in {path}")
+    # Array indexing usage like: mem[i] (variable index)
+    if re.search(r"\b[A-Za-z_]\w*\s*\[\s*[A-Za-z_]\w*\s*\]", text):
+        raise ParserError(f"Unsupported in strict mode: array indexing with variable index in {path}")
+
+    # Module instantiation (non-primitive): <mod> <inst>(...);
+    # We allow gate primitives handled elsewhere (and/or/xor/not/nand/nor/xnor/buf).
+    primitives = {"and", "or", "xor", "xnor", "nand", "nor", "not", "buf"}
+    for m in re.finditer(r"^\s*([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*(?:#\s*\(|\()", text, flags=re.MULTILINE):
+        mod = m.group(1).lower()
+        if mod in primitives:
+            continue
+        if mod in {"module", "endmodule"}:
+            continue
+        raise ParserError(f"Unsupported in strict mode: module instantiation '{m.group(1)} {m.group(2)}(...)' in {path}")
+
+    # Technology mapping attributes / directives (out of scope)
+    if re.search(r"\btechmap\b", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: technology mapping constructs in {path}")
+
+    # Replication operator {N{a}} or {4{a}} (out of scope unless explicitly implemented)
+    if re.search(r"\{\s*(?:\d+|[A-Za-z_]\w*)\s*\{", text):
+        raise ParserError(f"Unsupported in strict mode: replication operator '{{N{{...}}}}' in {path}")
+
+    # signed/unsigned (out of scope for now)
+    if re.search(r"\bsigned\b|\bunsigned\b", text, flags=re.IGNORECASE):
+        raise ParserError(f"Unsupported in strict mode: signed/unsigned types in {path}")
+
+    # Operators not supported in strict subset (avoid misleading outputs).
+    # Important: ignore "@(*)" (combinational sensitivity) when checking for '*'.
+    text_no_sens = re.sub(r"@\s*\(\s*\*\s*\)", "@()", text)
+    if re.search(r"<<|>>>|>>", text_no_sens):
+        raise ParserError(f"Unsupported in strict mode: shift operators (<<, >>, >>>) in {path}")
+    # Multiplication/division/modulo only when used as a binary operator in an expression
+    if re.search(r"(?:\b[\w\]']+\b)\s*[%*/]\s*(?:\b[\w\[]+\b)", text_no_sens):
+        raise ParserError(f"Unsupported in strict mode: mul/div/mod operators (*, /, %) in {path}")
+
+
+def _validate_param_list_syntax(param_list: str, path: str) -> None:
+    """
+    Bắt một số lỗi cú pháp phổ biến trong module parameter list (#(...)):
+    - ',,' hoặc ', )' hoặc 'parameter X = ,' (thiếu giá trị)
+    - Dấu ',' thừa sau khi đã đóng ')'
+    Mục tiêu: khi người học gõ sai (như 'DEPTH = 16,,'), tool phải báo lỗi thay vì "vẫn parse được".
+    """
+    text = (param_list or "").strip()
+    if not text:
+        return
+    # double comma
+    if re.search(r',\s*,', text):
+        raise ValueError(f"Syntax error: invalid parameter list (double comma) in {path}")
+    # comma right before closing paren content end (trailing comma)
+    if re.search(r',\s*$', text):
+        raise ValueError(f"Syntax error: invalid parameter list (trailing comma) in {path}")
+    # "parameter NAME =" followed by comma or end
+    if re.search(r'parameter\s+\w+\s*=\s*(?:,|$)', text, flags=re.IGNORECASE):
+        raise ValueError(f"Syntax error: invalid parameter assignment in {path}")
+
+
+def _validate_port_list_syntax(port_list: str, path: str) -> None:
+    """
+    Catch common module port list typos:
+    - trailing comma before ')': output y, );
+    - double comma: a,, b
+    """
+    text = (port_list or "").strip()
+    if not text:
+        return
+    if re.search(r',\s*,', text):
+        raise ValueError(f"Syntax error: invalid port list (double comma) in {path}")
+    if re.search(r',\s*$', text):
+        raise ValueError(f"Syntax error: invalid port list (trailing comma) in {path}")
+
+
+def _validate_delimiter_balance(tokens: Dict[str, Any], path: str) -> None:
+    """
+    Catch common "typo" syntax errors early:
+    - Unbalanced (), [], {}
+    We validate over module header pieces + body after removing comments.
+    """
+    parts = [
+        tokens.get('param_list', '') or '',
+        tokens.get('port_list', '') or '',
+        tokens.get('module_body', '') or '',
+    ]
+    text = "\n".join(parts)
+    text = remove_inline_comments(text)
+    # Remove block comments if any survived
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
+
+    stack = []
+    pairs = {')': '(', ']': '[', '}': '{'}
+    opens = set(pairs.values())
+    closes = set(pairs.keys())
+    for ch in text:
+        if ch in opens:
+            stack.append(ch)
+        elif ch in closes:
+            if not stack or stack[-1] != pairs[ch]:
+                raise ValueError(f"Syntax error: unbalanced delimiters in {path}")
+            stack.pop()
+    if stack:
+        raise ValueError(f"Syntax error: unbalanced delimiters in {path}")
+
+
+def _validate_begin_end_balance(module_body: str, path: str, base_line: int) -> None:
+    """
+    Educational check: catch missing 'end' / extra 'end' for 'begin...end'.
+    This is a lightweight heuristic; it won't try to parse full Verilog.
+    """
+    text = remove_inline_comments(module_body or "")
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
+    # Count 'begin' and 'end' as whole words; ignore 'endmodule', 'endcase', 'endgenerate'
+    begins = [m.start() for m in re.finditer(r'\bbegin\b', text)]
+    ends = [m.start() for m in re.finditer(r'\bend\b', text)]
+    # Filter out structured end keywords
+    ends_struct = [m.start() for m in re.finditer(r'\bend(case|generate|module)\b', text)]
+    # Remove structured ends from plain 'end' count (they were counted by \bend\b too)
+    ends_plain = [p for p in ends if p not in ends_struct]
+    if len(begins) != len(ends_plain):
+        raise ValueError(
+            f"Syntax error: begin/end mismatch (begin={len(begins)} end={len(ends_plain)}) in {path}"
+        )
+
+
+def _validate_end_semicolon(module_body: str, path: str, base_line: int) -> None:
+    """
+    Catch typo: writing `end;` instead of `end` (common beginner mistake).
+    Do not flag structured keywords like endcase/endgenerate/endmodule.
+    """
+    text = remove_inline_comments(module_body or "")
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
+    # Find occurrences of "end;" as a whole word followed by semicolon
+    for m in re.finditer(r'\bend\s*;', text):
+        # Check if this "end" is actually part of endcase/endgenerate/endmodule (it won't match due to word boundary)
+        prefix = text[:m.start()]
+        line_no = prefix.count('\n') + base_line + 1
+        raise ValueError(f"Syntax error: 'end;' is invalid (use 'end' without ';') at line {line_no} in {path}")
+
+
+def _strict_check_undeclared_signals(netlist: Dict[str, Any], path: str) -> None:
+    """
+    Strict mode: báo lỗi nếu có signal dùng nhưng không khai báo.
+    Mục tiêu giáo dục: ép khai báo rõ input/output/wire/reg.
+    """
+    declared: Set[str] = set()
+    declared.update(netlist.get('inputs', []) or [])
+    declared.update(netlist.get('outputs', []) or [])
+
+    attrs = netlist.get('attrs', {}) or {}
+    declared.update((attrs.get('vector_widths', {}) or {}).keys())
+    declared.update((attrs.get('output_mapping', {}) or {}).keys())
+    declared.update((attrs.get('reg_signals', []) or []))
+    # parameters/localparams may appear in ranges/indices (e.g. WIDTH-1)
+    declared.update((attrs.get('parameters', {}) or {}).keys())
+
+    # wire declarations: netlist['wires'] may be replaced by generated connections later;
+    # but vector_widths/output_mapping already cover parsed wire names and temps.
+
+    # node IDs are also acceptable references
+    nodes = netlist.get('nodes', []) or []
+    node_ids = set()
+    for n in nodes:
+        if isinstance(n, dict) and n.get('id'):
+            node_ids.add(str(n['id']))
+    declared.update(node_ids)
+
+    def is_constant(tok: str) -> bool:
+        t = tok.strip()
+        if not t:
+            return True
+        if t.isdigit():
+            return True
+        if "'" in t:
+            return True
+        return False
+
+    _simple_sig_re = re.compile(r'^\s*([A-Za-z_]\w*)(?:\[\s*([0-9]+)\s*\])?\s*$')
+    _ident_re = re.compile(r'\b[A-Za-z_]\w*\b')
+
+    def _extract_used_idents(expr: str) -> Set[str]:
+        """
+        Extract identifier tokens from a potentially complex expression.
+        This avoids false positives like '!(a' or 'b) | (c' in strict mode.
+        """
+        t = (expr or "").strip()
+        if not t or is_constant(t):
+            return set()
+
+        m = _simple_sig_re.match(t)
+        if m:
+            return {m.group(1)}
+
+        # Remove common punctuation that might cling to identifiers; then regex tokens
+        # (keep it lightweight: we already have full expression parsing elsewhere).
+        ids = set(_ident_re.findall(t))
+        # Filter out known keywords that are not signals
+        keywords = {
+            "assign", "wire", "reg", "input", "output", "module", "endmodule",
+            "begin", "end", "always", "if", "else", "case", "endcase",
+            "for", "generate", "endgenerate", "function", "endfunction",
+            "task", "endtask", "localparam", "parameter",
+        }
+        return {i for i in ids if i not in keywords}
+
+    used: Set[str] = set()
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        fanins = n.get('fanins', []) or []
+        for f in fanins:
+            sig = None
+            if isinstance(f, (list, tuple)) and len(f) >= 1:
+                sig = str(f[0])
+            else:
+                sig = str(f)
+            if is_constant(sig):
+                continue
+            for ident in _extract_used_idents(sig):
+                if ident and not is_constant(ident):
+                    used.add(ident)
+
+    undeclared = sorted([u for u in used if u not in declared])
+    if undeclared:
+        raise ParserError(
+            f"Error: Signal(s) {', '.join([repr(u) for u in undeclared])} "
+            f"is used but not explicitly declared in {path}. "
+            f"Please declare all wires/regs/ports."
+        )
 
 
 def _basic_statement_validation(module_body: str, path: str, base_line: int) -> None:
@@ -214,6 +511,37 @@ def _basic_statement_validation(module_body: str, path: str, base_line: int) -> 
             )
 
 
+def _validate_double_semicolon(module_body: str, path: str, base_line: int) -> None:
+    """
+    Bắt lỗi gõ thừa ';' kiểu ';;' (rất hay gặp khi học Verilog).
+    Dù Verilog có thể cho phép empty statement, tool giáo dục nên báo lỗi để người học sửa.
+    """
+    cleaned = remove_inline_comments(module_body or "")
+    m = re.search(r';\s*;', cleaned)
+    if not m:
+        return
+    prefix = cleaned[:m.start()]
+    line_no = prefix.count('\n') + base_line + 1
+    # Keep message ASCII-friendly for Windows cp1252 consoles
+    raise ValueError(f"Syntax error: extra ';' (found ';;') at line {line_no} in {path}")
+
+
+def _validate_semicolon_garbage(module_body: str, path: str, base_line: int) -> None:
+    """
+    Catch common typo: garbage right after semicolon, e.g. ';-' or ';,' or ';a'.
+    Educational: require statement terminator ';' to be followed by whitespace/newline/comment only.
+    """
+    cleaned = remove_inline_comments(module_body or "")
+    cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
+    m = re.search(r';[^\s;]', cleaned)
+    if not m:
+        return
+    prefix = cleaned[:m.start()]
+    line_no = prefix.count('\n') + base_line + 1
+    bad = cleaned[m.start():m.start() + 8].replace('\n', '\\n')
+    raise ValueError(f"Syntax error: invalid token after ';' near {bad!r} at line {line_no} in {path}")
+
+
 def _validate_generate_blocks(module_body: str, path: str) -> None:
     """
     Kiểm tra generate/endgenerate: nếu có từ khóa generate nhưng không khớp endgenerate -> báo lỗi.
@@ -265,6 +593,13 @@ def _collect_parameters(param_list: str, module_body: str) -> Dict[str, int]:
     params: Dict[str, int] = {}
     import re
     from .constants import PARAMETER_PATTERN, LOCALPARAM_PATTERN
+
+    # Header params trong module declaration (#(...)) thường phân tách bằng dấu phẩy
+    # và KHÔNG có dấu ';', nên không match được PARAMETER_PATTERN.
+    HEADER_PARAM_PATTERN = re.compile(
+        r'parameter\s+(?:\[[^\]]+\]\s+)?(\w+)\s*=\s*([^,\n)]+)',
+        re.IGNORECASE,
+    )
     
     # Helper để eval parameter value
     def eval_param_value(value_str: str, current_params: Dict[str, int]) -> int:
@@ -288,13 +623,27 @@ def _collect_parameters(param_list: str, module_body: str) -> Dict[str, int]:
     
     # Thu thập theo thứ tự: header params trước, sau đó body params/localparams
     # Header params
-    for m in PARAMETER_PATTERN.finditer(param_list or ''):
-        name = m.group(1)
-        value_str = m.group(2)
+    header_text = param_list or ""
+    # 1) Thử parse theo format header (comma-separated, no semicolon)
+    for m in HEADER_PARAM_PATTERN.finditer(header_text):
+        name = (m.group(1) or "").strip()
+        value_str = (m.group(2) or "").strip()
+        if not name:
+            continue
         try:
             params[name] = eval_param_value(value_str, params)
         except Exception:
-            # Nếu không eval được, bỏ qua (có thể phụ thuộc vào param khác chưa định nghĩa)
+            # Có thể phụ thuộc param khác chưa có; xử lý ở vòng lặp dependencies bên dưới
+            pass
+    # 2) Fallback: một số code có thể vẫn viết ';' trong header
+    for m in PARAMETER_PATTERN.finditer(header_text):
+        name = (m.group(1) or "").strip()
+        value_str = (m.group(2) or "").strip()
+        if not name or name in params:
+            continue
+        try:
+            params[name] = eval_param_value(value_str, params)
+        except Exception:
             pass
     
     # Body params/localparams (có thể phụ thuộc vào header params)
@@ -536,6 +885,10 @@ def _parse_input_ports(netlist: Dict, port_list: str, module_body: str, params: 
             signal = signal.strip()
             if not signal:
                 continue
+            # Remove keywords 'reg' and 'wire' from signal name (ANSI style: input wire a)
+            signal = re.sub(r'^\s*(reg|wire)\b\s*', '', signal).strip()
+            if not signal:
+                continue
             if signal not in netlist['inputs']:
                 netlist['inputs'].append(signal)
             netlist['attrs']['vector_widths'][signal] = width
@@ -591,7 +944,7 @@ def _parse_output_ports(netlist: Dict, port_list: str, module_body: str, params:
                 continue
             # Remove keywords 'reg' and 'wire' from signal name
             # Example: 'reg out1' -> 'out1', 'wire out2' -> 'out2'
-            signal = re.sub(r'^\s*(reg|wire)\s+', '', signal).strip()
+            signal = re.sub(r'^\s*(reg|wire)\b\s*', '', signal).strip()
             if not signal:
                 continue
             if signal not in netlist['outputs']:
@@ -842,6 +1195,18 @@ def _parse_always_blocks(netlist: Dict, module_body: str, node_builder: NodeBuil
         NON_BLOCKING_ASSIGN_PATTERN, BLOCKING_ASSIGN_PATTERN, BEGIN_END_PATTERN
     )
     
+    # Chuẩn bị params (int) để parse biểu thức trong always
+    raw_params = netlist.get('attrs', {}).get('parameters', {}) or {}
+    int_params: Dict[str, int] = {}
+    for k, v in raw_params.items():
+        if isinstance(v, int):
+            int_params[k] = v
+        elif isinstance(v, str):
+            try:
+                int_params[k] = _eval_int(v, {})
+            except Exception:
+                pass
+
     # Tìm tất cả always blocks
     for match in ALWAYS_PATTERN.finditer(module_body):
         sensitivity_list = match.group(1).strip()
@@ -864,7 +1229,7 @@ def _parse_always_blocks(netlist: Dict, module_body: str, node_builder: NodeBuil
         else:
             # Combinational always block (@(*) hoặc không có edge)
             # Parse như combinational logic (blocking assignments)
-            _parse_always_combinational(block_content, node_builder)
+            _parse_always_combinational(block_content, node_builder, int_params)
             continue
         
         # Sequential always block với clock edge
@@ -910,7 +1275,11 @@ def _parse_always_sequential(
         )
 
 
-def _parse_always_combinational(block_content: str, node_builder: NodeBuilder):
+def _parse_always_combinational(
+    block_content: str,
+    node_builder: NodeBuilder,
+    params: Dict[str, int] = None
+):
     """
     Parse combinational always block (@(*) hoặc không có edge).
     
@@ -926,7 +1295,7 @@ def _parse_always_combinational(block_content: str, node_builder: NodeBuilder):
     from .constants import (
         BLOCKING_ASSIGN_PATTERN, BEGIN_END_PATTERN, CASE_PATTERN
     )
-    from .expression_parser import parse_complex_expression
+    params = params or {}
     
     # Extract begin-end content nếu có
     begin_match = BEGIN_END_PATTERN.search(block_content)
@@ -946,8 +1315,8 @@ def _parse_always_combinational(block_content: str, node_builder: NodeBuilder):
         output_signal = match.group(1).strip()
         input_expression = match.group(2).strip()
         
-        # Parse expression như combinational logic
-        parse_complex_expression(node_builder, output_signal, input_expression)
+        # Dùng cùng dispatch như assign để support ternary/concat/slice/arithmetic...
+        _dispatch_assign_parser(output_signal, input_expression, node_builder, params)
 
 
 # ============================================================================
@@ -1262,6 +1631,32 @@ def _extract_case_output_signal(statement: str) -> str:
 # ASSIGN STATEMENTS PARSING
 # ============================================================================
 
+def _parse_wire_initializers_to_nodes(netlist: Dict, node_builder: NodeBuilder):
+    """
+    Tạo nodes cho wire có khởi tạo (wire x = expr;) để RHS có driver trước khi parse assign.
+    Ví dụ: wire temp2 = {data_in, data_in}; -> tạo CONCAT node, output temp2.
+    """
+    params = netlist.get('attrs', {}).get('parameters', {})
+    int_params = {}
+    for k, v in params.items():
+        if isinstance(v, int):
+            int_params[k] = v
+        elif isinstance(v, str):
+            try:
+                int_params[k] = _eval_int(v, {})
+            except Exception:
+                pass
+    wires = netlist.get('wires', [])
+    for entry in wires:
+        if not isinstance(entry, str) or ' = ' not in entry:
+            continue
+        lhs, _, rhs = entry.partition(' = ')
+        lhs, rhs = lhs.strip(), rhs.strip()
+        if not lhs or not rhs:
+            continue
+        _dispatch_assign_parser(lhs, rhs, node_builder, int_params)
+
+
 def _parse_assign_statements(netlist: Dict, module_body: str, node_builder: NodeBuilder):
     """
     Parse tất cả assign statements.
@@ -1312,6 +1707,22 @@ def _dispatch_assign_parser(lhs: str, rhs: str, node_builder: NodeBuilder, param
     from ..operations.comparison import detect_comparison_operator
     from ..operations.shift import detect_shift_operator
     
+    # Normalize: strip one layer of outer parentheses to help operator detectors/parsers
+    rhs = (rhs or "").strip()
+    if rhs.startswith('(') and rhs.endswith(')'):
+        depth = 0
+        ok = True
+        for i, ch in enumerate(rhs):
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+                if depth == 0 and i != len(rhs) - 1:
+                    ok = False
+                    break
+        if ok and depth == 0:
+            rhs = rhs[1:-1].strip()
+    
     # 1. Special operations (check trước vì phức tạp nhất)
     # Check replication trước concatenation (vì replication cũng dùng {})
     from ..operations.special import is_replication, parse_replication
@@ -1331,25 +1742,87 @@ def _dispatch_assign_parser(lhs: str, rhs: str, node_builder: NodeBuilder, param
     if is_slice(rhs):
         parse_slice(node_builder, lhs, rhs, params)
         return
+
+    # 2. Top-level logical AND/OR: materialize both sides first (supports comparisons inside).
+    # Do this early to avoid mis-detecting '>'/'<' as a top-level comparison operator.
+    top_logical = detect_logical_operator(rhs)
+    if top_logical in ('&&', '||'):
+        s = rhs.strip()
+        depth = 0
+        split_at = None
+        i = 0
+        while i < len(s) - 1:
+            ch = s[i]
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth = max(0, depth - 1)
+            elif depth == 0 and s[i:i+2] == top_logical:
+                split_at = i
+                break
+            i += 1
+        if split_at is not None:
+            left_expr = s[:split_at].strip()
+            right_expr = s[split_at+2:].strip()
+            left_tmp = f"{lhs}__l"
+            right_tmp = f"{lhs}__r"
+            _dispatch_assign_parser(left_tmp, left_expr, node_builder, params)
+            _dispatch_assign_parser(right_tmp, right_expr, node_builder, params)
+            node_type = 'LAND' if top_logical == '&&' else 'LOR'
+            op_id = node_builder.create_operation_node(node_type, [left_tmp, right_tmp])
+            node_builder.create_buffer_node(op_id, lhs)
+            return
+
+    # 2. Unary logical NOT of a parenthesized comparison: !(a == b)
+    rhs_stripped = rhs.strip()
+    if rhs_stripped.startswith('!') and '(' in rhs_stripped and rhs_stripped[1:].lstrip().startswith('('):
+        # Only accept if outer parentheses span the full remainder
+        operand = rhs_stripped[1:].strip()
+        if operand.startswith('(') and operand.endswith(')'):
+            depth = 0
+            ok = True
+            for i, ch in enumerate(operand):
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+                    if depth == 0 and i != len(operand) - 1:
+                        ok = False
+                        break
+            if ok and depth == 0:
+                inner = operand[1:-1].strip()
+                comp_op = detect_comparison_operator(inner)
+                if comp_op:
+                    from ..operations.comparison import parse_comparison_operation
+                    tmp = f"{lhs}__cmp"
+                    parse_comparison_operation(node_builder, comp_op, tmp, inner)
+                    not_id = node_builder.create_operation_node("NOT", [tmp])
+                    node_builder.create_buffer_node(not_id, lhs)
+                    return
     
-    # 2. Check NOT operator với nested expressions trước complex expression
+    # 3. Check NOT operator với nested expressions trước complex expression
     # NOT với nested expression có nhiều operators cần được xử lý riêng
     rhs_stripped = rhs.strip()
     if rhs_stripped.startswith('~'):
         operand = rhs_stripped[1:].strip()
-        # Nếu operand có parentheses và có nhiều operators, đây là NOT với nested expression
-        if operand.startswith('(') and ')' in operand:
-            # Count operators trong operand (không tính ~)
-            op_count = sum([
-                operand.count('&'), operand.count('|'), operand.count('^'),
-                operand.count('+'), operand.count('-')
-            ])
-            if op_count > 0:  # Có ít nhất 1 operator trong nested expression
+        # Only treat as pure unary NOT if the whole RHS is exactly "~(<expr>)"
+        if operand.startswith('(') and operand.endswith(')'):
+            depth = 0
+            ok = True
+            for i, ch in enumerate(operand):
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+                    if depth == 0 and i != len(operand) - 1:
+                        ok = False
+                        break
+            if ok and depth == 0:
                 from ..operations.bitwise import parse_not_operation
                 parse_not_operation(node_builder, lhs, rhs)
                 return
     
-    # 3. Complex expressions với parentheses
+    # 4. Complex expressions với parentheses
     # Check trước các simple operators
     if '(' in rhs and ')' in rhs:
         # Có parentheses - có thể là complex expression
@@ -1364,28 +1837,60 @@ def _dispatch_assign_parser(lhs: str, rhs: str, node_builder: NodeBuilder, param
             parse_complex_expression(node_builder, lhs, rhs)
             return
     
-    # 3. Shift operations (check trước comparison vì >> có thể nhầm với >)
+    # 5. Shift operations (check trước comparison vì >> có thể nhầm với >)
     shift_op = detect_shift_operator(rhs)
     if shift_op:
         from ..operations.shift import parse_shift_operation
         parse_shift_operation(node_builder, shift_op, lhs, rhs)
         return
     
-    # 4. Comparison operations
+    # 6. Comparison operations
     comp_op = detect_comparison_operator(rhs)
     if comp_op:
         from ..operations.comparison import parse_comparison_operation
         parse_comparison_operation(node_builder, comp_op, lhs, rhs)
         return
     
-    # 5. Logical operations  
+    # 7. Logical operations  
     logical_op = detect_logical_operator(rhs)
     if logical_op:
+        # Unary logical NOT often wraps a parenthesized comparison: !(a == b)
+        # Route to complex expression parser so parentheses and precedence are handled robustly.
+        if logical_op == '!' and rhs.strip().startswith('!'):
+            parse_complex_expression(node_builder, lhs, rhs)
+            return
+        # If logical AND/OR combines comparisons, materialize each side first.
+        if logical_op in ('&&', '||') and detect_comparison_operator(rhs):
+            s = rhs.strip()
+            depth = 0
+            split_at = None
+            i = 0
+            while i < len(s) - 1:
+                ch = s[i]
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth = max(0, depth - 1)
+                elif depth == 0 and s[i:i+2] == logical_op:
+                    split_at = i
+                    break
+                i += 1
+            if split_at is not None:
+                left_expr = s[:split_at].strip()
+                right_expr = s[split_at+2:].strip()
+                left_tmp = f"{lhs}__l"
+                right_tmp = f"{lhs}__r"
+                _dispatch_assign_parser(left_tmp, left_expr, node_builder, params)
+                _dispatch_assign_parser(right_tmp, right_expr, node_builder, params)
+                node_type = 'LAND' if logical_op == '&&' else 'LOR'
+                op_id = node_builder.create_operation_node(node_type, [left_tmp, right_tmp])
+                node_builder.create_buffer_node(op_id, lhs)
+                return
         from ..operations.logical import parse_logical_operation
         parse_logical_operation(node_builder, logical_op, lhs, rhs)
         return
     
-    # 6. Bitwise operations
+    # 8. Bitwise operations
     bitwise_op = detect_bitwise_operator(rhs)
     if bitwise_op:
         # Check NOT operator riêng (unary) - phải check trước binary operators
@@ -1420,14 +1925,14 @@ def _dispatch_assign_parser(lhs: str, rhs: str, node_builder: NodeBuilder, param
         parse_bitwise_operation(node_builder, bitwise_op, lhs, rhs)
         return
     
-    # 7. Arithmetic operations
+    # 9. Arithmetic operations
     arith_op = detect_arithmetic_operator(rhs)
     if arith_op:
         from ..operations.arithmetic import parse_arithmetic_operation
         parse_arithmetic_operation(node_builder, arith_op, lhs, rhs)
         return
     
-    # 8. Simple assignment (fallback)
+    # 10. Simple assignment (fallback)
     node_builder.create_simple_assignment(lhs, rhs)
 
 

@@ -118,9 +118,9 @@ def parse_constant_string(const_str: str, default_width: int = 8) -> tuple[int, 
     
     # Parse width
     try:
-        width = int(width_str) if width_str else default_width
+        width = int(width_str) if width_str else None
     except:
-        width = default_width
+        width = None
     
     # Parse value
     if not base_value:
@@ -160,5 +160,16 @@ def parse_constant_string(const_str: str, default_width: int = 8) -> tuple[int, 
         except:
             value = 0
     
+    # If unsized like "'b1", choose minimal width from literal (educational scope)
+    if width is None:
+        if base == 'b':
+            width = max(1, len(value_str))
+        elif base == 'h':
+            width = max(1, len(value_str) * 4)
+        elif base == 'o':
+            width = max(1, len(value_str) * 3)
+        else:
+            width = default_width
+
     return value, width
 

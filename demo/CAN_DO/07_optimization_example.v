@@ -24,6 +24,7 @@ module optimization_example(
     // CSE sẽ tối ưu hóa bằng cách share logic
     wire common = a & b;
     assign out1 = common | c;
+    assign out1 = common | c;
     assign out2 = common & c;
     
     // Constant propagation example

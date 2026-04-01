@@ -1,18 +1,8 @@
-// ============================================================
-// CAN_DO Example 1: Combinational Logic Gates
-// ============================================================
-// Đây là những gì MyLogic đã làm được tốt:
-// - Parse và synthesis các cổng combinational cơ bản
-// - Hỗ trợ đầy đủ AND, OR, XOR, NAND, NOR, NOT
-// - Synthesis thành AIG và optimization
-//
-// Status: ✅ FULLY SUPPORTED
-// ============================================================
-
 module combinational_gates(
     input a,
     input b,
     input c,
+    input d,
     output out_and,
     output out_or,
     output out_xor,
@@ -25,11 +15,10 @@ module combinational_gates(
     assign out_and = a & b;
     
     // OR gate
-    assign out_or = a | b | c;
+    assign out_or = a | b | c | d;
     
     // XOR gate
     assign out_xor = a ^ b;
-    
     // NAND gate
     assign out_nand = ~(a & b);
     

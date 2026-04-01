@@ -1,14 +1,3 @@
-// ============================================================
-// CAN_DO Example 5: Generate Blocks (Unrolling)
-// ============================================================
-// Đây là những gì MyLogic đã làm được:
-// - Parse generate blocks với for loops
-// - Unroll generate blocks (expand loops)
-// - Synthesis generated instances
-//
-// Status: ✅ FULLY SUPPORTED
-// ============================================================
-
 module generate_blocks(
     input in0,
     input in1,

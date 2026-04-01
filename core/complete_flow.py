@@ -436,8 +436,8 @@ def run_complete_flow(
                 'enabled': bool
             },
             'output_files': {
-                'synthesized': path to synthesized.v (if write_verilog=True),
-                'optimized': path to optimized.v (if optimization enabled),
+                'syn': path to *_syn.v (if write_verilog=True),
+                'opt': path to *_opt.v (if optimization enabled),
                 'mapped': path to mapped.v (if techmap enabled)
             }
         }
@@ -513,10 +513,16 @@ def run_complete_flow(
         # Write Verilog file after synthesis (like Yosys)
         if write_verilog:
             try:
-                synthesized_verilog = aig.to_verilog(f"{module_name}_synthesized")
-                output_file = output_dir / f"{module_name}_synthesized.v"
+                # IMPORTANT:
+                # Use netlist-based Verilog export so vector widths (e.g. sel[1:0]) are preserved.
+                # AIG-only export may lose bus information and emit invalid port lists.
+                from core.export import netlist_to_verilog as export_netlist_to_verilog
+                synthesized_verilog = export_netlist_to_verilog(
+                    synthesized_netlist, module_name=f"{module_name}_syn"
+                )
+                output_file = output_dir / f"{module_name}_syn.v"
                 output_file.write_text(synthesized_verilog, encoding='utf-8')
-                results['output_files']['synthesized'] = str(output_file)
+                results['output_files']['syn'] = str(output_file)
                 logger.info(_safe_log_msg(f"[FILE] Written: {output_file.name}"))
             except Exception as e:
                 logger.warning(f"Could not write synthesized Verilog: {e}")
@@ -566,10 +572,13 @@ def run_complete_flow(
             # Write Verilog file after optimization (like Yosys)
             if write_verilog:
                 try:
-                    optimized_verilog = optimized_aig.to_verilog(f"{module_name}_optimized")
-                    output_file = output_dir / f"{module_name}_optimized.v"
+                    from core.export import netlist_to_verilog as export_netlist_to_verilog
+                    optimized_verilog = export_netlist_to_verilog(
+                        optimized_netlist, module_name=f"{module_name}_opt"
+                    )
+                    output_file = output_dir / f"{module_name}_opt.v"
                     output_file.write_text(optimized_verilog, encoding='utf-8')
-                    results['output_files']['optimized'] = str(output_file)
+                    results['output_files']['opt'] = str(output_file)
                     logger.info(_safe_log_msg(f"[FILE] Written: {output_file.name}"))
                 except Exception as e:
                     logger.warning(f"Could not write optimized Verilog: {e}")

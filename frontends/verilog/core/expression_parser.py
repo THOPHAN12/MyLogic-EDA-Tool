@@ -181,28 +181,19 @@ class ExpressionParser:
         if operator in ['&', '|', '^', '~&', '~|', '~^', '^~']:
             # Bitwise operation → TÁI SỬ DỤNG bitwise parser
             parse_bitwise_operation(self.node_builder, operator, temp_output, expr)
-            # Return operation node (không phải buffer)
-            # Operation node là node thứ 2 từ cuối (buffer là cuối cùng)
-            nodes = self.node_builder.get_nodes()
-            if len(nodes) >= 2:
-                return nodes[-2]['id']  # Operation node
-            return temp_output
+            # Return operation node id via output_mapping (create_operation_direct sets this).
+            # Do NOT rely on list indexing (nodes[-2]) because create_operation_direct does not create BUF nodes.
+            return (self.node_builder.get_output_mapping() or {}).get(temp_output, temp_output)
             
         elif operator in ['&&', '||']:
             # Logical operation → TÁI SỬ DỤNG logical parser
             parse_logical_operation(self.node_builder, operator, temp_output, expr)
-            nodes = self.node_builder.get_nodes()
-            if len(nodes) >= 2:
-                return nodes[-2]['id']
-            return temp_output
+            return (self.node_builder.get_output_mapping() or {}).get(temp_output, temp_output)
             
         elif operator in ['+', '-', '*', '/', '%']:
             # Arithmetic operation → TÁI SỬ DỤNG arithmetic parser
             parse_arithmetic_operation(self.node_builder, operator, temp_output, expr)
-            nodes = self.node_builder.get_nodes()
-            if len(nodes) >= 2:
-                return nodes[-2]['id']
-            return temp_output
+            return (self.node_builder.get_output_mapping() or {}).get(temp_output, temp_output)
         
         else:
             # Fallback: tạo node trực tiếp

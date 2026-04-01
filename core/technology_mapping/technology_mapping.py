@@ -59,6 +59,11 @@ def normalize_function(function: str) -> str:
         # No arguments (like CONST0, CONST1)
         return function
     
+    # Canonicalize common AIG-derived patterns before generic normalization.
+    canonical = _canonicalize_aig_pattern(function.strip())
+    if canonical != function.strip():
+        return canonical
+
     # Handle nested expressions: extract simple input signals
     # For functions like NOT((a & b)), we need to extract the input signal
     # Strategy: If argument contains operators (&, |, ^, etc.), try to extract first signal
@@ -94,6 +99,73 @@ def normalize_function(function: str) -> str:
     normalized = f"{func_name}({','.join(canonical_args)})"
     
     return normalized
+
+
+def _canonicalize_aig_pattern(function: str) -> str:
+    """
+    Collapse common raw AIG patterns into simple Boolean operators.
+
+    Examples:
+        AND(x,CONST1) -> BUF(A)
+        AND(NOT(x),CONST1) -> NOT(A)
+        AND(CONST1,x) -> BUF(A)
+        AND(CONST1,NOT(x)) -> NOT(A)
+    """
+    match = re.match(r'^(\w+)\((.*)\)$', function)
+    if not match:
+        return function
+
+    func_name = match.group(1).upper()
+    args_str = match.group(2).strip()
+    if func_name != "AND" or not args_str:
+        return function
+
+    args = _split_args(args_str)
+    if len(args) != 2:
+        return function
+
+    left, right = args[0].strip(), args[1].strip()
+    const_tokens = {"CONST1", "1'b1", "1"}
+
+    if left in const_tokens and right in const_tokens:
+        return "BUF(A)"
+    if left in const_tokens:
+        return _canonicalize_buffer_like_arg(right)
+    if right in const_tokens:
+        return _canonicalize_buffer_like_arg(left)
+
+    return function
+
+
+def _canonicalize_buffer_like_arg(arg: str) -> str:
+    arg = arg.strip()
+    not_match = re.match(r'^NOT\((.*)\)$', arg)
+    if not_match:
+        return "NOT(A)"
+    return "BUF(A)"
+
+
+def _split_args(args_str: str) -> List[str]:
+    """Split function arguments while preserving nested calls."""
+    args: List[str] = []
+    current: List[str] = []
+    depth = 0
+    for ch in args_str:
+        if ch == ',' and depth == 0:
+            arg = ''.join(current).strip()
+            if arg:
+                args.append(arg)
+            current = []
+            continue
+        if ch == '(':
+            depth += 1
+        elif ch == ')' and depth > 0:
+            depth -= 1
+        current.append(ch)
+    tail = ''.join(current).strip()
+    if tail:
+        args.append(tail)
+    return args
 
 class LibraryCell:
     """Đại diện cho một cell trong thư viện công nghệ."""
@@ -408,6 +480,19 @@ def create_standard_library() -> TechnologyLibrary:
     return library
 
 
+def _merge_libraries(primary: TechnologyLibrary, fallback: TechnologyLibrary) -> TechnologyLibrary:
+    """Merge a provided library with fallback combinational cells."""
+    merged = TechnologyLibrary(f"{primary.name}+{fallback.name}")
+
+    for cell in primary.cells.values():
+        merged.add_cell(cell)
+    for cell in fallback.cells.values():
+        if cell.name not in merged.cells:
+            merged.add_cell(cell)
+
+    return merged
+
+
 def aig_to_logic_nodes(aig) -> List[LogicNode]:
     """
     Convert AIG to LogicNodes for technology mapping.
@@ -561,6 +646,11 @@ def techmap(aig, library: TechnologyLibrary, strategy: str = "area_optimal") -> 
     logger.info(f"Starting technology mapping: AIG -> Technology-mapped netlist")
     logger.info(f"  Strategy: {strategy}")
     logger.info(f"  Library: {library.name} ({len(library.cells)} cells)")
+
+    # Ensure combinational primitives are available even if the loaded library
+    # only contains sequential cells (for example, DFF-only reference libs).
+    library = _merge_libraries(library, create_standard_library())
+    logger.info(f"  Effective library: {library.name} ({len(library.cells)} cells)")
     
     # Convert AIG → LogicNodes
     logger.info("Converting AIG -> LogicNodes...")

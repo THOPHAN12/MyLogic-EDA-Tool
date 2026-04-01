@@ -217,8 +217,8 @@ def _validate_unsupported_constructs(module_body: str, path: str, base_line: int
     # SystemVerilog-style generate can omit 'generate' keyword; catch common markers.
     if re.search(r"\bgenvar\b", text, flags=re.IGNORECASE):
         raise ParserError(f"Unsupported in strict mode: genvar/generate-for constructs in {path}")
-    if re.search(r"\bcase\b", text, flags=re.IGNORECASE):
-        raise ParserError(f"Unsupported in strict mode: case statements in {path}")
+    # case statements are supported for combinational subset (always @(*) case ...)
+    # casex/casez are still out-of-scope (treated as unsupported below when parsed).
 
     # Memory arrays / multi-dimensional arrays like: reg [7:0] mem [0:15];
     if re.search(r"\b(?:reg|wire)\b[^\n;]*\[[^\]]+\]\s*\w+\s*\[[^\]]+\]\s*;", text, flags=re.IGNORECASE):
@@ -1384,7 +1384,11 @@ def _parse_case_body(
         node_builder: NodeBuilder instance
     """
     from .constants import CASE_ITEM_PATTERN, CASE_ITEM_BLOCK_PATTERN
-    from ..operations.special import parse_ternary_operation
+    from core.utils.error_handling import ParserError
+
+    # Only support plain 'case' for now (combinational). casex/casez treat X/Z as don't-cares (out of scope).
+    if (case_type or "").strip() in ("x", "z", "X", "Z"):
+        raise ParserError("Unsupported: casex/casez (only plain 'case' is supported for combinational subset)")
     
     case_items = []
     default_item = None
@@ -1414,108 +1418,51 @@ def _parse_case_body(
         else:
             case_items.append((value_str, statement))
     
-    # Chuyển case thành MUX tree hoặc if-else chain
-    # Đơn giản hóa: tạo MUX nodes cho mỗi case item
-    # Trong thực tế, có thể tối ưu thành tree structure
-    
+    # Convert case into a chain of 2:1 MUXes using EQ(select, value) as condition:
+    #   out = (sel==v0) ? rhs0 : ((sel==v1) ? rhs1 : default)
+    # This maps cleanly into AIG and keeps behavior identical to synthesizable combinational case.
     if not case_items and not default_item:
         return  # Empty case statement
     
-    # Tạo intermediate signals cho mỗi case item
-    # Format: case_sel_eq_value -> output_value
-    mux_inputs = []
-    mux_selects = []
-    
-    for idx, (value_str, statement) in enumerate(case_items):
-        # Tạo comparison node: selector == value
-        eq_signal = f"_case_eq_{idx}"
-        
-        # Parse value (có thể là số, binary, hex, range)
-        value_expr = _parse_case_value(value_str, selector)
-        
-        # Tạo EQ node: selector == value_expr
-        eq_node_id = node_builder.create_operation_node(
-            node_type='EQ',
-            operands=[selector, value_expr],
-            extra_attrs={'case_item': value_str}
-        )
-        node_builder.create_buffer_node(eq_node_id, eq_signal)
-        
-        # Parse statement để lấy output value
-        output_value = _extract_case_output(statement)
-        mux_inputs.append(output_value)
-        mux_selects.append(eq_signal)
-    
-    # Thêm default nếu có
-    if default_item:
-        default_output = _extract_case_output(default_item)
-        mux_inputs.append(default_output)
-        # Default được chọn khi không có case nào match
-        # Tạo OR của tất cả các select signals, sau đó NOT
-        if mux_selects:
-            # Tạo OR node cho tất cả selects
-            or_signal = f"_case_or_all"
-            or_node_id = node_builder.create_operation_node(
-                node_type='OR',
-                operands=mux_selects,
-                extra_attrs={'case_or': True}
-            )
-            node_builder.create_buffer_node(or_node_id, or_signal)
-            
-            # NOT để có default select
-            default_select = f"_case_default_sel"
-            not_node_id = node_builder.create_operation_node(
-                node_type='NOT',
-                operands=[or_signal],
-                extra_attrs={'case_default': True}
-            )
-            node_builder.create_buffer_node(not_node_id, default_select)
-            mux_selects.append(default_select)
-        else:
-            # Nếu không có case items, default luôn được chọn
-            mux_selects.append("1'b1")  # Constant true
-    
-    # Tạo MUX tree (đơn giản: tạo MUX node cho mỗi level)
-    # Hoặc có thể tạo một MUX lớn với nhiều inputs
-    # Ở đây, tạo MUX node đơn giản
-    if len(mux_inputs) > 0:
-        # Tìm output signal từ case items (thường là signal đầu tiên được assign)
-        output_signal = None
-        for _, statement in case_items:
-            output_signal = _extract_case_output_signal(statement)
-            if output_signal:
-                break
-        if not output_signal and default_item:
-            output_signal = _extract_case_output_signal(default_item)
-        
+    # Determine output signal being assigned in this case.
+    output_signal = None
+    for _, statement in case_items:
+        output_signal = _extract_case_output_signal(statement)
         if output_signal:
-            # Tạo MUX node với tất cả inputs và selects
-            mux_node_id = node_builder.create_operation_node(
-                node_type='MUX',
-                operands=mux_inputs + mux_selects,
-                extra_attrs={
-                    'case_selector': selector,
-                    'case_type': case_type,
-                    'num_cases': len(case_items),
-                    'has_default': default_item is not None
-                }
-            )
-            # Kết nối với output signal
-            node_builder.create_buffer_node(mux_node_id, output_signal)
-        else:
-            # Nếu không tìm thấy output signal, tạo signal tạm
-            temp_output = f"_case_output_{node_builder.get_next_node_id()}"
-            mux_node_id = node_builder.create_operation_node(
-                node_type='MUX',
-                operands=mux_inputs + mux_selects,
-                extra_attrs={
-                    'case_selector': selector,
-                    'case_type': case_type,
-                    'num_cases': len(case_items),
-                    'has_default': default_item is not None
-                }
-            )
-            node_builder.create_buffer_node(mux_node_id, temp_output)
+            break
+    if not output_signal and default_item:
+        output_signal = _extract_case_output_signal(default_item)
+
+    if not output_signal:
+        return
+
+    if default_item is None:
+        # For combinational subset, require default to avoid latch inference.
+        raise ParserError(f"Unsupported: case without default for combinational subset (output '{output_signal}')")
+
+    # Start from default RHS
+    current_rhs = _extract_case_output(default_item)
+
+    # Build chain from bottom to top
+    for idx, (value_str, statement) in enumerate(reversed(case_items)):
+        value_expr = _parse_case_value(value_str, selector)
+        cond_sig = f"_case_eq_{idx}"
+        node_builder.create_operation_direct(
+            node_type="EQ",
+            operands=[selector, value_expr],
+            output_signal=cond_sig,
+            extra_attrs={"case_item": value_str},
+        )
+
+        true_rhs = _extract_case_output(statement)
+        mux_out = output_signal if idx == len(case_items) - 1 else f"_case_mux_{idx}"
+        node_builder.create_operation_direct(
+            node_type="MUX",
+            operands=[cond_sig, true_rhs, current_rhs],
+            output_signal=mux_out,
+            extra_attrs={"ternary": True, "case_selector": selector},
+        )
+        current_rhs = mux_out
 
 
 def _parse_case_value(value_str: str, selector: str) -> str:

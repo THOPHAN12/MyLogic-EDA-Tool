@@ -1,15 +1,3 @@
-// ============================================================
-// CAN_DO Example 2: Complex Combinational Expressions
-// ============================================================
-// Đây là những gì MyLogic đã làm được:
-// - Parse nested expressions với operator precedence
-// - Xử lý parentheses matching
-// - Synthesis phức tạp thành AIG
-// - Optimization các common subexpressions
-//
-// Status: ✅ FULLY SUPPORTED
-// ============================================================
-
 module complex_expressions(
     input a,
     input b,
@@ -30,4 +18,3 @@ module complex_expressions(
     assign out3 = ~(a & b);
 
 endmodule
-

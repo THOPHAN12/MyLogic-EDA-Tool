@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Union
 # Thêm thư mục gốc project vào đường dẫn
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cli.commands import dump_ast, file_ops, help_cmd, inspect, synthesis_cmds
+from cli.commands import dump_ast, dump_synth, file_ops, help_cmd, inspect, synthesis_cmds
 
 class MyLogicShell:
     """Shell tương tác chính của MyLogic EDA Tool (tổng hợp luận lý, tối ưu, ánh xạ công nghệ)."""
@@ -32,6 +32,7 @@ class MyLogicShell:
         self.commands.update(file_ops.register(self))
         self.commands.update(inspect.register(self))
         self.commands.update(dump_ast.register(self))
+        self.commands.update(dump_synth.register(self))
         self.commands.update(synthesis_cmds.register(self))
         self.commands.update(help_cmd.register(self))
 

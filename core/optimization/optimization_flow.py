@@ -315,20 +315,31 @@ class AIGOptimizationFlow:
                 # Constant propagation rules
                 left_val = left.get_value() if left.is_constant() else None
                 right_val = right.get_value() if right.is_constant() else None
-                
-                # AND(x, 0) = 0 or AND(0, x) = 0
-                if (left_val is False) or (right_val is False):
+
+                # Effective constant values must account for the AIG inversion flags.
+                # Semantics: output = (~left if left_inverted else left) & (~right if right_inverted else right)
+                left_eff = None if left_val is None else (not left_val if old_node.left_inverted else left_val)
+                right_eff = None if right_val is None else (not right_val if old_node.right_inverted else right_val)
+
+                # If either effective input is 0 -> result is 0
+                if (left_eff is False) or (right_eff is False):
                     node_map[old_node.node_id] = new_aig.const0
                     return new_aig.const0
-                
-                # AND(x, 1) = x (with inversion handling)
-                if right_val is True:
-                    res = new_aig.create_not(left) if old_node.right_inverted else left
+
+                # If both effective inputs are 1 -> result is 1
+                if (left_eff is True) and (right_eff is True):
+                    node_map[old_node.node_id] = new_aig.const1
+                    return new_aig.const1
+
+                # If effective left is 1 -> result is (~right if right_inverted else right)
+                if left_eff is True:
+                    res = new_aig.create_not(right) if old_node.right_inverted else right
                     node_map[old_node.node_id] = res
                     return res
-                
-                if left_val is True:
-                    res = new_aig.create_not(right) if old_node.left_inverted else right
+
+                # If effective right is 1 -> result is (~left if left_inverted else left)
+                if right_eff is True:
+                    res = new_aig.create_not(left) if old_node.left_inverted else left
                     node_map[old_node.node_id] = res
                     return res
                 

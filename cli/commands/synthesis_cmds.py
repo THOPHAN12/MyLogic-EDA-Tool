@@ -20,7 +20,7 @@ def _export_synthesized_netlist_json(
         os.makedirs(output_dir, exist_ok=True)
         if shell.filename:
             base_name = os.path.splitext(os.path.basename(shell.filename))[0]
-            output_path = os.path.join(output_dir, f"{base_name}_synthesized.json")
+            output_path = os.path.join(output_dir, f"{base_name}_syn.json")
         else:
             output_path = os.path.join(output_dir, "synthesized.json")
 
@@ -53,12 +53,20 @@ def _export_synthesized_verilog(
     import os
     from core.export import netlist_to_verilog
 
+    def _resolve_export_module_name(path: str, netlist: Dict) -> str:
+        base_name = netlist.get("name") or "design"
+        file_stem = os.path.splitext(os.path.basename(path))[0]
+        for suffix in ("_syn", "_opt", "_mapped"):
+            if file_stem.endswith(suffix):
+                return f"{base_name}{suffix}"
+        return file_stem or base_name
+
     if not output_path:
         output_dir = "outputs"
         os.makedirs(output_dir, exist_ok=True)
         if shell.filename:
             base_name = os.path.splitext(os.path.basename(shell.filename))[0]
-            output_path = os.path.join(output_dir, f"{base_name}_synthesized.v")
+            output_path = os.path.join(output_dir, f"{base_name}_syn.v")
         else:
             output_path = os.path.join(output_dir, "synthesized.v")
 
@@ -72,13 +80,14 @@ def _export_synthesized_verilog(
         for k, v in orig_vw.items():
             synthesized_netlist["attrs"]["vector_widths"].setdefault(k, v)
 
-    verilog_text = netlist_to_verilog(synthesized_netlist, module_name=synthesized_netlist.get("name"))
+    module_name = _resolve_export_module_name(output_path, synthesized_netlist)
+    verilog_text = netlist_to_verilog(synthesized_netlist, module_name=module_name)
     out_dir = os.path.dirname(output_path) if os.path.dirname(output_path) else "."
     if out_dir and out_dir != "." and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(verilog_text)
-    print(f"[OK] Exported synthesized Verilog to: {output_path}")
+    print(f"[OK] Exported synthesized Verilog to: {output_path} (module {module_name})")
 
 
 def _cmd_strash(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> None:
@@ -208,7 +217,11 @@ def _cmd_synthesis(shell: "MyLogicShell", parts: List[str]) -> None:
                     if i + 1 < len(parts) and not parts[i + 1].startswith("-"):
                         out_path = parts[i + 1]
                     break
-            synthesized_netlist = aig_to_netlist(shell.current_aig, shell.current_netlist)
+            synthesized_netlist = aig_to_netlist(
+                shell.current_aig,
+                shell.current_netlist,
+                simplify_and_with_const1=False,
+            )
             _export_synthesized_netlist_json(shell, synthesized_netlist, out_path)
 
         # Optional export Verilog: synthesis --verilog [output_path]
@@ -219,7 +232,11 @@ def _cmd_synthesis(shell: "MyLogicShell", parts: List[str]) -> None:
                     if i + 1 < len(parts) and not parts[i + 1].startswith("-"):
                         out_path = parts[i + 1]
                     break
-            synthesized_netlist = aig_to_netlist(shell.current_aig, shell.current_netlist)
+            synthesized_netlist = aig_to_netlist(
+                shell.current_aig,
+                shell.current_netlist,
+                simplify_and_with_const1=False,
+            )
             _export_synthesized_verilog(shell, synthesized_netlist, out_path)
     except ImportError:
         print("[ERROR] Synthesis module not available")
@@ -245,10 +262,87 @@ def _cmd_optimize(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> N
         print(f"  Optimized AIG nodes: {final_nodes}")
         if original_nodes > 0:
             print(f"  Total reduction: {reduction} nodes ({(reduction/original_nodes)*100:.1f}%)")
+
+        # Optional: optimize --verilog [output_path] / optimize --json [output_path]
+        parts = parts or []
+        if any(p in ("--verilog", "-v", "--json", "-j") for p in parts[1:]):
+            import os
+
+            forwarded = ["export_aig", *parts[1:]]
+
+            def _maybe_inject_default(flag: str, default_suffix: str) -> None:
+                if flag not in forwarded:
+                    return
+                i = forwarded.index(flag)
+                has_path = (i + 1 < len(forwarded)) and (not str(forwarded[i + 1]).startswith("-"))
+                if has_path:
+                    return
+                base = os.path.splitext(os.path.basename(shell.filename or "design"))[0]
+                default_path = os.path.join("outputs", f"{base}{default_suffix}")
+                forwarded.insert(i + 1, default_path)
+
+            # If user requested export but didn't provide a path, avoid overwriting *_syn.*
+            _maybe_inject_default("--verilog", "_opt.v")
+            _maybe_inject_default("-v", "_opt.v")
+            _maybe_inject_default("--json", "_opt.json")
+            _maybe_inject_default("-j", "_opt.json")
+
+            _cmd_export_aig(shell, forwarded)
     except ImportError:
         print("[ERROR] Optimization module not available")
     except Exception as e:
         print(f"[ERROR] Optimization failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def _cmd_export_aig(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> None:
+    """
+    Export synthesized netlist from the *current* AIG (after optimize/strash/etc).
+    This does NOT re-run synthesis; it uses shell.current_aig directly.
+    """
+    if not shell.current_aig:
+        print("[ERROR] No AIG available. Run 'synthesis' first.")
+        return
+    if not shell.current_netlist:
+        print("[ERROR] No original netlist available (shell.current_netlist is empty).")
+        return
+
+    try:
+        from core.synthesis.aig import aig_to_netlist
+        from typing import Optional as _Optional
+
+        synthesized_netlist = aig_to_netlist(shell.current_aig, shell.current_netlist)
+
+        parts = parts or []
+        if not parts or all(p not in ("--verilog", "-v", "--json", "-j") for p in parts[1:]):
+            # Default: export both
+            _export_synthesized_netlist_json(shell, synthesized_netlist, None)
+            _export_synthesized_verilog(shell, synthesized_netlist, None)
+            return
+
+        out_json: _Optional[str] = None
+        out_v: _Optional[str] = None
+        for i, p in enumerate(parts[1:], start=1):
+            if p in ("--json", "-j"):
+                if i + 1 < len(parts) and not parts[i + 1].startswith("-"):
+                    out_json = parts[i + 1]
+                break
+        for i, p in enumerate(parts[1:], start=1):
+            if p in ("--verilog", "-v"):
+                if i + 1 < len(parts) and not parts[i + 1].startswith("-"):
+                    out_v = parts[i + 1]
+                break
+
+        if out_json is not False and any(p in ("--json", "-j") for p in parts[1:]):
+            _export_synthesized_netlist_json(shell, synthesized_netlist, out_json)
+        if out_v is not False and any(p in ("--verilog", "-v") for p in parts[1:]):
+            _export_synthesized_verilog(shell, synthesized_netlist, out_v)
+
+    except ImportError:
+        print("[ERROR] Export from AIG failed: core.synthesis.aig missing")
+    except Exception as e:
+        print(f"[ERROR] Export from AIG failed: {e}")
         import traceback
         traceback.print_exc()
 
@@ -504,6 +598,7 @@ def register(shell: "MyLogicShell") -> Dict[str, Callable]:
         "balance": lambda parts=None: _cmd_balance(shell, parts),
         "synthesis": lambda parts: _cmd_synthesis(shell, parts),
         "optimize": lambda parts=None: _cmd_optimize(shell, parts),
+        "export_aig": lambda parts=None: _cmd_export_aig(shell, parts),
         "dce": lambda parts: _cmd_dce(shell, parts),
         "aig": lambda parts: _cmd_aig(shell, parts),
         "techmap": lambda parts: _cmd_techmap(shell, parts),

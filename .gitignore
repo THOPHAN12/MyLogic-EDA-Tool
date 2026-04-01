@@ -51,6 +51,7 @@ venv.bak/
 # VS Code
 .vscode/
 *.code-workspace
+.cursor/
 
 # PyCharm
 .idea/
@@ -217,6 +218,9 @@ transcript
 modelsim.ini
 *.wlf
 *.vcd
+work/
+Verifilecation_use_Modelsim/
+TESTBENCH/**/*.bak
 
 # Test output directory
 test_output/

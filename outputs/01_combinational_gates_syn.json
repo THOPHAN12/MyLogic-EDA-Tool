@@ -1,0 +1,264 @@
+{
+  "metadata": {
+    "tool": "MyLogic EDA Tool v2.0.0",
+    "export_time": "2026-04-01T22:12:04.753080",
+    "source_file": "demo/CAN_DO/01_combinational_gates.v",
+    "version": "2.0.0",
+    "auto_exported": true,
+    "export_type": "synthesized_netlist"
+  },
+  "netlist": {
+    "name": "combinational_gates",
+    "inputs": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "outputs": [
+      "out_and",
+      "out_or",
+      "out_xor",
+      "out_nand",
+      "out_nor",
+      "out_not"
+    ],
+    "nodes": {
+      "__ml_n0": {
+        "id": "__ml_n0",
+        "type": "AND",
+        "inputs": [
+          "a",
+          "b"
+        ],
+        "output": "out_and",
+        "name": "__ml_n0"
+      },
+      "__ml_n2": {
+        "id": "__ml_n2",
+        "type": "NOT",
+        "inputs": [
+          "d"
+        ],
+        "output": "__ml_w21",
+        "name": "__ml_n2"
+      },
+      "__ml_n4": {
+        "id": "__ml_n4",
+        "type": "NOT",
+        "inputs": [
+          "c"
+        ],
+        "output": "__ml_w20",
+        "name": "__ml_n4"
+      },
+      "__ml_n6": {
+        "id": "__ml_n6",
+        "type": "NOT",
+        "inputs": [
+          "a"
+        ],
+        "output": "__ml_w18",
+        "name": "__ml_n6"
+      },
+      "__ml_n7": {
+        "id": "__ml_n7",
+        "type": "NOT",
+        "inputs": [
+          "b"
+        ],
+        "output": "__ml_w19",
+        "name": "__ml_n7"
+      },
+      "__ml_n5": {
+        "id": "__ml_n5",
+        "type": "AND",
+        "inputs": [
+          "__ml_w18",
+          "__ml_w19"
+        ],
+        "output": "__ml_w22",
+        "name": "__ml_n5"
+      },
+      "__ml_n3": {
+        "id": "__ml_n3",
+        "type": "AND",
+        "inputs": [
+          "__ml_w20",
+          "__ml_w22"
+        ],
+        "output": "__ml_w23",
+        "name": "__ml_n3"
+      },
+      "__ml_n1": {
+        "id": "__ml_n1",
+        "type": "AND",
+        "inputs": [
+          "__ml_w21",
+          "__ml_w23"
+        ],
+        "output": "__ml_w24",
+        "name": "__ml_n1"
+      },
+      "__ml_n8": {
+        "id": "__ml_n8",
+        "type": "NOT",
+        "inputs": [
+          "__ml_w24"
+        ],
+        "output": "out_or",
+        "name": "__ml_n8"
+      },
+      "__ml_n11": {
+        "id": "__ml_n11",
+        "type": "NOT",
+        "inputs": [
+          "a"
+        ],
+        "output": "__ml_w10",
+        "name": "__ml_n11"
+      },
+      "__ml_n10": {
+        "id": "__ml_n10",
+        "type": "AND",
+        "inputs": [
+          "b",
+          "__ml_w10"
+        ],
+        "output": "__ml_w12",
+        "name": "__ml_n10"
+      },
+      "__ml_n12": {
+        "id": "__ml_n12",
+        "type": "NOT",
+        "inputs": [
+          "__ml_w12"
+        ],
+        "output": "__ml_w14",
+        "name": "__ml_n12"
+      },
+      "__ml_n14": {
+        "id": "__ml_n14",
+        "type": "NOT",
+        "inputs": [
+          "b"
+        ],
+        "output": "__ml_w11",
+        "name": "__ml_n14"
+      },
+      "__ml_n13": {
+        "id": "__ml_n13",
+        "type": "AND",
+        "inputs": [
+          "a",
+          "__ml_w11"
+        ],
+        "output": "__ml_w13",
+        "name": "__ml_n13"
+      },
+      "__ml_n15": {
+        "id": "__ml_n15",
+        "type": "NOT",
+        "inputs": [
+          "__ml_w13"
+        ],
+        "output": "__ml_w15",
+        "name": "__ml_n15"
+      },
+      "__ml_n9": {
+        "id": "__ml_n9",
+        "type": "AND",
+        "inputs": [
+          "__ml_w14",
+          "__ml_w15"
+        ],
+        "output": "__ml_w16",
+        "name": "__ml_n9"
+      },
+      "__ml_n16": {
+        "id": "__ml_n16",
+        "type": "NOT",
+        "inputs": [
+          "__ml_w16"
+        ],
+        "output": "out_xor",
+        "name": "__ml_n16"
+      },
+      "__ml_n17": {
+        "id": "__ml_n17",
+        "type": "AND",
+        "inputs": [
+          "a",
+          "b"
+        ],
+        "output": "__ml_w27",
+        "name": "__ml_n17"
+      },
+      "__ml_n18": {
+        "id": "__ml_n18",
+        "type": "NOT",
+        "inputs": [
+          "__ml_w27"
+        ],
+        "output": "out_nand",
+        "name": "__ml_n18"
+      },
+      "__ml_n20": {
+        "id": "__ml_n20",
+        "type": "NOT",
+        "inputs": [
+          "a"
+        ],
+        "output": "__ml_w6",
+        "name": "__ml_n20"
+      },
+      "__ml_n21": {
+        "id": "__ml_n21",
+        "type": "NOT",
+        "inputs": [
+          "b"
+        ],
+        "output": "__ml_w7",
+        "name": "__ml_n21"
+      },
+      "__ml_n19": {
+        "id": "__ml_n19",
+        "type": "AND",
+        "inputs": [
+          "__ml_w6",
+          "__ml_w7"
+        ],
+        "output": "__ml_w8",
+        "name": "__ml_n19"
+      },
+      "__ml_n22": {
+        "id": "__ml_n22",
+        "type": "NOT",
+        "inputs": [
+          "__ml_w8"
+        ],
+        "output": "__ml_w9",
+        "name": "__ml_n22"
+      },
+      "__ml_n23": {
+        "id": "__ml_n23",
+        "type": "NOT",
+        "inputs": [
+          "__ml_w9"
+        ],
+        "output": "out_nor",
+        "name": "__ml_n23"
+      },
+      "__ml_n24": {
+        "id": "__ml_n24",
+        "type": "NOT",
+        "inputs": [
+          "a"
+        ],
+        "output": "out_not",
+        "name": "__ml_n24"
+      }
+    },
+    "wires": []
+  }
+}

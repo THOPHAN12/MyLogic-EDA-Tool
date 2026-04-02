@@ -1,0 +1,456 @@
+{
+  "metadata": {
+    "tool": "MyLogic EDA Tool v2.0.0",
+    "export_time": "2026-04-02T11:50:01.260988",
+    "source_file": "demo/CAN_DO/01_combinational_gates.v",
+    "version": "2.0.0",
+    "auto_exported": true,
+    "export_type": "technology_mapped_netlist"
+  },
+  "netlist": {
+    "inputs": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "outputs": [
+      "out_and",
+      "out_or",
+      "out_xor",
+      "out_nand",
+      "out_nor",
+      "out_not"
+    ],
+    "nodes": [
+      {
+        "id": "node_6",
+        "output": "node_6",
+        "inputs": [
+          "a",
+          "b"
+        ],
+        "type": "AND2_SMALL",
+        "cell_name": "AND2_SMALL",
+        "function": "AND(a,b)",
+        "input_pins": [
+          "A",
+          "B"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.2,
+        "delay": 0.3
+      },
+      {
+        "id": "node_7",
+        "output": "node_7",
+        "inputs": [
+          "d",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(d),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_8",
+        "output": "node_8",
+        "inputs": [
+          "c",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(c),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_9",
+        "output": "node_9",
+        "inputs": [
+          "a",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(a),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_10",
+        "output": "node_10",
+        "inputs": [
+          "b",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(b),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_11",
+        "output": "node_11",
+        "inputs": [
+          "node_9",
+          "node_10"
+        ],
+        "type": "AND2_SMALL",
+        "cell_name": "AND2_SMALL",
+        "function": "AND(node_9,node_10)",
+        "input_pins": [
+          "A",
+          "B"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.2,
+        "delay": 0.3
+      },
+      {
+        "id": "node_12",
+        "output": "node_12",
+        "inputs": [
+          "node_8",
+          "node_11"
+        ],
+        "type": "AND2_SMALL",
+        "cell_name": "AND2_SMALL",
+        "function": "AND(node_8,node_11)",
+        "input_pins": [
+          "A",
+          "B"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.2,
+        "delay": 0.3
+      },
+      {
+        "id": "node_13",
+        "output": "node_13",
+        "inputs": [
+          "node_7",
+          "node_12"
+        ],
+        "type": "AND2_SMALL",
+        "cell_name": "AND2_SMALL",
+        "function": "AND(node_7,node_12)",
+        "input_pins": [
+          "A",
+          "B"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.2,
+        "delay": 0.3
+      },
+      {
+        "id": "node_14",
+        "output": "node_14",
+        "inputs": [
+          "node_13",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(node_13),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_15",
+        "output": "node_15",
+        "inputs": [
+          "b",
+          "node_9"
+        ],
+        "type": "AND2_SMALL",
+        "cell_name": "AND2_SMALL",
+        "function": "AND(b,node_9)",
+        "input_pins": [
+          "A",
+          "B"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.2,
+        "delay": 0.3
+      },
+      {
+        "id": "node_16",
+        "output": "node_16",
+        "inputs": [
+          "node_15",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(node_15),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_17",
+        "output": "node_17",
+        "inputs": [
+          "a",
+          "node_10"
+        ],
+        "type": "AND2_SMALL",
+        "cell_name": "AND2_SMALL",
+        "function": "AND(a,node_10)",
+        "input_pins": [
+          "A",
+          "B"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.2,
+        "delay": 0.3
+      },
+      {
+        "id": "node_18",
+        "output": "node_18",
+        "inputs": [
+          "node_17",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(node_17),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_19",
+        "output": "node_19",
+        "inputs": [
+          "node_16",
+          "node_18"
+        ],
+        "type": "AND2_SMALL",
+        "cell_name": "AND2_SMALL",
+        "function": "AND(node_16,node_18)",
+        "input_pins": [
+          "A",
+          "B"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.2,
+        "delay": 0.3
+      },
+      {
+        "id": "node_20",
+        "output": "node_20",
+        "inputs": [
+          "node_19",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(node_19),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_21",
+        "output": "node_21",
+        "inputs": [
+          "node_6",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(node_6),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_22",
+        "output": "node_22",
+        "inputs": [
+          "node_11",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(node_11),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "node_23",
+        "output": "node_23",
+        "inputs": [
+          "node_22",
+          "CONST1"
+        ],
+        "type": "INV_A1",
+        "cell_name": "INV_A1",
+        "function": "AND(NOT(node_22),CONST1)",
+        "input_pins": [
+          "A"
+        ],
+        "output_pins": [
+          "Y"
+        ],
+        "mapped": true,
+        "area": 1.0,
+        "delay": 0.1
+      },
+      {
+        "id": "po_buf_0",
+        "type": "BUF",
+        "output": "out_and",
+        "inputs": [
+          "node_6"
+        ],
+        "function": "BUF(node_6)",
+        "mapped": false
+      },
+      {
+        "id": "po_buf_1",
+        "type": "BUF",
+        "output": "out_or",
+        "inputs": [
+          "node_14"
+        ],
+        "function": "BUF(node_14)",
+        "mapped": false
+      },
+      {
+        "id": "po_buf_2",
+        "type": "BUF",
+        "output": "out_xor",
+        "inputs": [
+          "node_20"
+        ],
+        "function": "BUF(node_20)",
+        "mapped": false
+      },
+      {
+        "id": "po_buf_3",
+        "type": "BUF",
+        "output": "out_nand",
+        "inputs": [
+          "node_21"
+        ],
+        "function": "BUF(node_21)",
+        "mapped": false
+      },
+      {
+        "id": "po_buf_4",
+        "type": "BUF",
+        "output": "out_nor",
+        "inputs": [
+          "node_23"
+        ],
+        "function": "BUF(node_23)",
+        "mapped": false
+      },
+      {
+        "id": "po_buf_5",
+        "type": "BUF",
+        "output": "out_not",
+        "inputs": [
+          "node_9"
+        ],
+        "function": "BUF(node_9)",
+        "mapped": false
+      }
+    ],
+    "name": "01_combinational_gates_mapped"
+  }
+}

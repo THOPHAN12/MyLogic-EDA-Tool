@@ -28,6 +28,13 @@ module tb_01_combinational_gates_compare;
   wire opt_out_nor;
   wire opt_out_not;
 
+  wire mapped_out_and;
+  wire mapped_out_or;
+  wire mapped_out_xor;
+  wire mapped_out_nand;
+  wire mapped_out_nor;
+  wire mapped_out_not;
+
   reg exp_out_and;
   reg exp_out_or;
   reg exp_out_xor;
@@ -78,6 +85,19 @@ module tb_01_combinational_gates_compare;
     .out_not(opt_out_not)
   );
 
+  combinational_gates_mapped dut_mapped (
+    .a(a),
+    .b(b),
+    .c(c),
+    .d(d),
+    .out_and(mapped_out_and),
+    .out_or(mapped_out_or),
+    .out_xor(mapped_out_xor),
+    .out_nand(mapped_out_nand),
+    .out_nor(mapped_out_nor),
+    .out_not(mapped_out_not)
+  );
+
   task check_outputs;
     begin
       vector_errors = 0;
@@ -124,6 +144,18 @@ module tb_01_combinational_gates_compare;
         vector_errors = vector_errors + 1;
       end
 
+      if ({mapped_out_and, mapped_out_or, mapped_out_xor, mapped_out_nand, mapped_out_nor, mapped_out_not} !==
+          {exp_out_and, exp_out_or, exp_out_xor, exp_out_nand, exp_out_nor, exp_out_not}) begin
+        $display(
+          "MAPPED_MISMATCH a=%0d b=%0d c=%0d d=%0d | got=%b%b%b%b%b%b exp=%b%b%b%b%b%b",
+          a, b, c, d,
+          mapped_out_and, mapped_out_or, mapped_out_xor, mapped_out_nand, mapped_out_nor, mapped_out_not,
+          exp_out_and, exp_out_or, exp_out_xor, exp_out_nand, exp_out_nor, exp_out_not
+        );
+        errors = errors + 1;
+        vector_errors = vector_errors + 1;
+      end
+
       if ({ref_out_and, ref_out_or, ref_out_xor, ref_out_nand, ref_out_nor, ref_out_not} !==
           {syn_out_and, syn_out_or, syn_out_xor, syn_out_nand, syn_out_nor, syn_out_not}) begin
         $display("REF_SYN_DIFF a=%0d b=%0d c=%0d d=%0d", a, b, c, d);
@@ -145,13 +177,35 @@ module tb_01_combinational_gates_compare;
         vector_errors = vector_errors + 1;
       end
 
+      if ({ref_out_and, ref_out_or, ref_out_xor, ref_out_nand, ref_out_nor, ref_out_not} !==
+          {mapped_out_and, mapped_out_or, mapped_out_xor, mapped_out_nand, mapped_out_nor, mapped_out_not}) begin
+        $display("REF_MAPPED_DIFF a=%0d b=%0d c=%0d d=%0d", a, b, c, d);
+        errors = errors + 1;
+        vector_errors = vector_errors + 1;
+      end
+
+      if ({syn_out_and, syn_out_or, syn_out_xor, syn_out_nand, syn_out_nor, syn_out_not} !==
+          {mapped_out_and, mapped_out_or, mapped_out_xor, mapped_out_nand, mapped_out_nor, mapped_out_not}) begin
+        $display("SYN_MAPPED_DIFF a=%0d b=%0d c=%0d d=%0d", a, b, c, d);
+        errors = errors + 1;
+        vector_errors = vector_errors + 1;
+      end
+
+      if ({opt_out_and, opt_out_or, opt_out_xor, opt_out_nand, opt_out_nor, opt_out_not} !==
+          {mapped_out_and, mapped_out_or, mapped_out_xor, mapped_out_nand, mapped_out_nor, mapped_out_not}) begin
+        $display("OPT_MAPPED_DIFF a=%0d b=%0d c=%0d d=%0d", a, b, c, d);
+        errors = errors + 1;
+        vector_errors = vector_errors + 1;
+      end
+
       if (vector_errors == 0) begin
         $display(
-          "PASS a=%0d b=%0d c=%0d d=%0d | ref=%b%b%b%b%b%b syn=%b%b%b%b%b%b opt=%b%b%b%b%b%b",
+          "PASS a=%0d b=%0d c=%0d d=%0d | ref=%b%b%b%b%b%b syn=%b%b%b%b%b%b opt=%b%b%b%b%b%b mapped=%b%b%b%b%b%b",
           a, b, c, d,
           ref_out_and, ref_out_or, ref_out_xor, ref_out_nand, ref_out_nor, ref_out_not,
           syn_out_and, syn_out_or, syn_out_xor, syn_out_nand, syn_out_nor, syn_out_not,
-          opt_out_and, opt_out_or, opt_out_xor, opt_out_nand, opt_out_nor, opt_out_not
+          opt_out_and, opt_out_or, opt_out_xor, opt_out_nand, opt_out_nor, opt_out_not,
+          mapped_out_and, mapped_out_or, mapped_out_xor, mapped_out_nand, mapped_out_nor, mapped_out_not
         );
       end
     end
@@ -159,7 +213,7 @@ module tb_01_combinational_gates_compare;
 
   initial begin
     errors = 0;
-    $display("=== Compare combinational_gates / syn / opt ===");
+    $display("=== Compare combinational_gates / syn / opt / mapped ===");
 
     for (i = 0; i < 16; i = i + 1) begin
       {a, b, c, d} = i[3:0];
@@ -168,7 +222,7 @@ module tb_01_combinational_gates_compare;
     end
 
     if (errors == 0) begin
-      $display("RESULT PASS: reference, synthesized, and optimized all match on 16/16 vectors.");
+      $display("RESULT PASS: reference, synthesized, optimized, and mapped all match on 16/16 vectors.");
     end else begin
       $display("RESULT FAIL: found %0d mismatches.", errors);
     end

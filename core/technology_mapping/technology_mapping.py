@@ -743,36 +743,18 @@ def convert_mapped_logic_network_to_netlist(
         'nodes': []
     }
     
-    # Build mapping from LogicNode outputs to primary outputs
-    # Track which logic node drives which primary output
-    output_to_po_mapping = {}  # {logic_node_output: primary_output_name}
-    
-    # Try to map from AIG primary outputs to logic nodes
-    if hasattr(aig, 'pos') and aig.pos:
-        # For simple case: if we have same number of POs and logic nodes, map directly
-        # Or try to find mapping from original netlist
-        if 'attrs' in original_netlist and 'output_mapping' in original_netlist['attrs']:
-            # Use original output mapping if available
-            original_output_mapping = original_netlist['attrs']['output_mapping']
-            # This maps output names to node IDs, we need reverse mapping
-            pass  # Will handle below
-        
-        # For now, if single output and single logic node, map directly
-        if len(outputs) == 1 and len(mapper.logic_network) == 1:
-            # Find the logic node that should drive the output
-            # Usually it's the one that processes the last node in AIG
-            for logic_node in mapper.logic_network.values():
-                output_to_po_mapping[logic_node.output] = outputs[0]
+    def _signal_name_from_aig_node(node) -> str:
+        if node.is_constant():
+            return "CONST0" if not node.get_value() else "CONST1"
+        if node.is_pi():
+            return node.var_name or f"pi_{node.node_id}"
+        return f"node_{node.node_id}"
     
     # Convert each LogicNode in mapper.logic_network to netlist node format
     for node_name, logic_node in mapper.logic_network.items():
-        # Determine the output signal name
-        # If this node drives a primary output, use the PO name, otherwise use internal name
-        output_signal = output_to_po_mapping.get(logic_node.output, logic_node.output)
-        
         node_dict = {
             'id': logic_node.name,
-            'output': output_signal,  # Use mapped output name
+            'output': logic_node.output,
             'inputs': logic_node.inputs,
         }
         
@@ -781,6 +763,8 @@ def convert_mapped_logic_network_to_netlist(
             node_dict['type'] = logic_node.mapped_cell.name  # e.g., 'NAND2', 'NOR2', 'AND2'
             node_dict['cell_name'] = logic_node.mapped_cell.name
             node_dict['function'] = logic_node.function
+            node_dict['input_pins'] = list(logic_node.mapped_cell.input_pins or [])
+            node_dict['output_pins'] = list(logic_node.mapped_cell.output_pins or [])
             # Store mapping information
             node_dict['mapped'] = True
             if hasattr(logic_node.mapped_cell, 'area'):
@@ -797,6 +781,44 @@ def convert_mapped_logic_network_to_netlist(
             node_dict['mapped'] = False
         
         mapped_netlist['nodes'].append(node_dict)
+
+    # Preserve primary outputs by adding explicit BUF/NOT/CONST drivers from AIG outputs.
+    if hasattr(aig, 'pos') and aig.pos:
+        for idx, (po_node, po_inverted) in enumerate(aig.pos):
+            if idx >= len(outputs):
+                break
+
+            output_name = outputs[idx]
+            source_signal = _signal_name_from_aig_node(po_node)
+
+            if po_node.is_constant():
+                mapped_netlist['nodes'].append({
+                    'id': f"po_const_{idx}",
+                    'type': "CONST1" if (po_node.get_value() ^ bool(po_inverted)) else "CONST0",
+                    'output': output_name,
+                    'inputs': [],
+                    'mapped': False,
+                })
+                continue
+
+            if po_inverted:
+                mapped_netlist['nodes'].append({
+                    'id': f"po_not_{idx}",
+                    'type': "NOT",
+                    'output': output_name,
+                    'inputs': [source_signal],
+                    'function': f"NOT({source_signal})",
+                    'mapped': False,
+                })
+            elif source_signal != output_name:
+                mapped_netlist['nodes'].append({
+                    'id': f"po_buf_{idx}",
+                    'type': "BUF",
+                    'output': output_name,
+                    'inputs': [source_signal],
+                    'function': f"BUF({source_signal})",
+                    'mapped': False,
+                })
     
     logger.debug(f"Converted {len(mapped_netlist['nodes'])} nodes to netlist format")
     

@@ -90,6 +90,84 @@ def _export_synthesized_verilog(
     print(f"[OK] Exported synthesized Verilog to: {output_path} (module {module_name})")
 
 
+def _export_mapped_netlist_json(
+    shell: "MyLogicShell",
+    mapped_netlist: Dict,
+    output_path: Optional[str] = None,
+) -> None:
+    import json
+    import os
+    from datetime import datetime
+
+    if not output_path:
+        output_dir = "outputs"
+        os.makedirs(output_dir, exist_ok=True)
+        if shell.filename:
+            base_name = os.path.splitext(os.path.basename(shell.filename))[0]
+            output_path = os.path.join(output_dir, f"{base_name}_mapped.json")
+        else:
+            output_path = os.path.join(output_dir, "mapped.json")
+
+    export_data = {
+        "metadata": {
+            "tool": "MyLogic EDA Tool v2.0.0",
+            "export_time": datetime.now().isoformat(),
+            "source_file": shell.filename or "unknown",
+            "version": "2.0.0",
+            "auto_exported": True,
+            "export_type": "technology_mapped_netlist",
+        },
+        "netlist": mapped_netlist,
+    }
+
+    out_dir = os.path.dirname(output_path) if os.path.dirname(output_path) else "."
+    if out_dir and out_dir != "." and not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(export_data, f, indent=2, ensure_ascii=False)
+    print(f"[OK] Exported technology-mapped netlist to: {output_path}")
+
+
+def _export_mapped_verilog(
+    shell: "MyLogicShell",
+    mapped_netlist: Dict,
+    output_path: Optional[str] = None,
+) -> None:
+    import os
+    from core.export import netlist_to_verilog
+
+    if not output_path:
+        output_dir = "outputs"
+        os.makedirs(output_dir, exist_ok=True)
+        if shell.filename:
+            base_name = os.path.splitext(os.path.basename(shell.filename))[0]
+            output_path = os.path.join(output_dir, f"{base_name}_mapped.v")
+        else:
+            output_path = os.path.join(output_dir, "mapped.v")
+
+    orig_attrs = (shell.current_netlist or {}).get("attrs", {}) or {}
+    orig_vw = orig_attrs.get("vector_widths", {}) or {}
+    if orig_vw:
+        mapped_netlist.setdefault("attrs", {})
+        mapped_netlist["attrs"].setdefault("vector_widths", {})
+        for k, v in orig_vw.items():
+            mapped_netlist["attrs"]["vector_widths"].setdefault(k, v)
+
+    module_name = mapped_netlist.get("name") or "design_mapped"
+    if shell.filename:
+        base_name = os.path.splitext(os.path.basename(shell.filename))[0]
+        module_name = f"{base_name}_mapped"
+
+    verilog_text = netlist_to_verilog(mapped_netlist, module_name=module_name)
+    out_dir = os.path.dirname(output_path) if os.path.dirname(output_path) else "."
+    if out_dir and out_dir != "." and not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(verilog_text)
+    print(f"[OK] Exported technology-mapped Verilog to: {output_path} (module {module_name})")
+
+
 def _cmd_strash(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> None:
     if not shell.current_netlist:
         print("[ERROR] No netlist loaded. Use 'read <file>' first.")
@@ -382,6 +460,7 @@ def _cmd_techmap(shell: "MyLogicShell", parts: List[str]) -> None:
     if not parts or len(parts) < 2:
         print("Usage: techmap <strategy> [library_file|library_type]")
         print("Strategies: area, delay, balanced")
+        print("Options: [--json [output_path]] [--verilog [output_path]]")
         print("Note: Techmap requires AIG from synthesis or optimization.")
         return
     if not shell.current_aig:
@@ -395,7 +474,12 @@ def _cmd_techmap(shell: "MyLogicShell", parts: List[str]) -> None:
     strategy = strategy_map.get(strategy, strategy)
 
     try:
-        from core.technology_mapping.technology_mapping import techmap, create_standard_library, load_library_from_file
+        from core.technology_mapping.technology_mapping import (
+            techmap,
+            create_standard_library,
+            load_library_from_file,
+            convert_mapped_logic_network_to_netlist,
+        )
         import os
 
         print(f"[INFO] Running technology mapping with {strategy} strategy...")
@@ -416,6 +500,20 @@ def _cmd_techmap(shell: "MyLogicShell", parts: List[str]) -> None:
             library = create_standard_library()
 
         results = techmap(shell.current_aig, library, strategy)
+        mapper = results.get("_mapper")
+        aig_for_mapping = results.get("_aig")
+        mapped_netlist = None
+        if mapper and aig_for_mapping and shell.current_netlist:
+            mapped_netlist = convert_mapped_logic_network_to_netlist(
+                mapper,
+                aig_for_mapping,
+                shell.current_netlist,
+            )
+            if shell.filename:
+                import os as _os
+                base_name = _os.path.splitext(_os.path.basename(shell.filename))[0]
+                mapped_netlist["name"] = f"{base_name}_mapped"
+
         print("\n" + "=" * 60)
         print("TECHNOLOGY MAPPING REPORT")
         print("=" * 60)
@@ -429,6 +527,32 @@ def _cmd_techmap(shell: "MyLogicShell", parts: List[str]) -> None:
             print(f"Total Delay: {results['total_delay']:.2f}")
         print(f"Library: {results.get('library_name', 'N/A')}")
         print("=" * 60)
+
+        if mapper:
+            mapper.print_mapping_report(results)
+
+        out_json: Optional[str] = None
+        out_v: Optional[str] = None
+        for i, p in enumerate(parts[1:], start=1):
+            if p in ("--json", "-j"):
+                if i + 1 < len(parts) and not parts[i + 1].startswith("-"):
+                    out_json = parts[i + 1]
+                else:
+                    out_json = None
+                break
+        for i, p in enumerate(parts[1:], start=1):
+            if p in ("--verilog", "-v"):
+                if i + 1 < len(parts) and not parts[i + 1].startswith("-"):
+                    out_v = parts[i + 1]
+                else:
+                    out_v = None
+                break
+
+        if mapped_netlist and any(p in ("--json", "-j") for p in parts[1:]):
+            _export_mapped_netlist_json(shell, mapped_netlist, out_json)
+        if mapped_netlist and any(p in ("--verilog", "-v") for p in parts[1:]):
+            _export_mapped_verilog(shell, mapped_netlist, out_v)
+
         print("[OK] Technology mapping completed")
     except ImportError:
         print("[ERROR] Technology mapping module not available")

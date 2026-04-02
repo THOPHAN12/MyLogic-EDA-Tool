@@ -20,6 +20,71 @@ def _bus_base_and_bit(sig: str) -> Tuple[str, int] | None:
     return m.group(1), int(m.group(2))
 
 
+def _split_function_args(args_str: str) -> List[str]:
+    args: List[str] = []
+    current: List[str] = []
+    depth = 0
+    for ch in args_str:
+        if ch == "," and depth == 0:
+            arg = "".join(current).strip()
+            if arg:
+                args.append(arg)
+            current = []
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")" and depth > 0:
+            depth -= 1
+        current.append(ch)
+    tail = "".join(current).strip()
+    if tail:
+        args.append(tail)
+    return args
+
+
+def _function_to_verilog_expr(function: str) -> str | None:
+    s = (function or "").strip()
+    if not s:
+        return None
+    if s == "CONST0":
+        return "1'b0"
+    if s == "CONST1":
+        return "1'b1"
+    if s in ("0", "1") or "'" in s:
+        return s
+
+    match = re.match(r"^(\w+)\((.*)\)$", s)
+    if not match:
+        return s
+
+    op = match.group(1).upper()
+    args = _split_function_args(match.group(2))
+    rendered = []
+    for arg in args:
+        expr = _function_to_verilog_expr(arg)
+        if expr is None:
+            return None
+        rendered.append(expr)
+
+    if op == "BUF" and len(rendered) == 1:
+        return rendered[0]
+    if op == "NOT" and len(rendered) == 1:
+        return f"~({rendered[0]})"
+    if op == "AND" and len(rendered) >= 2:
+        return "(" + " & ".join(rendered) + ")"
+    if op == "OR" and len(rendered) >= 2:
+        return "(" + " | ".join(rendered) + ")"
+    if op == "XOR" and len(rendered) >= 2:
+        return "(" + " ^ ".join(rendered) + ")"
+    if op == "NAND" and len(rendered) >= 2:
+        return "~(" + " & ".join(rendered) + ")"
+    if op == "NOR" and len(rendered) >= 2:
+        return "~(" + " | ".join(rendered) + ")"
+    if op == "XNOR" and len(rendered) >= 2:
+        return "~(" + " ^ ".join(rendered) + ")"
+    return None
+
+
 def netlist_to_verilog(netlist: Dict[str, Any], module_name: str | None = None) -> str:
     """
     Convert a synthesized netlist dictionary (AIG->netlist) into structural Verilog.
@@ -80,12 +145,21 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str | None = None) 
             mark_sig(str(i))
         mark_sig(out)
 
-    # Build assigns
+    primitive_gates = {"and", "or", "xor", "xnor", "nand", "nor", "not", "buf"}
+
+    # Build assigns and explicit cell instances.
     assigns: List[str] = []
+    instances: List[str] = []
     for n in nodes:
         t = str(n.get("type", "") or "").upper()
+        raw_type = str(n.get("type", "") or "").strip()
         out = str(n.get("output", "") or "").strip()
         ins = [str(x).strip() for x in (n.get("inputs") or [])]
+        input_pins = [str(x).strip() for x in (n.get("input_pins") or []) if str(x).strip()]
+        output_pins = [str(x).strip() for x in (n.get("output_pins") or []) if str(x).strip()]
+        node_id = str(n.get("id", "") or f"inst_{len(instances)}").strip()
+        inst_name = f"u_{node_id}"
+        function_str = str(n.get("function", "") or "").strip()
         if not out:
             continue
 
@@ -119,8 +193,26 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str | None = None) 
         elif t == "CONST1":
             assigns.append(f"assign {out} = 1'b1;")
         else:
-            # Unknown node type: emit comment-like safe assignment if possible
-            if len(ins) == 1:
+            # Verilog primitive gates use positional ports: gate inst (Y, A, B, ...).
+            if raw_type.lower() in primitive_gates:
+                primitive_ports = [out, *ins]
+                if primitive_ports:
+                    instances.append(f"{raw_type.lower()} {inst_name} ({', '.join(primitive_ports)});")
+            # For mapped technology cells, emit named-port instances so the
+            # generated netlist does not depend on module port declaration order.
+            elif raw_type and input_pins and output_pins:
+                port_conns: List[str] = []
+                for pin_name, sig in zip(input_pins, ins):
+                    port_conns.append(f".{pin_name}({sig})")
+                for pin_name in output_pins:
+                    port_conns.append(f".{pin_name}({out})")
+                instances.append(f"{raw_type} {inst_name} ({', '.join(port_conns)});")
+            # Fallback to assign if no pin metadata exists.
+            elif function_str:
+                expr = _function_to_verilog_expr(function_str)
+                if expr is not None:
+                    assigns.append(f"assign {out} = {expr};")
+            elif len(ins) == 1:
                 if ins[0] != out:
                     assigns.append(f"assign {out} = {ins[0]};")
 
@@ -156,6 +248,9 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str | None = None) 
     if assigns:
         body.append("")
         body.extend([f"  {a}" for a in assigns])
+    if instances:
+        body.append("")
+        body.extend([f"  {inst}" for inst in instances])
     body.append("endmodule")
     body.append("")
     return "\n".join(body)

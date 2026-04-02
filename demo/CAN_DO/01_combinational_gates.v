@@ -29,4 +29,3 @@ module combinational_gates(
     assign out_not = ~a;
 
 endmodule
-

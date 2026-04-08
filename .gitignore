@@ -191,6 +191,8 @@ site/
 
 # Git submodules
 .git/modules/
+techlibs/asic/skywater-pdk/
+techlibs/asic/sky130/skywater-pdk/
 
 # ============================================
 # Project Output Files

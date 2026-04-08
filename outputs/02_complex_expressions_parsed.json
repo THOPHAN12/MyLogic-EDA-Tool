@@ -1,0 +1,264 @@
+{
+  "metadata": {
+    "tool": "MyLogic EDA Tool v2.0.0",
+    "export_time": "2026-04-08T15:08:11.578529",
+    "source_file": "demo/CAN_DO/02_complex_expressions.v",
+    "version": "2.0.0",
+    "auto_exported": true
+  },
+  "netlist": {
+    "name": "complex_expressions",
+    "inputs": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "outputs": [
+      "out1",
+      "out2",
+      "out3"
+    ],
+    "wires": [
+      {
+        "id": "wire_0",
+        "source": "a",
+        "destination": "and_0",
+        "type": "connection"
+      },
+      {
+        "id": "wire_1",
+        "source": "b",
+        "destination": "and_0",
+        "type": "connection"
+      },
+      {
+        "id": "wire_2",
+        "source": "c",
+        "destination": "and_1",
+        "type": "connection"
+      },
+      {
+        "id": "wire_3",
+        "source": "d",
+        "destination": "and_1",
+        "type": "connection"
+      },
+      {
+        "id": "wire_4",
+        "source": "and_0",
+        "destination": "or_2",
+        "type": "connection"
+      },
+      {
+        "id": "wire_5",
+        "source": "and_1",
+        "destination": "or_2",
+        "type": "connection"
+      },
+      {
+        "id": "wire_6",
+        "source": "a",
+        "destination": "and_3",
+        "type": "connection"
+      },
+      {
+        "id": "wire_7",
+        "source": "b",
+        "destination": "and_3",
+        "type": "connection"
+      },
+      {
+        "id": "wire_8",
+        "source": "c",
+        "destination": "and_3",
+        "type": "connection"
+      },
+      {
+        "id": "wire_9",
+        "source": "and_3",
+        "destination": "or_4",
+        "type": "connection"
+      },
+      {
+        "id": "wire_10",
+        "source": "d",
+        "destination": "or_4",
+        "type": "connection"
+      },
+      {
+        "id": "wire_11",
+        "source": "a",
+        "destination": "and_5",
+        "type": "connection"
+      },
+      {
+        "id": "wire_12",
+        "source": "b",
+        "destination": "and_5",
+        "type": "connection"
+      },
+      {
+        "id": "wire_13",
+        "source": "_temp_5",
+        "destination": "not_6",
+        "type": "connection"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "and_0",
+        "type": "AND",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "and_1",
+        "type": "AND",
+        "fanins": [
+          [
+            "c",
+            false
+          ],
+          [
+            "d",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "or_2",
+        "type": "OR",
+        "fanins": [
+          [
+            "and_0",
+            false
+          ],
+          [
+            "and_1",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "and_3",
+        "type": "AND",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ],
+          [
+            "c",
+            false
+          ]
+        ],
+        "chain": true
+      },
+      {
+        "id": "or_4",
+        "type": "OR",
+        "fanins": [
+          [
+            "and_3",
+            false
+          ],
+          [
+            "d",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "and_5",
+        "type": "AND",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "not_6",
+        "type": "NOT",
+        "fanins": [
+          [
+            "_temp_5",
+            false
+          ]
+        ]
+      }
+    ],
+    "attrs": {
+      "source_file": "demo/CAN_DO/02_complex_expressions.v",
+      "vector_widths": {
+        "a": 1,
+        "b": 1,
+        "c": 1,
+        "d": 1,
+        "out1": 1,
+        "out2": 1,
+        "out3": 1
+      },
+      "output_mapping": {
+        "_temp_0": "and_0",
+        "_temp_1": "and_1",
+        "out1": "or_2",
+        "_temp_3": "and_3",
+        "out2": "or_4",
+        "_temp_5": "and_5",
+        "out3": "not_6"
+      },
+      "parsing_stats": {
+        "total_wires": 14,
+        "wire_generation": "automatic",
+        "total_nodes": 7,
+        "logic_nodes": 7,
+        "arith_nodes": 0,
+        "shift_nodes": 0,
+        "compare_nodes": 0,
+        "logical_nodes": 0,
+        "struct_nodes": 0
+      },
+      "strict_synthesis": true,
+      "parameters": {},
+      "signed_signals": [],
+      "functions": {},
+      "tasks": {},
+      "operator_summary": {
+        "type_counts": {
+          "AND": 4,
+          "OR": 2,
+          "NOT": 1
+        },
+        "category_counts": {
+          "logic": 7,
+          "arith": 0,
+          "shift": 0,
+          "compare": 0,
+          "logical": 0,
+          "struct": 0,
+          "sequential": 0
+        },
+        "total_nodes": 7
+      }
+    }
+  }
+}

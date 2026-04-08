@@ -1,0 +1,288 @@
+{
+  "metadata": {
+    "tool": "MyLogic EDA Tool v2.0.0",
+    "export_time": "2026-04-08T11:55:26.830389",
+    "source_file": "demo/CAN_DO/01_combinational_gates.v",
+    "version": "2.0.0",
+    "auto_exported": true
+  },
+  "netlist": {
+    "name": "combinational_gates",
+    "inputs": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "outputs": [
+      "out_and",
+      "out_or",
+      "out_xor",
+      "out_nand",
+      "out_nor",
+      "out_not"
+    ],
+    "wires": [
+      {
+        "id": "wire_0",
+        "source": "a",
+        "destination": "and_0",
+        "type": "connection"
+      },
+      {
+        "id": "wire_1",
+        "source": "b",
+        "destination": "and_0",
+        "type": "connection"
+      },
+      {
+        "id": "wire_2",
+        "source": "a",
+        "destination": "or_1",
+        "type": "connection"
+      },
+      {
+        "id": "wire_3",
+        "source": "b",
+        "destination": "or_1",
+        "type": "connection"
+      },
+      {
+        "id": "wire_4",
+        "source": "c",
+        "destination": "or_1",
+        "type": "connection"
+      },
+      {
+        "id": "wire_5",
+        "source": "d",
+        "destination": "or_1",
+        "type": "connection"
+      },
+      {
+        "id": "wire_6",
+        "source": "a",
+        "destination": "xor_2",
+        "type": "connection"
+      },
+      {
+        "id": "wire_7",
+        "source": "b",
+        "destination": "xor_2",
+        "type": "connection"
+      },
+      {
+        "id": "wire_8",
+        "source": "a",
+        "destination": "and_3",
+        "type": "connection"
+      },
+      {
+        "id": "wire_9",
+        "source": "b",
+        "destination": "and_3",
+        "type": "connection"
+      },
+      {
+        "id": "wire_10",
+        "source": "_temp_3",
+        "destination": "not_4",
+        "type": "connection"
+      },
+      {
+        "id": "wire_11",
+        "source": "a",
+        "destination": "or_5",
+        "type": "connection"
+      },
+      {
+        "id": "wire_12",
+        "source": "b",
+        "destination": "or_5",
+        "type": "connection"
+      },
+      {
+        "id": "wire_13",
+        "source": "_temp_5",
+        "destination": "not_6",
+        "type": "connection"
+      },
+      {
+        "id": "wire_14",
+        "source": "a",
+        "destination": "not_7",
+        "type": "connection"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "and_0",
+        "type": "AND",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "or_1",
+        "type": "OR",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ],
+          [
+            "c",
+            false
+          ],
+          [
+            "d",
+            false
+          ]
+        ],
+        "chain": true
+      },
+      {
+        "id": "xor_2",
+        "type": "XOR",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "and_3",
+        "type": "AND",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "not_4",
+        "type": "NOT",
+        "fanins": [
+          [
+            "_temp_3",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "or_5",
+        "type": "OR",
+        "fanins": [
+          [
+            "a",
+            false
+          ],
+          [
+            "b",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "not_6",
+        "type": "NOT",
+        "fanins": [
+          [
+            "_temp_5",
+            false
+          ]
+        ]
+      },
+      {
+        "id": "not_7",
+        "type": "NOT",
+        "fanins": [
+          [
+            "a",
+            false
+          ]
+        ]
+      }
+    ],
+    "attrs": {
+      "source_file": "demo/CAN_DO/01_combinational_gates.v",
+      "vector_widths": {
+        "a": 1,
+        "b": 1,
+        "c": 1,
+        "d": 1,
+        "out_and": 1,
+        "out_or": 1,
+        "out_xor": 1,
+        "out_nand": 1,
+        "out_nor": 1,
+        "out_not": 1
+      },
+      "output_mapping": {
+        "out_and": "and_0",
+        "out_or": "or_1",
+        "out_xor": "xor_2",
+        "_temp_3": "and_3",
+        "out_nand": "not_4",
+        "_temp_5": "or_5",
+        "out_nor": "not_6",
+        "out_not": "not_7"
+      },
+      "parsing_stats": {
+        "total_wires": 15,
+        "wire_generation": "automatic",
+        "total_nodes": 8,
+        "logic_nodes": 8,
+        "arith_nodes": 0,
+        "shift_nodes": 0,
+        "compare_nodes": 0,
+        "logical_nodes": 0,
+        "struct_nodes": 0
+      },
+      "strict_synthesis": true,
+      "parameters": {},
+      "signed_signals": [],
+      "functions": {},
+      "tasks": {},
+      "operator_summary": {
+        "type_counts": {
+          "AND": 2,
+          "OR": 2,
+          "XOR": 1,
+          "NOT": 3
+        },
+        "category_counts": {
+          "logic": 8,
+          "arith": 0,
+          "shift": 0,
+          "compare": 0,
+          "logical": 0,
+          "struct": 0,
+          "sequential": 0
+        },
+        "total_nodes": 8
+      }
+    }
+  }
+}

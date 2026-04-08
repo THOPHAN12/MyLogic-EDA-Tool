@@ -393,12 +393,12 @@ def netlist_to_verilog(netlist: Dict[str, Any], module_name: str) -> str:
 
 def run_complete_flow(
     netlist: Dict[str, Any],
-    techmap_strategy: str = "area_optimal",
     techmap_library = None,
     enable_optimization: bool = True,
     enable_techmap: bool = True,
     output_dir: Optional[str] = None,
-    write_verilog: bool = True
+    write_verilog: bool = True,
+    techmap_merge_standard_library: bool = True,
 ) -> Dict[str, Any]:
     """
     Chạy complete flow: Synthesis → Optimization → Technology Mapping (một chuẩn duy nhất).
@@ -406,16 +406,17 @@ def run_complete_flow(
     Flow:
     1. SYNTHESIS: Netlist → AIG
     2. OPTIMIZATION: AIG → Optimized AIG
-    3. TECHMAP (optional): AIG → Technology-mapped netlist
-    
+    3. TECHMAP (optional): AIG → Technology-mapped netlist (luôn area_optimal).
+
     Args:
         netlist: Circuit netlist dictionary từ parser
-        techmap_strategy: Technology mapping strategy ("area_optimal", "delay_optimal", "balanced")
         techmap_library: Technology library object (None = auto-load standard library)
         enable_optimization: Có chạy optimization không (default: True)
         enable_techmap: Có chạy technology mapping không (default: True)
         output_dir: Directory để lưu output Verilog files (None = current directory)
         write_verilog: Có xuất file .v sau mỗi bước không (default: True, giống Yosys)
+        techmap_merge_standard_library: Gộp thư viện generic vào techmap (default: True).
+            Đặt False để chỉ dùng thư viện đã truyền (ví dụ thuần Sky130).
         
     Returns:
         Dictionary chứa kết quả của tất cả các bước:
@@ -447,7 +448,7 @@ def run_complete_flow(
         >>> from core.complete_flow import run_complete_flow
         >>> 
         >>> netlist = parse_verilog("design.v")
-        >>> results = run_complete_flow(netlist, techmap_strategy="area_optimal")
+        >>> results = run_complete_flow(netlist)
         >>> 
         >>> # Access results
         >>> synthesized_aig = results['synthesis']['aig']
@@ -610,7 +611,7 @@ def run_complete_flow(
             
             input_aig_nodes = aig.count_nodes()
             logger.info(f"Input AIG: {input_aig_nodes} nodes, {aig.count_and_nodes()} AND nodes")
-            logger.info(f"Techmap strategy: {techmap_strategy}")
+            logger.info("Techmap strategy: area_optimal (fixed for thesis / simple flow)")
             
             # Load library if not provided
             if techmap_library is None:
@@ -621,7 +622,12 @@ def run_complete_flow(
                 library = techmap_library
             
             # Run technology mapping
-            techmap_results = techmap(aig, library, techmap_strategy)
+            techmap_results = techmap(
+                aig,
+                library,
+                "area_optimal",
+                merge_standard_library=techmap_merge_standard_library,
+            )
             
             results['techmap'] = {
                 'results': techmap_results,
@@ -749,7 +755,6 @@ if __name__ == "__main__":
     # Test complete flow
     results = run_complete_flow(
         test_netlist,
-        techmap_strategy="area_optimal",
         enable_optimization=True,
         enable_techmap=True
     )

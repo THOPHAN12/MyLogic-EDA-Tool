@@ -148,8 +148,15 @@ def _cmd_export(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> Non
         return
 
     parts = parts or []
-    if len(parts) > 1:
-        filename = parts[1]
+    use_aig = "--aig" in parts
+    rest = [p for p in parts[1:] if p != "--aig"]
+
+    if use_aig and not getattr(shell, "current_aig", None):
+        print("[ERROR] export --aig requires a current AIG. Run 'synthesis' first.")
+        return
+
+    if len(rest) >= 1:
+        filename = rest[0]
         if not filename.endswith(".json"):
             filename += ".json"
     else:
@@ -160,8 +167,25 @@ def _cmd_export(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> Non
             filename = "netlist.json"
 
     try:
-        export_netlist = json.loads(json.dumps(shell.current_netlist))
-        export_netlist = _update_metadata_stats(export_netlist)
+        if use_aig:
+            from core.synthesis.aig import aig_to_netlist
+
+            export_netlist = aig_to_netlist(
+                shell.current_aig,
+                shell.current_netlist,
+                simplify_and_with_const1=False,
+            )
+            export_netlist = _update_metadata_stats(export_netlist)
+            export_type = "from_current_aig"
+        else:
+            if getattr(shell, "current_aig", None):
+                print(
+                    "[INFO] Exporting parsed RTL netlist (unchanged by synthesis/optimize). "
+                    "Use 'export <file>.json --aig' or 'synthesis --export' / 'optimize --json' for AIG-based JSON."
+                )
+            export_netlist = json.loads(json.dumps(shell.current_netlist))
+            export_netlist = _update_metadata_stats(export_netlist)
+            export_type = "parsed_netlist"
 
         nodes = export_netlist.get("nodes", [])
         node_count = len(nodes) if isinstance(nodes, (dict, list)) else 0
@@ -173,6 +197,7 @@ def _cmd_export(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> Non
                 "source_file": shell.filename or "unknown",
                 "version": "2.0.0",
                 "auto_exported": False,
+                "export_type": export_type,
             },
             "netlist": export_netlist,
         }

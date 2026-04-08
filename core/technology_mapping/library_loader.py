@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """
-Library Loader for Technology Mapping
+Library loader cho bước technology mapping (đề tài: mạch tổ hợp, mức cơ bản).
 
-Hỗ trợ load thư viện từ nhiều format:
-- Liberty (.lib) - Industry standard
-- JSON (.json) - Easy to use
-- Verilog (.v) - Basic support
+Nhiệm vụ: đọc mô tả cell từ file → xây ``TechnologyLibrary`` / ``LibraryCell``
+(tên, hàm Boolean, area, delay, cổng). Không thực hiện ánh xạ AIG; phần đó nằm ở
+``technology_mapping.py`` (``techmap``, ``normalize_function``, …).
+
+Định dạng:
+    - Liberty (.lib)
+    - JSON schema nội bộ MyLogic (.json)
+    - SkyWater PDK: ``load_skywater_sc_library()`` quét ``*.lib.json`` theo góc PVT;
+      chỉ cell tổ hợp (bỏ qua sequential ``IQ`` trong Liberty JSON).
+    - Verilog (.v) — hỗ trợ cơ bản
 
 Author: MyLogic EDA Tool Team
 """
@@ -13,6 +19,7 @@ Author: MyLogic EDA Tool Team
 import os
 import json
 import re
+import glob
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 
@@ -41,22 +48,47 @@ def load_library(file_path: str, library_type: Optional[str] = None) -> Technolo
     
     if library_type is None:
         # Auto-detect from extension
+        fp_lower = file_path.lower()
         ext = os.path.splitext(file_path)[1].lower()
-        if ext == '.lib':
+        if fp_lower.endswith(".lib.json"):
+            library_type = "skywater_cell_json"
+        elif ext == '.lib':
             library_type = 'liberty'
         elif ext == '.json':
             library_type = 'json'
         elif ext == '.v':
             library_type = 'verilog'
         else:
-            raise ValueError(f"Unknown library format: {ext}. Supported: .lib, .json, .v")
+            raise ValueError(f"Unknown library format: {ext}. Supported: .lib, .json, .v, .lib.json")
     
     logger.info(f"Loading library from {file_path} (format: {library_type})")
     
     if library_type == 'liberty':
         return load_liberty_library(file_path)
     elif library_type == 'json':
-        return load_json_library(file_path)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if (
+            isinstance(data, dict)
+            and "cells" not in data
+            and _looks_like_skywater_cell_json(data)
+        ):
+            cell_name = _skywater_cell_name_from_lib_filename(file_path)
+            lib = TechnologyLibrary("skywater_cell")
+            cell = _library_cell_from_skywater_dict(data, cell_name)
+            if cell:
+                lib.add_cell(cell)
+            return lib
+        return load_json_library_from_data(data, file_path)
+    elif library_type == "skywater_cell_json":
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        cell_name = _skywater_cell_name_from_lib_filename(file_path)
+        lib = TechnologyLibrary("skywater_cell")
+        cell = _library_cell_from_skywater_dict(data, cell_name)
+        if cell:
+            lib.add_cell(cell)
+        return lib
     elif library_type == 'verilog':
         return load_verilog_library(file_path)
     else:
@@ -191,6 +223,26 @@ def load_liberty_library(file_path: str) -> TechnologyLibrary:
     return library
 
 
+def _strip_outer_parentheses(func_str: str) -> str:
+    """Repeatedly remove one layer of wrapping parentheses when they enclose the whole expr."""
+    s = func_str.strip()
+    while len(s) >= 2 and s[0] == "(" and s[-1] == ")":
+        depth = 0
+        matched_full = False
+        for i, ch in enumerate(s):
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    matched_full = i == len(s) - 1
+                    break
+        if not matched_full:
+            break
+        s = s[1:-1].strip()
+    return s
+
+
 def _convert_liberty_function(func_str: str) -> str:
     """
     Convert Liberty function format to standard format.
@@ -203,8 +255,11 @@ def _convert_liberty_function(func_str: str) -> str:
         "!(A&B)" -> "NAND(A,B)"
         "!(A|B)" -> "NOR(A,B)"
     """
-    func_str = func_str.strip()
-    
+    func_str = _strip_outer_parentheses(func_str.strip())
+
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", func_str):
+        return f"BUF({func_str})"
+
     # Handle NOT
     if func_str.startswith('!'):
         inner = func_str[1:].strip()
@@ -342,11 +397,176 @@ def _extract_delay_from_liberty(cell_body: str) -> float:
     return 0.1
 
 
-def load_json_library(file_path: str) -> TechnologyLibrary:
+def _looks_like_skywater_cell_json(data: dict) -> bool:
+    if not isinstance(data, dict):
+        return False
+    if any(k.startswith("pin,") for k in data):
+        return True
+    return False
+
+
+def _skywater_cell_name_from_lib_filename(file_path: str) -> str:
+    base = os.path.basename(file_path)
+    if base.lower().endswith(".lib.json"):
+        stem = base[:-9]
+    else:
+        stem = os.path.splitext(base)[0]
+    if "__" in stem:
+        return stem.rsplit("__", 1)[0]
+    return stem
+
+
+def _delay_from_skywater_output_pin(pin_obj: dict) -> float:
+    delays: List[float] = []
+    timing = pin_obj.get("timing")
+    if not isinstance(timing, list):
+        return 0.1
+    for block in timing:
+        if not isinstance(block, dict):
+            continue
+        for key, tbl in block.items():
+            if not (isinstance(key, str) and (key.startswith("cell_rise") or key.startswith("cell_fall"))):
+                continue
+            if not isinstance(tbl, dict):
+                continue
+            values = tbl.get("values")
+            if not isinstance(values, list):
+                continue
+            for row in values:
+                if isinstance(row, list):
+                    for v in row:
+                        if isinstance(v, (int, float)):
+                            delays.append(float(v))
+                elif isinstance(row, (int, float)):
+                    delays.append(float(row))
+    if delays:
+        return sum(delays) / len(delays)
+    return 0.1
+
+
+def _library_cell_from_skywater_dict(data: dict, cell_name: str) -> Optional[LibraryCell]:
     """
-    Load technology library from JSON file.
-    
-    JSON format dễ parse và linh hoạt hơn Liberty.
+    Build one LibraryCell from a SkyWater per-corner .lib.json cell file
+    (libraries/<lib>/latest/cells/<cell>/...__<corner>.lib.json).
+    """
+    area = float(data.get("area", 1.0))
+    input_pins: List[str] = []
+    output_pins: List[str] = []
+    raw_fn: Optional[str] = None
+    delay = 0.1
+
+    for k, v in data.items():
+        if not isinstance(v, dict) or not isinstance(k, str):
+            continue
+        if not k.startswith("pin,"):
+            continue
+        pin = k.split(",", 1)[1]
+        direction = str(v.get("direction", "")).lower()
+        if direction == "input":
+            input_pins.append(pin)
+        elif direction == "output":
+            output_pins.append(pin)
+            fn = v.get("function")
+            if isinstance(fn, str) and fn.strip():
+                raw_fn = fn.strip()
+            delay = max(delay, _delay_from_skywater_output_pin(v))
+
+    if not raw_fn:
+        return None
+
+    if raw_fn in ("IQ", "!IQ") or raw_fn.startswith("IQ"):
+        return None
+
+    if raw_fn in ("0", "1"):
+        function = "CONST0()" if raw_fn == "0" else "CONST1()"
+        input_pins = []
+    else:
+        function = _convert_liberty_function(raw_fn)
+
+    if not output_pins:
+        return None
+
+    return LibraryCell(
+        name=cell_name,
+        function=function,
+        area=area,
+        delay=delay,
+        input_pins=input_pins,
+        output_pins=output_pins,
+    )
+
+
+def load_skywater_sc_library(
+    libraries_root: str,
+    sc_library: str = "sky130_fd_sc_hd",
+    corner: str = "tt_025C_1v80",
+) -> TechnologyLibrary:
+    """
+    Load combinational (and const/tie) cells from an extracted SkyWater open PDK tree.
+
+    ``libraries_root`` should be the ``libraries`` directory inside ``skywater-pdk``
+    (the folder that contains ``sky130_fd_sc_hd``, ``sky130_fd_sc_ls``, ...).
+
+    For each standard-cell, every variant file ``*__<corner>.lib.json`` under
+    ``libraries/<sc_library>/latest/cells/*`` is loaded (ccsnoise / pwrlkg files skipped).
+    Sequential cells (function IQ) are skipped — use a full flow (Yosys/OpenLane) for those.
+    """
+    cells_root = os.path.join(libraries_root, sc_library, "latest", "cells")
+    if not os.path.isdir(cells_root):
+        raise FileNotFoundError(f"SkyWater cells directory not found: {cells_root}")
+
+    library = TechnologyLibrary(f"{sc_library}__{corner}")
+    cells_parsed = 0
+    skipped = 0
+    pattern = os.path.join(cells_root, "*", f"*__{corner}.lib.json")
+
+    for path in sorted(glob.glob(pattern)):
+        low = path.lower()
+        if "ccsnoise" in low or "pwrlkg" in low:
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            logger.warning("Skip unreadable SkyWater lib json %s: %s", path, e)
+            skipped += 1
+            continue
+        if not isinstance(data, dict):
+            skipped += 1
+            continue
+        cname = _skywater_cell_name_from_lib_filename(path)
+        cell = _library_cell_from_skywater_dict(data, cname)
+        if cell is None:
+            skipped += 1
+            continue
+        library.add_cell(cell)
+        cells_parsed += 1
+
+    logger.info(
+        "Loaded %s SkyWater combinational cells from %s (%s skipped)",
+        cells_parsed,
+        sc_library,
+        skipped,
+    )
+    if cells_parsed == 0:
+        raise ValueError(
+            f"No cells loaded from {cells_root} for corner {corner!r}. "
+            "Check sc_library name and that timing .lib.json files exist."
+        )
+    return library
+
+
+def load_json_library(file_path: str) -> TechnologyLibrary:
+    """Load MyLogic JSON library from path (see load_json_library_from_data)."""
+    logger.info(f"Parsing JSON library: {file_path}")
+    with open(file_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    return load_json_library_from_data(data, file_path)
+
+
+def load_json_library_from_data(data: dict, file_path: str = "") -> TechnologyLibrary:
+    """
+    Load technology library from parsed JSON (MyLogic schema).
     
     Expected JSON format:
     {
@@ -363,23 +583,13 @@ def load_json_library(file_path: str) -> TechnologyLibrary:
             ...
         ]
     }
-    
-    Args:
-        file_path: Path to .json file
-        
-    Returns:
-        TechnologyLibrary object
     """
-    logger.info(f"Parsing JSON library: {file_path}")
-    
-    with open(file_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
     library_name = data.get('name', 'loaded_library')
     library = TechnologyLibrary(library_name)
     
     cells_parsed = 0
-    
+    label = file_path or library_name
+
     for cell_data in data.get('cells', []):
         try:
             cell = LibraryCell(
@@ -403,7 +613,7 @@ def load_json_library(file_path: str) -> TechnologyLibrary:
             logger.warning(f"Failed to parse cell: {e}")
             continue
     
-    logger.info(f"Loaded {cells_parsed} cells from JSON library")
+    logger.info(f"Loaded {cells_parsed} cells from JSON library ({label})")
     return library
 
 

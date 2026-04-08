@@ -158,6 +158,40 @@ class MyLogicShell:
         # Tìm project root (thư mục chứa mylogic.py hoặc cli/)
         current_file = Path(__file__).resolve()
         project_root = current_file.parent.parent  # Từ cli/ lên Mylogic/
+
+        def _load_from_skywater_pdk(sc_library: str) -> Optional[Any]:
+            """Load combinational cells from techlibs/asic/skywater-pdk (Open PDK)."""
+            from core.technology_mapping.library_loader import load_skywater_sc_library
+
+            sw_root = project_root / "techlibs" / "asic" / "skywater-pdk" / "libraries"
+            if not sw_root.is_dir():
+                return None
+            # sky130_fd_sc_ls has no plain tt_025C_1v80 view in PDK (only _ccsnoise); use tt_100C_1v80 unless overridden.
+            default_corner = (
+                "tt_100C_1v80" if sc_library == "sky130_fd_sc_ls" else "tt_025C_1v80"
+            )
+            corner = os.environ.get("MYLOGIC_SKY130_CORNER", default_corner)
+            lib = load_skywater_sc_library(str(sw_root), sc_library, corner)
+            print(f"[INFO] SkyWater PDK: {sw_root} ({sc_library}, corner={corner})")
+            return lib
+
+        if library_type == "skywater":
+            try:
+                lib = _load_from_skywater_pdk("sky130_fd_sc_hd")
+                print(f"[OK] Loaded library '{lib.name}' with {len(lib.cells)} cells")
+                return lib
+            except Exception as e:
+                print(f"[WARNING] SkyWater PDK library not available: {e}")
+                return create_standard_library()
+
+        if library_type == "sky130_ls":
+            try:
+                lib = _load_from_skywater_pdk("sky130_fd_sc_ls")
+                print(f"[OK] Loaded library '{lib.name}' with {len(lib.cells)} cells")
+                return lib
+            except Exception as e:
+                print(f"[WARNING] sky130_fd_sc_ls load failed: {e}")
+                return create_standard_library()
         
         # Định nghĩa các đường dẫn library theo loại
         library_paths = {
@@ -233,6 +267,14 @@ class MyLogicShell:
                 except Exception as e:
                     print(f"[WARNING] Failed to load {lib_path}: {e}")
                     continue
+
+        if library_type == "sky130":
+            try:
+                lib = _load_from_skywater_pdk("sky130_fd_sc_hd")
+                print(f"[OK] Loaded library '{lib.name}' with {len(lib.cells)} cells")
+                return lib
+            except Exception as e:
+                print(f"[WARNING] SkyWater sky130_fd_sc_hd fallback failed: {e}")
         
         # Nếu không tìm thấy trong techlibs/, dùng standard library
         print("[INFO] No library found in techlibs/, using standard library")

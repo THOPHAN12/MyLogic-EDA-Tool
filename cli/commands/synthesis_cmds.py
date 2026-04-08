@@ -1,15 +1,85 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional, TYPE_CHECKING
+import os
+import re
+from typing import Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+
+_VERILOG_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+
+
+def _is_legal_verilog_identifier(name: str) -> bool:
+    return bool(name and _VERILOG_IDENTIFIER_RE.match(name))
+
+
+def _ensure_verilog_file_extension(path: str) -> str:
+    """Nếu đường dẫn không có .v/.sv, thêm .v (ví dụ outputs/01_combinational_gates)."""
+    _, ext = os.path.splitext(path)
+    if ext.lower() in (".v", ".sv"):
+        return path
+    return path + ".v"
+
+
+def _resolve_synthesized_module_name(output_path: str, netlist: Dict) -> str:
+    """
+    Tên module trong file Verilog phải là identifier hợp lệ.
+    Stem bắt đầu bằng số (01_...) không hợp lệ → dùng tên module từ netlist + _syn.
+    """
+    base_name = netlist.get("name") or "design"
+    file_stem = os.path.splitext(os.path.basename(output_path))[0]
+    for suffix in ("_syn", "_opt", "_mapped"):
+        if file_stem.endswith(suffix):
+            return f"{base_name}{suffix}"
+    if _is_legal_verilog_identifier(file_stem):
+        return file_stem
+    return f"{base_name}_syn"
 
 if TYPE_CHECKING:
     from cli.mylogic_shell import MyLogicShell
+
+# Chiến lược techmap cố định area_optimal (CLI không nhận delay/balanced).
+_DEPRECATED_TECHMAP_STRATEGY_WORDS = frozenset({"area", "delay", "balanced"})
+
+
+def _library_token_from_positionals(positionals: List[str]) -> Optional[str]:
+    """Bỏ qua các từ khóa strategy cũ (area/delay/balanced); trả về token thư viện đầu tiên."""
+    i = 0
+    while i < len(positionals) and positionals[i].lower() in _DEPRECATED_TECHMAP_STRATEGY_WORDS:
+        i += 1
+    if i >= len(positionals):
+        return None
+    return positionals[i]
+
+
+def _parse_techmap_cli_parts(parts: List[str]) -> Tuple[Optional[str], bool]:
+    """
+    Trả về (library_file_or_type | None, merge_standard_library).
+    Cờ --pure-library / --no-standard-merge: không gộp create_standard_library() khi techmap.
+    """
+    merge_standard = True
+    positionals: List[str] = []
+    i = 1
+    while i < len(parts):
+        p = parts[i]
+        if p in ("--pure-library", "--no-standard-merge"):
+            merge_standard = False
+            i += 1
+            continue
+        if p in ("--json", "-j", "--verilog", "-v"):
+            i += 1
+            if i < len(parts) and not parts[i].startswith("-"):
+                i += 1
+            continue
+        positionals.append(p)
+        i += 1
+    return _library_token_from_positionals(positionals), merge_standard
 
 
 def _export_synthesized_netlist_json(
     shell: "MyLogicShell",
     synthesized_netlist: Dict,
     output_path: Optional[str] = None,
+    *,
+    aig_stage: Optional[str] = None,
 ) -> None:
     import json
     import os
@@ -24,15 +94,18 @@ def _export_synthesized_netlist_json(
         else:
             output_path = os.path.join(output_dir, "synthesized.json")
 
+    meta = {
+        "tool": "MyLogic EDA Tool v2.0.0",
+        "export_time": datetime.now().isoformat(),
+        "source_file": shell.filename or "unknown",
+        "version": "2.0.0",
+        "auto_exported": True,
+        "export_type": "synthesized_netlist",
+    }
+    if aig_stage:
+        meta["aig_stage"] = aig_stage
     export_data = {
-        "metadata": {
-            "tool": "MyLogic EDA Tool v2.0.0",
-            "export_time": datetime.now().isoformat(),
-            "source_file": shell.filename or "unknown",
-            "version": "2.0.0",
-            "auto_exported": True,
-            "export_type": "synthesized_netlist",
-        },
+        "metadata": meta,
         "netlist": synthesized_netlist,
     }
 
@@ -50,16 +123,7 @@ def _export_synthesized_verilog(
     synthesized_netlist: Dict,
     output_path: Optional[str] = None,
 ) -> None:
-    import os
     from core.export import netlist_to_verilog
-
-    def _resolve_export_module_name(path: str, netlist: Dict) -> str:
-        base_name = netlist.get("name") or "design"
-        file_stem = os.path.splitext(os.path.basename(path))[0]
-        for suffix in ("_syn", "_opt", "_mapped"):
-            if file_stem.endswith(suffix):
-                return f"{base_name}{suffix}"
-        return file_stem or base_name
 
     if not output_path:
         output_dir = "outputs"
@@ -69,6 +133,8 @@ def _export_synthesized_verilog(
             output_path = os.path.join(output_dir, f"{base_name}_syn.v")
         else:
             output_path = os.path.join(output_dir, "synthesized.v")
+    else:
+        output_path = _ensure_verilog_file_extension(output_path)
 
     # Preserve vector widths from original netlist if available, so port widths are correct.
     orig_attrs = (shell.current_netlist or {}).get("attrs", {}) or {}
@@ -80,7 +146,7 @@ def _export_synthesized_verilog(
         for k, v in orig_vw.items():
             synthesized_netlist["attrs"]["vector_widths"].setdefault(k, v)
 
-    module_name = _resolve_export_module_name(output_path, synthesized_netlist)
+    module_name = _resolve_synthesized_module_name(output_path, synthesized_netlist)
     verilog_text = netlist_to_verilog(synthesized_netlist, module_name=module_name)
     out_dir = os.path.dirname(output_path) if os.path.dirname(output_path) else "."
     if out_dir and out_dir != "." and not os.path.exists(out_dir):
@@ -134,7 +200,6 @@ def _export_mapped_verilog(
     mapped_netlist: Dict,
     output_path: Optional[str] = None,
 ) -> None:
-    import os
     from core.export import netlist_to_verilog
 
     if not output_path:
@@ -145,6 +210,8 @@ def _export_mapped_verilog(
             output_path = os.path.join(output_dir, f"{base_name}_mapped.v")
         else:
             output_path = os.path.join(output_dir, "mapped.v")
+    else:
+        output_path = _ensure_verilog_file_extension(output_path)
 
     orig_attrs = (shell.current_netlist or {}).get("attrs", {}) or {}
     orig_vw = orig_attrs.get("vector_widths", {}) or {}
@@ -154,10 +221,12 @@ def _export_mapped_verilog(
         for k, v in orig_vw.items():
             mapped_netlist["attrs"]["vector_widths"].setdefault(k, v)
 
-    module_name = mapped_netlist.get("name") or "design_mapped"
+    rtl_base = mapped_netlist.get("name") or "design"
+    module_name = f"{rtl_base}_mapped"
     if shell.filename:
-        base_name = os.path.splitext(os.path.basename(shell.filename))[0]
-        module_name = f"{base_name}_mapped"
+        stem = os.path.splitext(os.path.basename(shell.filename))[0]
+        if _is_legal_verilog_identifier(f"{stem}_mapped"):
+            module_name = f"{stem}_mapped"
 
     verilog_text = netlist_to_verilog(mapped_netlist, module_name=module_name)
     out_dir = os.path.dirname(output_path) if os.path.dirname(output_path) else "."
@@ -286,11 +355,11 @@ def _cmd_synthesis(shell: "MyLogicShell", parts: List[str]) -> None:
         print(f"  Primary outputs: {len(shell.current_aig.pos)}")
         print("[INFO] Next step: Run 'optimize' to optimize AIG")
 
-        # Optional export JSON: synthesis --export [output_path]
-        if any(p in ("--export", "-o") for p in parts[1:]):
+        # Optional export JSON: synthesis --export | --json | -o | -j [output_path]
+        if any(p in ("--export", "-o", "--json", "-j") for p in parts[1:]):
             out_path = None
             for i, p in enumerate(parts[1:], start=1):
-                if p in ("--export", "-o"):
+                if p in ("--export", "-o", "--json", "-j"):
                     # allow: synthesis --export OR synthesis --export <path>
                     if i + 1 < len(parts) and not parts[i + 1].startswith("-"):
                         out_path = parts[i + 1]
@@ -300,7 +369,9 @@ def _cmd_synthesis(shell: "MyLogicShell", parts: List[str]) -> None:
                 shell.current_netlist,
                 simplify_and_with_const1=False,
             )
-            _export_synthesized_netlist_json(shell, synthesized_netlist, out_path)
+            _export_synthesized_netlist_json(
+                shell, synthesized_netlist, out_path, aig_stage="post_synthesis"
+            )
 
         # Optional export Verilog: synthesis --verilog [output_path]
         if any(p in ("--verilog", "-v") for p in parts[1:]):
@@ -365,7 +436,7 @@ def _cmd_optimize(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> N
             _maybe_inject_default("--json", "_opt.json")
             _maybe_inject_default("-j", "_opt.json")
 
-            _cmd_export_aig(shell, forwarded)
+            _cmd_export_aig(shell, forwarded, _aig_stage="post_optimize")
     except ImportError:
         print("[ERROR] Optimization module not available")
     except Exception as e:
@@ -374,7 +445,12 @@ def _cmd_optimize(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> N
         traceback.print_exc()
 
 
-def _cmd_export_aig(shell: "MyLogicShell", parts: Optional[List[str]] = None) -> None:
+def _cmd_export_aig(
+    shell: "MyLogicShell",
+    parts: Optional[List[str]] = None,
+    *,
+    _aig_stage: Optional[str] = None,
+) -> None:
     """
     Export synthesized netlist from the *current* AIG (after optimize/strash/etc).
     This does NOT re-run synthesis; it uses shell.current_aig directly.
@@ -395,7 +471,9 @@ def _cmd_export_aig(shell: "MyLogicShell", parts: Optional[List[str]] = None) ->
         parts = parts or []
         if not parts or all(p not in ("--verilog", "-v", "--json", "-j") for p in parts[1:]):
             # Default: export both
-            _export_synthesized_netlist_json(shell, synthesized_netlist, None)
+            _export_synthesized_netlist_json(
+                shell, synthesized_netlist, None, aig_stage=_aig_stage
+            )
             _export_synthesized_verilog(shell, synthesized_netlist, None)
             return
 
@@ -413,7 +491,9 @@ def _cmd_export_aig(shell: "MyLogicShell", parts: Optional[List[str]] = None) ->
                 break
 
         if out_json is not False and any(p in ("--json", "-j") for p in parts[1:]):
-            _export_synthesized_netlist_json(shell, synthesized_netlist, out_json)
+            _export_synthesized_netlist_json(
+                shell, synthesized_netlist, out_json, aig_stage=_aig_stage
+            )
         if out_v is not False and any(p in ("--verilog", "-v") for p in parts[1:]):
             _export_synthesized_verilog(shell, synthesized_netlist, out_v)
 
@@ -457,21 +537,23 @@ def _cmd_dce(shell: "MyLogicShell", parts: List[str]) -> None:
 
 
 def _cmd_techmap(shell: "MyLogicShell", parts: List[str]) -> None:
-    if not parts or len(parts) < 2:
-        print("Usage: techmap <strategy> [library_file|library_type]")
-        print("Strategies: area, delay, balanced")
-        print("Options: [--json [output_path]] [--verilog [output_path]]")
-        print("Note: Techmap requires AIG from synthesis or optimization.")
+    parts = parts or []
+    if len(parts) >= 2 and parts[1].lower() in ("-h", "--help", "help"):
+        print("Usage: techmap [library_file|library_type] [options]")
+        print("  Mapping strategy is fixed: area_optimal (area).")
+        print("Library types: asic, sky130, sky130_ls, skywater, fpga, ...")
+        print("  Corner: MYLOGIC_SKY130_CORNER (hd: tt_025C_1v80; ls: tt_100C_1v80 default)")
+        print("Options: [--pure-library|--no-standard-merge]")
+        print("         [--json [output_path]] [--verilog [output_path]]")
+        print("Example: techmap sky130 --pure-library --verilog outputs/mapped.v")
+        print("Note: Requires AIG (run synthesis / optimize first).")
         return
+    library_path, merge_standard_library = _parse_techmap_cli_parts(parts)
+    strategy = "area_optimal"
+
     if not shell.current_aig:
         print("[ERROR] No AIG available. Run 'synthesis' first to convert Netlist -> AIG.")
         return
-
-    strategy = parts[1].lower()
-    library_path = parts[2] if len(parts) > 2 else None
-
-    strategy_map = {"area": "area_optimal", "delay": "delay_optimal", "balanced": "balanced"}
-    strategy = strategy_map.get(strategy, strategy)
 
     try:
         from core.technology_mapping.technology_mapping import (
@@ -482,12 +564,15 @@ def _cmd_techmap(shell: "MyLogicShell", parts: List[str]) -> None:
         )
         import os
 
-        print(f"[INFO] Running technology mapping with {strategy} strategy...")
+        print("[INFO] Running technology mapping (strategy: area_optimal, fixed).")
         print(f"[INFO] Input AIG: {shell.current_aig.count_nodes()} nodes, {shell.current_aig.count_and_nodes()} AND nodes")
 
         library = None
         if library_path:
-            valid_types = ["asic", "fpga", "fpga_common", "anlogic", "gowin", "ice40", "intel", "lattice", "xilinx", "sky130"]
+            valid_types = [
+                "asic", "fpga", "fpga_common", "anlogic", "gowin", "ice40", "intel",
+                "lattice", "xilinx", "sky130", "sky130_ls", "skywater",
+            ]
             if library_path.lower() in valid_types:
                 library = shell._try_load_default_library(library_path.lower())
             elif os.path.exists(library_path):
@@ -499,7 +584,15 @@ def _cmd_techmap(shell: "MyLogicShell", parts: List[str]) -> None:
             print("[WARNING] No library loaded, using standard library")
             library = create_standard_library()
 
-        results = techmap(shell.current_aig, library, strategy)
+        if not merge_standard_library:
+            print("[INFO] Techmap: pure library mode (no merge with internal standard_cells).")
+
+        results = techmap(
+            shell.current_aig,
+            library,
+            strategy,
+            merge_standard_library=merge_standard_library,
+        )
         mapper = results.get("_mapper")
         aig_for_mapping = results.get("_aig")
         mapped_netlist = None
@@ -561,21 +654,23 @@ def _cmd_techmap(shell: "MyLogicShell", parts: List[str]) -> None:
 
 
 def _cmd_complete_flow(shell: "MyLogicShell", parts: List[str]) -> None:
-    if not parts:
-        print("Usage: complete_flow [techmap_strategy] [techmap_library]")
-        print("  techmap_strategy: area, delay, balanced (default: area)")
-        print("  techmap_library: library path or type (optional, default: auto)")
+    parts = parts or []
+    if len(parts) >= 2 and parts[1].lower() in ("-h", "--help", "help"):
+        print("Usage: complete_flow [library_path_or_type] [options]")
+        print("  Techmap strategy is fixed: area_optimal.")
+        print("  library: optional (asic, sky130, sky130_ls, skywater, fpga, ... or path)")
+        print("  options: --pure-library | --no-standard-merge")
+        print("Example: complete_flow sky130 --pure-library")
         return
     if not shell.current_netlist:
         print("[ERROR] No netlist loaded. Use 'read <file>' first.")
         return
 
     positional_args = [p for p in parts[1:] if not p.startswith("--") and not p.startswith("-")]
-    techmap_strategy = positional_args[0].lower() if len(positional_args) > 0 else "area"
-    techmap_strategy_map = {"area": "area_optimal", "delay": "delay_optimal", "balanced": "balanced"}
-    techmap_strategy = techmap_strategy_map.get(techmap_strategy, techmap_strategy)
-
-    techmap_library_path = positional_args[1] if len(positional_args) > 1 else None
+    techmap_library_path = _library_token_from_positionals(positional_args)
+    techmap_merge_standard_library = (
+        "--pure-library" not in parts[1:] and "--no-standard-merge" not in parts[1:]
+    )
 
     try:
         from core.complete_flow import run_complete_flow
@@ -586,11 +681,17 @@ def _cmd_complete_flow(shell: "MyLogicShell", parts: List[str]) -> None:
         print("=" * 70)
         print("COMPLETE FLOW: Synthesis -> Optimization -> Technology Mapping")
         print("=" * 70)
-        print(f"Techmap strategy: {techmap_strategy}\n")
+        print("Techmap strategy: area_optimal (fixed).")
+        if not techmap_merge_standard_library:
+            print("Techmap: pure library mode (no merge with internal standard_cells).")
+        print()
 
         library = None
         if techmap_library_path:
-            valid_types = ["asic", "sky130", "fpga", "fpga_common", "anlogic", "gowin", "ice40", "intel", "lattice", "xilinx"]
+            valid_types = [
+                "asic", "sky130", "sky130_ls", "skywater", "fpga", "fpga_common",
+                "anlogic", "gowin", "ice40", "intel", "lattice", "xilinx",
+            ]
             if techmap_library_path.lower() in valid_types:
                 library = shell._try_load_default_library(techmap_library_path.lower())
             elif os.path.exists(techmap_library_path):
@@ -600,10 +701,10 @@ def _cmd_complete_flow(shell: "MyLogicShell", parts: List[str]) -> None:
 
         results = run_complete_flow(
             shell.current_netlist,
-            techmap_strategy=techmap_strategy,
             techmap_library=library,
             enable_optimization=True,
             enable_techmap=True,
+            techmap_merge_standard_library=techmap_merge_standard_library,
         )
 
         if results["optimization"].get("enabled") and results["optimization"].get("aig"):
@@ -611,16 +712,25 @@ def _cmd_complete_flow(shell: "MyLogicShell", parts: List[str]) -> None:
         elif results["synthesis"].get("aig"):
             shell.current_aig = results["synthesis"]["aig"]
 
-        # Optional export: complete_flow ... --export [output_path]
-        if shell.current_aig and any(p in ("--export", "-o") for p in parts[1:]):
+        # Optional export: complete_flow ... --export | --json | -o | -j [output_path]
+        if shell.current_aig and any(
+            p in ("--export", "-o", "--json", "-j") for p in parts[1:]
+        ):
             out_path = None
             for i, p in enumerate(parts[1:], start=1):
-                if p in ("--export", "-o"):
+                if p in ("--export", "-o", "--json", "-j"):
                     if i + 1 < len(parts) and not parts[i + 1].startswith("-"):
                         out_path = parts[i + 1]
                     break
             synthesized_netlist = aig_to_netlist(shell.current_aig, shell.current_netlist)
-            _export_synthesized_netlist_json(shell, synthesized_netlist, out_path)
+            _cf_stage = (
+                "post_optimize"
+                if results["optimization"].get("enabled")
+                else "post_synthesis"
+            )
+            _export_synthesized_netlist_json(
+                shell, synthesized_netlist, out_path, aig_stage=_cf_stage
+            )
 
         print("\n" + "=" * 70)
         print("COMPLETE FLOW RESULTS SUMMARY")

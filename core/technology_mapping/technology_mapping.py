@@ -1,22 +1,14 @@
 #!/usr/bin/env python3
 """
-Technology Mapping (Ánh xạ công nghệ)
+Technology mapping — mạch tổ hợp (combinational), mức cơ bản / minh họa đề tài.
 
-Tham khảo từ ABC (YosysHQ/abc). Technology mapping và library binding với cut enumeration.
+Phạm vi đề tài:
+    - Không triển khai techmap công nghiệp (cut enumeration, mapper ABC, …).
+    - Luồng: AIG → LogicNode (chuỗi hàm Boolean) → tra ``function_map`` sau
+      ``normalize_function`` → chọn cell; shell/complete_flow cố định ``area_optimal``.
+    - Mạch tuần tự: không map DFF/latch sang thư viện tại đây.
 
-ABC Reference: src/map/mapper.c
-- Cut enumeration algorithms
-- Area-optimal mapping
-- Delay-optimal mapping
-- LUT-based mapping
-
-Lưu ý: Đây là bước TECHMAP riêng biệt, tách khỏi SYNTHESIS và OPTIMIZATION.
-3 hướng độc lập:
-1. SYNTHESIS: Netlist → AIG (trong core/synthesis/synthesis_flow.py)
-2. OPTIMIZE: AIG → Optimized AIG (trong core/optimization/optimization_flow.py)
-3. TECHMAP: AIG → Technology-mapped netlist (trong file này)
-
-Techmap nhận AIG làm input (từ synthesis hoặc optimize).
+Nạp thư viện (SkyWater PDK, Liberty, JSON, …): ``library_loader.py``.
 """
 
 from typing import Dict, List, Set, Any, Tuple, Optional
@@ -186,7 +178,7 @@ class LibraryCell:
         return f"LibraryCell({self.name}, {self.function}, area={self.area}, delay={self.delay})"
 
 class TechnologyLibrary:
-    """Represents a technology library with available cells."""
+    """Danh mục cell: ``cells`` + ``function_map`` (hàm đã chuẩn hóa → tên cell)."""
     
     def __init__(self, name: str):
         self.name = name
@@ -621,36 +613,37 @@ def aig_to_logic_nodes(aig) -> List[LogicNode]:
     return logic_nodes
 
 
-def techmap(aig, library: TechnologyLibrary, strategy: str = "area_optimal") -> Dict[str, Any]:
+def techmap(
+    aig,
+    library: TechnologyLibrary,
+    strategy: str = "area_optimal",
+    *,
+    merge_standard_library: bool = True,
+) -> Dict[str, Any]:
     """
-    Technology mapping: AIG → Technology-mapped netlist.
-    
-    Đây là bước TECHMAP riêng biệt.
-    Map AIG vào technology library để tạo technology-mapped netlist.
-    
+    Technology mapping: AIG → Technology-mapped netlist (combinational, function-match).
+
     Args:
         aig: AIG object (từ synthesis hoặc optimize)
-        library: Technology library
-        strategy: Mapping strategy ("area_optimal", "delay_optimal", "balanced")
-        
+        library: Technology library (đã nạp, ví dụ SkyWater qua ``library_loader``)
+        strategy: ``area_optimal``, ``delay_optimal``, ``balanced``
+        merge_standard_library: Nếu True (mặc định), gộp thêm ``create_standard_library()``
+            để có gate generic khi thư viện ngoài thiếu khớp hàm. Nếu False, chỉ dùng
+            đúng ``library`` đã truyền (ví dụ chỉ cell Sky130 — phù hợp báo cáo đề tài).
+
     Returns:
-        Dictionary chứa mapping results và statistics
-        
-    Examples:
-        >>> from core.synthesis.aig import AIG
-        >>> from core.technology_mapping.technology_mapping import techmap, create_standard_library
-        >>> aig = synthesize(netlist)  # Từ synthesis flow
-        >>> library = create_standard_library()
-        >>> results = techmap(aig, library, "area_optimal")
+        Dictionary chứa mapping results và statistics (kèm ``merge_standard_library``).
     """
     logger.info(f"Starting technology mapping: AIG -> Technology-mapped netlist")
     logger.info(f"  Strategy: {strategy}")
     logger.info(f"  Library: {library.name} ({len(library.cells)} cells)")
 
-    # Ensure combinational primitives are available even if the loaded library
-    # only contains sequential cells (for example, DFF-only reference libs).
-    library = _merge_libraries(library, create_standard_library())
-    logger.info(f"  Effective library: {library.name} ({len(library.cells)} cells)")
+    if merge_standard_library:
+        # Bổ sung gate generic khi thư viện PDK không có đủ biểu thức khớp normalize().
+        library = _merge_libraries(library, create_standard_library())
+        logger.info(f"  Effective library (merged): {library.name} ({len(library.cells)} cells)")
+    else:
+        logger.info(f"  Effective library (no merge): {library.name} ({len(library.cells)} cells)")
     
     # Convert AIG → LogicNodes
     logger.info("Converting AIG -> LogicNodes...")
@@ -672,7 +665,8 @@ def techmap(aig, library: TechnologyLibrary, strategy: str = "area_optimal") -> 
     results['input_aig_and_nodes'] = aig.count_and_nodes()
     results['converted_logic_nodes'] = len(logic_nodes)
     results['library_name'] = library.name
-    
+    results['merge_standard_library'] = merge_standard_library
+
     # Store mapper object for later conversion to netlist (for verification)
     # Note: This is a reference to the mapper, which contains logic_network with mapped cells
     results['_mapper'] = mapper  # Internal use only (starts with _)

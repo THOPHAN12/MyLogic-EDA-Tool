@@ -209,11 +209,20 @@ class MyLogicShell:
         project_root = current_file.parent.parent  # Từ cli/ lên Mylogic/
 
         def _load_from_skywater_pdk(sc_library: str) -> Optional[Any]:
-            """Load combinational cells from techlibs/asic/skywater-pdk (Open PDK)."""
+            """Load combinational cells from a local SkyWater PDK tree (Open PDK)."""
             from core.technology_mapping.library_loader import load_skywater_sc_library
 
-            sw_root = project_root / "techlibs" / "asic" / "skywater-pdk" / "libraries"
-            if not sw_root.is_dir():
+            # Prefer a fresh clone (e.g. skywater-pdk-open) if the legacy folder is broken/locked.
+            sw_root = None
+            for rel in (
+                Path("techlibs") / "asic" / "skywater-pdk-open" / "libraries",
+                Path("techlibs") / "asic" / "skywater-pdk" / "libraries",
+            ):
+                candidate = project_root / rel
+                if candidate.is_dir():
+                    sw_root = candidate
+                    break
+            if sw_root is None:
                 return None
             # sky130_fd_sc_ls has no plain tt_025C_1v80 view in PDK (only _ccsnoise); use tt_100C_1v80 unless overridden.
             default_corner = (

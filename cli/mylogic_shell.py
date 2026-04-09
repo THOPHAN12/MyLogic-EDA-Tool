@@ -1,12 +1,14 @@
 import os
 import sys
 import logging
+import atexit
 from typing import Any, Dict, Optional, Union
 
 # Thêm thư mục gốc project vào đường dẫn
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cli.commands import dump_ast, dump_synth, file_ops, help_cmd, inspect, synthesis_cmds
+
 
 class MyLogicShell:
     """Shell tương tác chính của MyLogic EDA Tool (tổng hợp luận lý, tối ưu, ánh xạ công nghệ)."""
@@ -26,6 +28,10 @@ class MyLogicShell:
         self.auto_complete = self.config.get("shell", {}).get("auto_complete", True)
         self.color_output = self.config.get("shell", {}).get("color_output", True)
         self.auto_export_json = self.config.get("shell", {}).get("auto_export_json", True)  # Mặc định bật
+        self.history_file = os.path.expanduser(
+            self.config.get("shell", {}).get("history_file", "~/.mylogic_history")
+        )
+        self._readline_enabled = False
         
         # Khởi tạo từ điển commands (đăng ký từ các modules)
         self.commands: Dict[str, Any] = {}
@@ -35,6 +41,43 @@ class MyLogicShell:
         self.commands.update(dump_synth.register(self))
         self.commands.update(synthesis_cmds.register(self))
         self.commands.update(help_cmd.register(self))
+        self._setup_readline()
+
+    def _setup_readline(self):
+        """Enable line editing/history with arrow keys on interactive TTY."""
+        if not sys.stdin.isatty():
+            return
+        try:
+            import readline  # Linux/macOS: GNU readline/libedit
+        except ImportError:
+            return
+
+        try:
+            self._readline_enabled = True
+            readline.set_history_length(int(self.history_size))
+            readline.parse_and_bind("tab: complete")
+            readline.parse_and_bind('"\\e[A": history-search-backward')
+            readline.parse_and_bind('"\\e[B": history-search-forward')
+
+            # Load history from previous sessions if available.
+            readline.read_history_file(self.history_file)
+        except FileNotFoundError:
+            # First run: history file does not exist yet.
+            pass
+        except Exception:
+            # Keep shell usable even if readline configuration fails.
+            self._readline_enabled = False
+            return
+
+        def _save_history():
+            try:
+                os.makedirs(os.path.dirname(self.history_file), exist_ok=True)
+                readline.set_history_length(int(self.history_size))
+                readline.write_history_file(self.history_file)
+            except Exception:
+                pass
+
+        atexit.register(_save_history)
 
     def run(self):
         """Chạy interactive shell."""
@@ -54,6 +97,12 @@ class MyLogicShell:
 
             # Thêm vào history
             self.history.append(cmd)
+            if self._readline_enabled:
+                try:
+                    import readline
+                    readline.add_history(cmd)
+                except Exception:
+                    pass
             
             parts = cmd.split()
             op = parts[0]
